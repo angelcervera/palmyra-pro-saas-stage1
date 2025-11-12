@@ -12,8 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	domainrepo "github.com/TCGLandDev/tcgdb/domains/schema-repository/be/repo"
-	"github.com/TCGLandDev/tcgdb/platform/go/persistence"
+	domainrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/repo"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 )
 
 // FieldErrors maps request fields to validation issues.

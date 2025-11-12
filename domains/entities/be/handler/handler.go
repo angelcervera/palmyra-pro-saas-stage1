@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/TCGLandDev/tcgdb/domains/entities/be/service"
-	externalPrimitives "github.com/TCGLandDev/tcgdb/generated/go/common/primitives"
-	externalProblems "github.com/TCGLandDev/tcgdb/generated/go/common/problemdetails"
-	entitiesapi "github.com/TCGLandDev/tcgdb/generated/go/entities"
+	"github.com/zenGate-Global/palmyra-pro-saas/domains/entities/be/service"
+	externalPrimitives "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/primitives"
+	externalProblems "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/problemdetails"
+	entitiesapi "github.com/zenGate-Global/palmyra-pro-saas/generated/go/entities"
 )
 
 const (

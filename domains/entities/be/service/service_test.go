@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	domainrepo "github.com/TCGLandDev/tcgdb/domains/entities/be/repo"
-	"github.com/TCGLandDev/tcgdb/platform/go/persistence"
+	domainrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/entities/be/repo"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 )
 
 func TestService_ListSuccess(t *testing.T) {

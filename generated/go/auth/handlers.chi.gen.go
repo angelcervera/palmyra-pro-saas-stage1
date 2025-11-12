@@ -15,13 +15,13 @@ import (
 	"path"
 	"strings"
 
-	externalRef0 "github.com/TCGLandDev/tcgdb/generated/go/common/iam"
-	externalRef1 "github.com/TCGLandDev/tcgdb/generated/go/common/primitives"
-	externalRef2 "github.com/TCGLandDev/tcgdb/generated/go/common/problemdetails"
-	externalRef3 "github.com/TCGLandDev/tcgdb/generated/go/users"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
+	externalRef0 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/iam"
+	externalRef1 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/primitives"
+	externalRef2 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/problemdetails"
+	externalRef3 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/users"
 )
 
 const (

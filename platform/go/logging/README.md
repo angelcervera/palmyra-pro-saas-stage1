@@ -15,7 +15,7 @@ import (
     "net/http"
     "github.com/go-chi/chi/v5"
 
-    platformlogging "github.com/TCGLandDev/tcgdb/platform/go/logging"
+    platformlogging "github.com/zenGate-Global/palmyra-pro-saas/platform/go/logging"
 )
 
 func main() {

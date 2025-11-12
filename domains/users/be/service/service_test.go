@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/TCGLandDev/tcgdb/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 )
 
 type mockRepository struct {

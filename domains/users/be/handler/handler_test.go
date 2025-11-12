@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"github.com/TCGLandDev/tcgdb/domains/users/be/service"
-	externalRef2 "github.com/TCGLandDev/tcgdb/generated/go/common/primitives"
-	users "github.com/TCGLandDev/tcgdb/generated/go/users"
-	platformauth "github.com/TCGLandDev/tcgdb/platform/go/auth"
+	"github.com/zenGate-Global/palmyra-pro-saas/domains/users/be/service"
+	externalRef2 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/primitives"
+	users "github.com/zenGate-Global/palmyra-pro-saas/generated/go/users"
+	platformauth "github.com/zenGate-Global/palmyra-pro-saas/platform/go/auth"
 )
 
 type mockService struct {

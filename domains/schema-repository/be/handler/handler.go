@@ -10,12 +10,12 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/TCGLandDev/tcgdb/domains/schema-repository/be/service"
-	externalRef2 "github.com/TCGLandDev/tcgdb/generated/go/common/primitives"
-	externalRef3 "github.com/TCGLandDev/tcgdb/generated/go/common/problemdetails"
-	schemarepository "github.com/TCGLandDev/tcgdb/generated/go/schema-repository"
-	platformlogging "github.com/TCGLandDev/tcgdb/platform/go/logging"
-	"github.com/TCGLandDev/tcgdb/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/service"
+	externalRef2 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/primitives"
+	externalRef3 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/problemdetails"
+	schemarepository "github.com/zenGate-Global/palmyra-pro-saas/generated/go/schema-repository"
+	platformlogging "github.com/zenGate-Global/palmyra-pro-saas/platform/go/logging"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 )
 
 const (

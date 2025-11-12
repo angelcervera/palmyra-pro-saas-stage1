@@ -12,8 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 
-	domainrepo "github.com/TCGLandDev/tcgdb/domains/entities/be/repo"
-	"github.com/TCGLandDev/tcgdb/platform/go/persistence"
+	domainrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/entities/be/repo"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 )
 
 // ValidationError captures payload validation issues surfaced by the JSON schema validator.

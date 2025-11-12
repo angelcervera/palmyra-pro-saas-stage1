@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/TCGLandDev/tcgdb/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 )
 
 // Repository exposes persistence operations for schema repository records.

@@ -6,7 +6,7 @@ import (
 
 	firebase "firebase.google.com/go/v4"
 	firebaseauth "firebase.google.com/go/v4/auth"
-	"github.com/TCGLandDev/tcgdb/platform/go/setups"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/setups"
 	"google.golang.org/api/option"
 )
 

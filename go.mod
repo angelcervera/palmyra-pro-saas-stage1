@@ -1,4 +1,4 @@
-module github.com/TCGLandDev/tcgdb
+module github.com/zenGate-Global/palmyra-pro-saas
 
 go 1.25.2
 

@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/TCGLandDev/tcgdb/domains/schema-categories/be/service"
-	externalRef2 "github.com/TCGLandDev/tcgdb/generated/go/common/primitives"
-	schemacategories "github.com/TCGLandDev/tcgdb/generated/go/schema-categories"
+	"github.com/zenGate-Global/palmyra-pro-saas/domains/schema-categories/be/service"
+	externalRef2 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/primitives"
+	schemacategories "github.com/zenGate-Global/palmyra-pro-saas/generated/go/schema-categories"
 	"go.uber.org/zap/zaptest"
 )
 

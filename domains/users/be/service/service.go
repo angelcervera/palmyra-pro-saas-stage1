@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/TCGLandDev/tcgdb/domains/users/be/repo"
-	"github.com/TCGLandDev/tcgdb/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/domains/users/be/repo"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 )
 
 // FieldErrors maps request fields to validation issues.

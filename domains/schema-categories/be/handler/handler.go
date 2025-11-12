@@ -9,11 +9,11 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"github.com/TCGLandDev/tcgdb/domains/schema-categories/be/service"
-	externalRef2 "github.com/TCGLandDev/tcgdb/generated/go/common/primitives"
-	externalRef3 "github.com/TCGLandDev/tcgdb/generated/go/common/problemdetails"
-	schemacategories "github.com/TCGLandDev/tcgdb/generated/go/schema-categories"
-	platformlogging "github.com/TCGLandDev/tcgdb/platform/go/logging"
+	"github.com/zenGate-Global/palmyra-pro-saas/domains/schema-categories/be/service"
+	externalRef2 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/primitives"
+	externalRef3 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/problemdetails"
+	schemacategories "github.com/zenGate-Global/palmyra-pro-saas/generated/go/schema-categories"
+	platformlogging "github.com/zenGate-Global/palmyra-pro-saas/platform/go/logging"
 )
 
 const (

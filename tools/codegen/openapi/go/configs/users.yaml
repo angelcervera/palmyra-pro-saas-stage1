@@ -14,7 +14,7 @@ output-options:
   skip-prune: true
 #  leave-empty-json-tags: true # Keep JSON tags even if identical to field names (safer with mixed linters)
 import-mapping:
-  ./common/pagination.yaml: "github.com/TCGLandDev/tcgdb/generated/go/common/pagination"
-  ./common/iam.yaml: "github.com/TCGLandDev/tcgdb/generated/go/common/iam"
-  ./common/problemdetails.yaml: "github.com/TCGLandDev/tcgdb/generated/go/common/problemdetails"
-  ./common/primitives.yaml: "github.com/TCGLandDev/tcgdb/generated/go/common/primitives"
+  ./common/pagination.yaml: "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/pagination"
+  ./common/iam.yaml: "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/iam"
+  ./common/problemdetails.yaml: "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/problemdetails"
+  ./common/primitives.yaml: "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/primitives"

@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/TCGLandDev/tcgdb/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 )
 
 // Repository defines the persistence operations required by the users service.
