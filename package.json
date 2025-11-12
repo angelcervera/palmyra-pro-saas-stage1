@@ -1,0 +1,12 @@
+{
+  "name": "@tcglanddev/monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.20.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=10.20.0 <11"
+  },
+  "scripts": {
+    "openapi:ts": "pnpm dlx @hey-api/openapi-ts@0.86.11 -f tools/codegen/openapi/ts/openapi-ts.config.ts"
+  }
+}

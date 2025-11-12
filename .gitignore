@@ -1,0 +1,13 @@
+.idea
+tmp
+.gocache
+node_modules
+apps/web-admin/dist
+apps/web-admin/.vite
+packages/api-sdk/dist
+packages/api-sdk/*.build.tsbuildinfo
+openapi-ts-error-*.log
+.pnpm-store
+.env
+.gomodcache
+.gopath

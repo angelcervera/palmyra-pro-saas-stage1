@@ -1,0 +1,71 @@
+openapi: 3.0.4
+info:
+  title: Common pagination
+  version: v1
+  description: Standard pagination request/response models and reusable parameters
+servers:
+  - url: "/api/v1"
+components:
+  schemas:
+    PaginationRequest:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        sort:
+          type: string
+          description: >-
+            Comma-separated list of fields to sort by. Prefix with '-' for descending.
+            Example: 'name,-createdAt'
+      required: [page, pageSize]
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalItems:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      required: [page, pageSize, totalItems, totalPages]
+  parameters:
+    page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: 1-indexed page number
+    pageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Number of items per page (max 100)
+    sort:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Sort fields, e.g. 'name,-createdAt'

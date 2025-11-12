@@ -1,0 +1,18 @@
+openapi: 3.0.4
+info:
+  title: Common security
+  version: v1
+  description: Global JWT bearer security scheme and default application
+servers:
+  - url: "/api/v1"
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Clients must send Authorization: Bearer <accessToken>.
+        Access tokens are short-lived (~15m). Refresh tokens are long-lived (~7d) and used only on refresh endpoint.

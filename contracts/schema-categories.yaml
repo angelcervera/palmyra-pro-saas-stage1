@@ -1,0 +1,220 @@
+openapi: 3.0.4
+info:
+  title: Schema Categories API
+  version: v1
+  description: Manage hierarchical categories that organize persisted schemas.
+servers:
+  - url: "/api/v1"
+security:
+  - bearerAuth: []
+tags:
+  - name: SchemaCategories
+    description: CRUD operations for schema categories
+    x-required-roles: [admin]
+paths:
+  /schema-categories:
+    get:
+      tags: [SchemaCategories]
+      summary: List schema categories
+      operationId: listSchemaCategories
+      description: Returns all schema categories ordered by creation time. Optionally include soft-deleted entries.
+      parameters:
+        - name: includeDeleted
+          in: query
+          description: When true, soft-deleted categories are returned alongside active ones.
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Schema categories fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaCategoryList"
+        default:
+          description: Error (RFC 7807)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "./common/problemdetails.yaml#/components/schemas/ProblemDetails"
+    post:
+      tags: [SchemaCategories]
+      summary: Create schema category
+      operationId: createSchemaCategory
+      description: Creates a new schema category that can be attached to schemas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSchemaCategoryRequest"
+      responses:
+        "201":
+          description: Schema category created
+          headers:
+            Location:
+              description: URL of the newly created schema category
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaCategory"
+        default:
+          description: Error (RFC 7807)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "./common/problemdetails.yaml#/components/schemas/ProblemDetails"
+  /schema-categories/{categoryId}:
+    parameters:
+      - name: categoryId
+        in: path
+        required: true
+        description: Identifier of the schema category
+        schema:
+          $ref: "./common/primitives.yaml#/components/schemas/UUID"
+    get:
+      tags: [SchemaCategories]
+      summary: Retrieve schema category
+      operationId: getSchemaCategory
+      description: Fetches a single schema category by identifier.
+      responses:
+        "200":
+          description: Schema category fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaCategory"
+        default:
+          description: Error (RFC 7807)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "./common/problemdetails.yaml#/components/schemas/ProblemDetails"
+    patch:
+      tags: [SchemaCategories]
+      summary: Update schema category
+      operationId: updateSchemaCategory
+      description: Applies a partial update to a schema category.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSchemaCategoryRequest"
+      responses:
+        "200":
+          description: Schema category updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaCategory"
+        default:
+          description: Error (RFC 7807)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "./common/problemdetails.yaml#/components/schemas/ProblemDetails"
+    delete:
+      tags: [SchemaCategories]
+      summary: Soft delete schema category
+      operationId: deleteSchemaCategory
+      description: Soft deletes a schema category. Schemas linked to the category remain untouched but should be reassigned before deletion.
+      responses:
+        "204":
+          description: Schema category soft deleted
+        default:
+          description: Error (RFC 7807)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "./common/problemdetails.yaml#/components/schemas/ProblemDetails"
+components:
+  schemas:
+    SchemaCategory:
+      type: object
+      description: Schema category metadata
+      properties:
+        categoryId:
+          $ref: "./common/primitives.yaml#/components/schemas/UUID"
+        slug:
+          $ref: "./common/primitives.yaml#/components/schemas/Slug"
+        parentCategoryId:
+          allOf:
+            - $ref: "./common/primitives.yaml#/components/schemas/UUID"
+          nullable: true
+          description: Optional parent category identifier for hierarchical nesting.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 512
+          nullable: true
+        createdAt:
+          $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
+        updatedAt:
+          $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
+        deletedAt:
+          allOf:
+            - $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
+          nullable: true
+      required:
+        - categoryId
+        - slug
+        - name
+        - createdAt
+        - updatedAt
+    SchemaCategoryList:
+      type: object
+      description: Collection wrapper for schema categories.
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaCategory"
+      required:
+        - items
+    CreateSchemaCategoryRequest:
+      type: object
+      required:
+        - name
+        - slug
+      properties:
+        parentCategoryId:
+          allOf:
+            - $ref: "./common/primitives.yaml#/components/schemas/UUID"
+          nullable: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        slug:
+          $ref: "./common/primitives.yaml#/components/schemas/Slug"
+        description:
+          type: string
+          maxLength: 512
+          nullable: true
+    UpdateSchemaCategoryRequest:
+      type: object
+      description: Fields allowed to change for an existing schema category.
+      properties:
+        parentCategoryId:
+          allOf:
+            - $ref: "./common/primitives.yaml#/components/schemas/UUID"
+          nullable: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        slug:
+          $ref: "./common/primitives.yaml#/components/schemas/Slug"
+        description:
+          type: string
+          maxLength: 512
+          nullable: true
+      minProperties: 1

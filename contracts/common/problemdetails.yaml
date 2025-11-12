@@ -1,0 +1,44 @@
+openapi: 3.0.4
+info:
+  title: Common errors
+  version: v1
+  description: RFC 7807 ProblemDetails and a reusable StandardError response
+servers:
+  - url: "/api/v1"
+components:
+  schemas:
+    ProblemDetails:
+      type: object
+      description: RFC 7807 Problem Details
+      properties:
+        type:
+          type: string
+          format: uri
+          description: A URI reference that identifies the problem type
+        title:
+          type: string
+          description: A short, human-readable summary of the problem type
+        status:
+          type: integer
+          description: The HTTP status code
+        detail:
+          type: string
+          description: A human-readable explanation specific to this occurrence of the problem
+        instance:
+          type: string
+          description: A URI reference that identifies the specific occurrence of the problem
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Optional map of field-level validation errors
+      required: [title, status]
+  responses:
+    StandardError:
+      description: Error response using RFC 7807 Problem Details
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"

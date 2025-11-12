@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - domains/**/fe
+  - platform/ts
+  - packages/*
+
+onlyBuiltDependencies:
+  - esbuild
+  - msw

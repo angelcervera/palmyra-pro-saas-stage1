@@ -1,0 +1,37 @@
+openapi: 3.0.4
+info:
+  title: Common IAM types
+  version: v1
+  description: >-
+    Shared IAM primitives: UserRole, Permission, Claims
+servers:
+  - url: "/api/v1"
+components:
+  schemas:
+    UserRole:
+      type: string
+      description: Application role
+      enum: [admin, user_manager, user]
+    Permission:
+      type: string
+      description: Placeholder for fine-grained permissions
+      examples: ["users.read", "users.write"]
+    Claims:
+      type: object
+      description: JWT Access Token claims subset relevant to the app
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserRole"
+        permissions:
+          type: array
+          items:
+            type: string
+      required: [roles]
+      examples:
+        sampleClaims:
+          summary: Multiple roles example
+          value:
+            roles: ["user", "user_manager"]
+            permissions: []

@@ -1,0 +1,9 @@
+.git
+.gocache
+node_modules
+apps/web-admin/node_modules
+apps/web-admin/dist
+apps/web-admin/.vite
+.tmp
+tmp
+.DS_Store

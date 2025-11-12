@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/oapi-codegen/oapi-codegen/refs/tags/v2.4.1/configuration-schema.json
+package: pagination
+output: ../../../../generated/go/common/pagination/models.gen.go
+generate:
+  models: true
+  embedded-spec: true
+output-options:
+  response-type-suffix: Response
+  name-normalizer: ToCamelCaseWithDigits
+  skip-fmt: false
+#  nullable-type: true
+
+  # Maybe useful in the future to split the generated code: https://github.com/oapi-codegen/oapi-codegen?tab=readme-ov-file#import-mapping
+  skip-prune: true

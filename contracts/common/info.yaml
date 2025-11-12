@@ -1,0 +1,9 @@
+openapi: 3.0.4
+info:
+  title: TCG Land API
+  version: v1
+  description: >-
+    Contract-first OpenAPI definition for TCG Land. This API is modular by domain.
+    This file provides shared Info and Servers objects for all domain specs.
+servers:
+  - url: "/api/v1"

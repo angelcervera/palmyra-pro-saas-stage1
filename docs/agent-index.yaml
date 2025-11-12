@@ -1,0 +1,128 @@
+# Canonical index for agent-readable docs and commands
+
+docs:
+  - id: api-server
+    path: docs/api-server.md
+    version: 1.1.0
+    appliesTo:
+      - apps/api
+      - domains/*/be
+      - generated/go/*
+      - platform/go/*
+    commands:
+      - go generate ./tools/codegen/openapi/go
+      - go test ./...
+      - go fmt ./...
+
+  - id: web-app
+    path: docs/web-app.md
+    version: 1.1.0
+    appliesTo:
+      - apps/web-admin
+      - apps/web-pwa
+      - domains/*/fe
+      - packages/api-sdk/src/generated/*
+      - platform/ts/*
+    commands:
+      - pnpm dev -C apps/web-admin
+      - pnpm dev -C apps/web-pwa
+      - pnpm build -C apps/web-admin
+      - pnpm build -C apps/web-pwa
+
+  - id: api-conventions
+    path: docs/api.md
+    version: 1.0.0
+    appliesTo:
+      - contracts/*
+      - generated/*
+
+  - id: persistence
+    path: docs/persistent-layer.md
+    version: 1.0.0
+    appliesTo:
+      - platform/go/persistence/*
+      - domains/*/be/repo/*
+
+  - id: adr-index
+    path: docs/adr/index.md
+    version: 1.0.0
+    appliesTo:
+      - apps/*
+      - domains/*
+      - platform/*
+
+  - id: auth-testing
+    path: docs/auth-testing.md
+    version: 1.0.0
+    appliesTo:
+      - apps/api
+      - domains/*/be
+
+  - id: docker
+    path: docs/docker.md
+    version: 1.0.0
+    appliesTo:
+      - apps/api
+      - docker-compose
+
+  - id: branching-policy
+    path: docs/branching-policy.md
+    version: 1.0.0
+    appliesTo:
+      - whole-repo
+
+  - id: crud-ui-guideline
+    path: docs/crud-ui-guideline.md
+    version: 1.0.0
+    appliesTo:
+      - apps/web-admin
+      - domains/*/fe
+      - platform/ts/*
+
+  - id: playground-prompts
+    path: docs/playground-prompts.md
+    version: 1.0.0
+    appliesTo:
+      - whole-repo
+
+adrs:
+  - id: adr-0001-react19
+    path: docs/adr/0001-frontend-framework-react19.md
+    status: Accepted
+    date: 2025-11-02
+  - id: adr-0002-shadcn-tailwind
+    path: docs/adr/0002-ui-library-shadcn-tailwind.md
+    status: Accepted
+    date: 2025-11-02
+  - id: adr-0003-vitepwa-workbox
+    path: docs/adr/0003-pwa-vitepwa-workbox.md
+    status: Accepted
+    date: 2025-11-02
+  - id: adr-0004-chi-oapi
+    path: docs/adr/0004-backend-chi-oapi-codegen.md
+    status: Accepted
+    date: 2025-11-02
+  - id: adr-0005-astro-shell
+    path: docs/adr/0005-frontend-shell-astro.md
+    status: Rejected (Admin/PWA)
+    date: 2025-11-02
+  - id: adr-0006-api-ts-sdk
+    path: docs/adr/0006-publishable-api-ts-sdk.md
+    status: Accepted
+    date: 2025-11-03
+
+rulesets:
+  backend:
+    - BE-CON-001
+    - BE-GEN-002
+    - BE-HTTP-003
+    - BE-AUTH-004
+    - BE-JSON-005
+    - BE-ROUTE-006
+  frontend:
+    - FE-CON-001
+    - FE-GEN-002
+    - FE-HTTP-003
+    - FE-AUTH-004
+    - FE-MOD-005
+    - FE-JSON-006

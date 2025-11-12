@@ -1,0 +1,21 @@
+package: auth
+output: ../../../../generated/go/auth/handlers.chi.gen.go
+generate:
+  models: true
+  embedded-spec: true
+  strict-server: true
+  chi-server: true
+output-options:
+  #  response-type-suffix: Response
+  #  name-normalizer: ToCamelCaseWithDigits
+  #  skip-fmt: false
+  # Maybe useful in the future to split the generated code: https://github.com/oapi-codegen/oapi-codegen?tab=readme-ov-file#import-mapping
+  # Don’t reorder fields; helps smaller diffs
+  skip-prune: true
+#  leave-empty-json-tags: true # Keep JSON tags even if identical to field names (safer with mixed linters)
+
+import-mapping:
+  ./common/iam.yaml: "github.com/TCGLandDev/tcgdb/generated/go/common/iam"
+  ./common/problemdetails.yaml: "github.com/TCGLandDev/tcgdb/generated/go/common/problemdetails"
+  ./common/primitives.yaml: "github.com/TCGLandDev/tcgdb/generated/go/common/primitives"
+  ./users.yaml: "github.com/TCGLandDev/tcgdb/generated/go/users"

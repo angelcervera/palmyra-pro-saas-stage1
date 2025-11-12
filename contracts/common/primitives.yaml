@@ -1,0 +1,43 @@
+openapi: 3.0.4
+info:
+  title: Common primitives
+  version: v1
+  description: Shared primitive schemas (UUID, Timestamp, Email, Slug, Code)
+servers:
+  - url: "/api/v1"
+components:
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+      description: RFC 4122 UUID string
+    Timestamp:
+      type: string
+      format: date-time
+      description: ISO 8601 timestamp in UTC
+      examples: ["2025-10-13T14:30:00Z"]
+    Email:
+      type: string
+      format: email
+      description: Email address per RFC 5322 (simplified)
+      examples: ["user@example.com"]
+    Slug:
+      type: string
+      pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      description: Kebab-case slug used in URLs
+      examples: ["black-lotus-alpha"]
+    Code:
+      type: string
+      description: Short code identifier (alphanumeric with dashes/underscores)
+      pattern: "^[A-Za-z0-9_-]{1,32}$"
+      examples: ["MH2", "POKEMON-EN"]
+    SemanticVersion:
+      type: string
+      pattern: "^\\d+\\.\\d+\\.\\d+$"
+      description: Semantic version string in major.minor.patch format
+      examples: ["1.0.0", "2.3.5"]
+    TableName:
+      type: string
+      pattern: "^[a-z][a-z0-9_]*$"
+      description: Lowercase snake_case PostgreSQL table identifier
+      examples: ["cards_entities", "user_profiles"]
