@@ -218,8 +218,8 @@ Example (Linux/macOS) for running the server on port 8080 with an explicit Fireb
 PORT=8080 \
 REQUEST_TIMEOUT=20s \
 SHUTDOWN_TIMEOUT=15s \
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/tcgdb?sslmode=disable \
-FIREBASE_CONFIG=/home/angelcc/.ssh/tcgland-dev3-firebase-adminsdk-afgwl-1ab36c572b97-oneline.json \
+DATABASE_URL=postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable \
+FIREBASE_CONFIG=/home/angelcc/.ssh/palmyra-dev-firebase-adminsdk.json \
 go run ./apps/api
 ```
 
@@ -233,7 +233,7 @@ docker compose up --build
 
 Services:
 
-- **postgres** – `postgres:16` listening on port `5432`. Credentials default to `tcgdb`/`tcgdb` with database `tcgdb`. Data persists in the `postgres-data` volume.
+- **postgres** – `postgres:16` listening on port `5432`. Credentials default to `palmyra`/`palmyra` with database `palmyra`. Data persists in the `postgres-data` volume.
 - **api** – Go server on port `3000`, automatically pointing to the Postgres container via `DATABASE_URL`.
 
 Environment defaults live in `.env.dockercompose`; adjust values there before running `docker compose` if you need different ports or credentials.

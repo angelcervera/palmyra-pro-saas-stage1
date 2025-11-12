@@ -24,7 +24,7 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 
 	pgContainer, err := postgres.Run(ctx,
 		"postgres:16-alpine",
-		postgres.WithDatabase("tcgdb"),
+		postgres.WithDatabase("palmyra"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),
 		testcontainers.WithWaitStrategy(wait.ForListeningPort("5432/tcp").WithStartupTimeout(2*time.Minute)),

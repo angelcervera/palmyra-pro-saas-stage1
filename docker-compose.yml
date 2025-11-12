@@ -5,15 +5,15 @@ services:
     env_file:
       - .env.dockercompose
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-tcgdb}
-      POSTGRES_USER: ${POSTGRES_USER:-tcgdb}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tcgdb}
+      POSTGRES_DB: ${POSTGRES_DB:-palmyra}
+      POSTGRES_USER: ${POSTGRES_USER:-palmyra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-palmyra}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-tcgdb}"]
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-palmyra}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,7 +27,7 @@ services:
       - .env.dockercompose
     environment:
       PORT: ${PORT:-3000}
-      DATABASE_URL: ${DATABASE_URL:-postgres://tcgdb:tcgdb@postgres:5432/tcgdb?sslmode=disable}
+      DATABASE_URL: ${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}
       REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-15s}
       SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
       LOG_LEVEL: ${LOG_LEVEL:-info}

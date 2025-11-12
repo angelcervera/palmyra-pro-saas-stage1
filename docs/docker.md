@@ -19,7 +19,7 @@ This repository ships with two Docker-related entry points:
    ```bash
    docker compose up --build
    ```
-3. API will listen on `http://localhost:3000`. PostgreSQL is exposed on `localhost:5432` with credentials from the env file (default `tcgdb` / `tcgdb`).
+3. API will listen on `http://localhost:3000`. PostgreSQL is exposed on `localhost:5432` with credentials from the env file (default `palmyra` / `palmyra`).
 4. Run the admin UI in another terminal:
    ```bash
    pnpm dev -C apps/web-admin
@@ -42,7 +42,7 @@ If a key is missing, the `docker-compose.yml` file provides safe defaults via `$
 ### Tips
 
 - To inspect logs: `docker compose logs -f api` or `docker compose logs -f postgres`.
-- To run database commands or connect via psql: `psql postgres://tcgdb:tcgdb@localhost:5432/tcgdb`.
+- To run database commands or connect via psql: `psql postgres://palmyra:palmyra@localhost:5432/palmyra`.
 - The Compose file is purposely minimal. Add volumes or tooling overrides in a local override file if needed (`docker-compose.override.yml`).
 
 ## Deploying to Cloud Run (or similar)
@@ -50,7 +50,7 @@ If a key is missing, the `docker-compose.yml` file provides safe defaults via `$
 - This should be used from CI/CD pipelines.
 - Build the production image from `apps/api/Dockerfile`:
   ```bash
-  docker build -t gcr.io/<project>/tcgdb-api:latest -f apps/api/Dockerfile .
+  docker build -t gcr.io/<project>/palmyra-api:latest -f apps/api/Dockerfile .
   ```
 - Configure environment variables in the deployment platform (Cloud Run service configuration) — **do not** rely on `.env.dockercompose`.
 - Set `AUTH_PROVIDER=firebase` and supply `FIREBASE_CONFIG` / `GCLOUD_PROJECT`. Ensure secrets are handled securely (Secret Manager or equivalent).
