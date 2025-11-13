@@ -10,8 +10,7 @@ import (
 )
 
 type PalmyraClaims struct {
-	IsAdmin  bool
-	VendorId *string
+	IsAdmin bool
 }
 
 func VerifyUser(ctx context.Context, fbAuth *auth.Client, r *http.Request) (*auth.Token, error) {
@@ -47,12 +46,7 @@ func ExtractClaims(token auth.Token) PalmyraClaims {
 	isAdmin, found := token.Claims["isAdmin"].(bool)
 
 	claims := PalmyraClaims{
-		IsAdmin:  found && isAdmin,
-		VendorId: nil,
-	}
-
-	if vendorId, found := token.Claims["vendorId"].(string); found {
-		claims.VendorId = &vendorId
+		IsAdmin: found && isAdmin,
 	}
 
 	return claims

@@ -8,43 +8,25 @@ import (
 )
 
 func TestExtractClaims(t *testing.T) {
-	vendorId := "VendorXXX"
 	tests := []struct {
 		name  string
 		token auth.Token
 		want  PalmyraClaims
 	}{
 		{
-			"Is admin but is not Vendor",
+			"Is admin",
 			auth.Token{Claims: map[string]interface{}{"isAdmin": true}},
-			PalmyraClaims{
-				IsAdmin:  true,
-				VendorId: nil,
-			},
+			PalmyraClaims{IsAdmin: true},
 		},
 		{
-			"Is admin and vendor",
-			auth.Token{Claims: map[string]interface{}{"isAdmin": true, "vendorId": vendorId}},
-			PalmyraClaims{
-				IsAdmin:  true,
-				VendorId: &vendorId,
-			},
+			"Not admin",
+			auth.Token{Claims: map[string]interface{}{"isAdmin": false}},
+			PalmyraClaims{IsAdmin: false},
 		},
 		{
-			"No admin and vendor",
-			auth.Token{Claims: map[string]interface{}{"isAdmin": false, "vendorId": vendorId}},
-			PalmyraClaims{
-				IsAdmin:  false,
-				VendorId: &vendorId,
-			},
-		},
-		{
-			"No data in claims",
+			"Missing flag",
 			auth.Token{Claims: map[string]interface{}{}},
-			PalmyraClaims{
-				IsAdmin:  false,
-				VendorId: nil,
-			},
+			PalmyraClaims{IsAdmin: false},
 		},
 	}
 
