@@ -26,6 +26,7 @@ type UserCredentials struct {
 	PictureURL    *string
 	IsAdmin       bool
 	VendorId      *string
+	TenantID      *string
 }
 
 func UserFromContext(ctx context.Context) (*UserCredentials, bool) {
@@ -99,6 +100,7 @@ func DefaultCredentialExtractor(claims map[string]interface{}) (*UserCredentials
 		PictureURL:    extractOptionalStringClaim(claims, "picture"),
 		IsAdmin:       extractBoolClaim(claims, "isAdmin"),
 		VendorId:      extractOptionalStringClaim(claims, "vendorId"),
+		TenantID:      extractTenantID(claims),
 	}
 
 	return creds, nil
@@ -128,6 +130,23 @@ func extractOptionalStringClaim(claims map[string]interface{}, key string) *stri
 			return &strVal
 		}
 	}
+	return nil
+}
+
+func extractTenantID(claims map[string]interface{}) *string {
+	if tenant := extractOptionalStringClaim(claims, "tenantId"); tenant != nil {
+		return tenant
+	}
+
+	firebaseClaim, ok := claims["firebase"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	if tenant, ok := firebaseClaim["tenant"].(string); ok && tenant != "" {
+		return &tenant
+	}
+
 	return nil
 }
 
@@ -181,6 +200,15 @@ func FirebaseTokenVerifier(fbAuth *auth.Client) VerifyFunc {
 		}
 		claims["uid"] = t.UID
 		claims["sub"] = t.Subject
+		if tenant := t.Firebase.Tenant; tenant != "" {
+			claims["tenantId"] = tenant
+			if firebaseClaim, ok := claims["firebase"].(map[string]interface{}); ok {
+				firebaseClaim["tenant"] = tenant
+				claims["firebase"] = firebaseClaim
+			} else {
+				claims["firebase"] = map[string]interface{}{"tenant": tenant}
+			}
+		}
 
 		return claims, nil
 	}
