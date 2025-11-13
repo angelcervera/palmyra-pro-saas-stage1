@@ -7,7 +7,6 @@ import (
 )
 
 func TestExtractTenantID(t *testing.T) {
-	tenant := "tenant-dev"
 	firebaseTenant := "tenant-firebase"
 
 	testCases := []struct {
@@ -15,11 +14,6 @@ func TestExtractTenantID(t *testing.T) {
 		claims map[string]interface{}
 		want   *string
 	}{
-		{
-			name:   "top level tenantId",
-			claims: map[string]interface{}{"tenantId": tenant},
-			want:   &tenant,
-		},
 		{
 			name: "firebase tenant claim",
 			claims: map[string]interface{}{
@@ -49,9 +43,11 @@ func TestExtractTenantID(t *testing.T) {
 
 func TestDefaultCredentialExtractorWithTenantID(t *testing.T) {
 	creds, err := DefaultCredentialExtractor(map[string]interface{}{
-		"uid":            "user-123",
-		"email":          "user@example.com",
-		"tenantId":       "tenant-dev",
+		"uid":   "user-123",
+		"email": "user@example.com",
+		"firebase": map[string]interface{}{
+			"tenant": "tenant-dev",
+		},
 		"isAdmin":        true,
 		"email_verified": true,
 	})

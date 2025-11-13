@@ -132,10 +132,6 @@ func extractOptionalStringClaim(claims map[string]interface{}, key string) *stri
 }
 
 func extractTenantID(claims map[string]interface{}) *string {
-	if tenant := extractOptionalStringClaim(claims, "tenantId"); tenant != nil {
-		return tenant
-	}
-
 	firebaseClaim, ok := claims["firebase"].(map[string]interface{})
 	if !ok {
 		return nil
@@ -199,7 +195,6 @@ func FirebaseTokenVerifier(fbAuth *auth.Client) VerifyFunc {
 		claims["uid"] = t.UID
 		claims["sub"] = t.Subject
 		if tenant := t.Firebase.Tenant; tenant != "" {
-			claims["tenantId"] = tenant
 			if firebaseClaim, ok := claims["firebase"].(map[string]interface{}); ok {
 				firebaseClaim["tenant"] = tenant
 				claims["firebase"] = firebaseClaim

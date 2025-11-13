@@ -38,10 +38,10 @@ The verifier skips signature checks and simply decodes the JWT payload, copying 
 
 | Role  | Bearer token                                                                                                                                                                                                     |
 |-------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Admin | `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbG9jYWwtcGFsbXlyYSIsImF1ZCI6ImxvY2FsLXBhbG15cmEiLCJhdXRoX3RpbWUiOjE3NjMwNDA2MDUsInVzZXJfaWQiOiJhZG1pbi0xMjMiLCJzdWIiOiJhZG1pbi0xMjMiLCJpYXQiOjE3NjMwNDA2MDUsImV4cCI6MTc2MzA0NDIwNSwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiRGV2IEFkbWluIiwiaXNBZG1pbiI6dHJ1ZSwidGVuYW50SWQiOiJ0ZW5hbnQtZGV2IiwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJhZG1pbkBleGFtcGxlLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIiwidGVuYW50IjoidGVuYW50LWRldiJ9fQ` |
-| User  | `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbG9jYWwtcGFsbXlyYSIsImF1ZCI6ImxvY2FsLXBhbG15cmEiLCJhdXRoX3RpbWUiOjE3NjMwNDA2MDUsInVzZXJfaWQiOiJ1c2VyLTQ1NiIsInN1YiI6InVzZXItNDU2IiwiaWF0IjoxNzYzMDQwNjA1LCJleHAiOjE3NjMwNDQyMDUsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiRGV2IFVzZXIiLCJpc0FkbWluIjpmYWxzZSwidGVuYW50SWQiOiJ0ZW5hbnQtZGV2IiwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJ1c2VyQGV4YW1wbGUuY29tIl19LCJzaWduX2luX3Byb3ZpZGVyIjoicGFzc3dvcmQiLCJ0ZW5hbnQiOiJ0ZW5hbnQtZGV2In19`    |
+| Admin | `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbG9jYWwtcGFsbXlyYSIsImF1ZCI6ImxvY2FsLXBhbG15cmEiLCJhdXRoX3RpbWUiOjE3NjMwNDE0OTksInVzZXJfaWQiOiJhZG1pbi0xMjMiLCJzdWIiOiJhZG1pbi0xMjMiLCJpYXQiOjE3NjMwNDE0OTksImV4cCI6MTc2MzA0NTA5OSwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiRGV2IEFkbWluIiwiaXNBZG1pbiI6dHJ1ZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJhZG1pbkBleGFtcGxlLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIiwidGVuYW50IjoidGVuYW50LWRldiJ9fQ` |
+| User  | `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbG9jYWwtcGFsbXlyYSIsImF1ZCI6ImxvY2FsLXBhbG15cmEiLCJhdXRoX3RpbWUiOjE3NjMwNDE1ODcsInVzZXJfaWQiOiJhZG1pbi0xMjMiLCJzdWIiOiJhZG1pbi0xMjMiLCJpYXQiOjE3NjMwNDE1ODcsImV4cCI6MTc2MzA0NTE4NywiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiRGV2ZWxvcGVyIFVzZXIiLCJpc0FkbWluIjpmYWxzZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJhZG1pbkBleGFtcGxlLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIiwidGVuYW50IjoidGVuYW50LWRldiJ9fQ`    |
 
-Generate your own with Node or any JWT tool, making sure to include the same claims Firebase issues (issuer/audience pair, `firebase.tenant`, and the top level `tenantId` the backend expects):
+Generate your own with Node or any JWT tool, making sure to include the same claims Firebase issues (issuer/audience pair and `firebase.tenant`):
 
 ```bash
 node - <<'JS'
@@ -60,7 +60,6 @@ const payload={
   email_verified:true,
   name:'Dev Admin',
   isAdmin:true,
-  tenantId:'tenant-dev',
   firebase:{
     identities:{email:['admin@example.com']},
     sign_in_provider:'password',

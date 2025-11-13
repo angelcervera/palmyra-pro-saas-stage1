@@ -137,7 +137,7 @@ output: ./generated/go/<domain>/server.gen.go
 
 - `AUTH_PROVIDER=firebase|dev` (default `firebase`).
     - `firebase`: requires valid Firebase credentials (`FIREBASE_CONFIG` or ADC) and wires `platformauth.JWT(platformauth.FirebaseTokenVerifier(fbAuth), nil)`.
-    - `dev`: wires `platformauth.JWT(platformauth.UnsignedTokenVerifier(), nil)` for local development. The verifier **does not** validate signatures; it simply decodes the JWT payload and copies claims (e.g., `email`, `name`, `isAdmin`, `tenantId`). Use only in non-production environments and ensure your dev tokens never leak.
+    - `dev`: wires `platformauth.JWT(platformauth.UnsignedTokenVerifier(), nil)` for local development. The verifier **does not** validate signatures; it simply decodes the JWT payload and copies claims (e.g., `email`, `name`, `isAdmin`, `firebase.tenant`). Use only in non-production environments and ensure your dev tokens never leak.
 
 ---
 

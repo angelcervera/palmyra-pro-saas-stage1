@@ -21,6 +21,7 @@ Tokens issued by Firebase must align with this structure, including tenant scopi
 
 ```json
 {
+  "name": "Dev Testing",
   "isAdmin": true,
   "otherClaim": "xxxxxxxx",
   "iss": "https://securetoken.google.com/cacao---dev",
@@ -53,7 +54,7 @@ Notes:
 ## Claim Extraction & Tenant Handling
 
 - `platform/go/auth/auth.go#L95-L140` maps canonical claims (`uid`, `sub`, `email`, `email_verified`, etc.) into `UserCredentials`.
-- `platform/go/auth/auth.go#L136-L150` ensures `TenantID` is populated from either top-level `tenantId` (if present) or `firebase.tenant` (Firebase default). This matches the token sample above, which only exposes the tenant inside the `firebase` map.
+- `platform/go/auth/auth.go#L136-L150` derives `TenantID` exclusively from `firebase.tenant`, matching the token sample above.
 - During Firebase verification, `platform/go/auth/auth.go#L189-L207` copies the raw claim set and explicitly re-attaches the `firebase` map so downstream code sees the same payload as the client token.
 
 ## Local Testing
