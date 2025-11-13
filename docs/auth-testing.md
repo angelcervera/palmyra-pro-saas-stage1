@@ -32,14 +32,14 @@ When `AUTH_PROVIDER=dev`, the middleware calls:
 platformauth.JWT(platformauth.UnsignedTokenVerifier(), nil)
 ```
 
-The verifier skips signature checks and simply decodes the JWT payload, copying standard claims (`email`, `name`, `isAdmin`, `vendorId`, etc.). Missing/invalid tokens return `401`.
+The verifier skips signature checks and simply decodes the JWT payload, copying standard claims (`email`, `name`, `isAdmin`, etc.). Missing/invalid tokens return `401`.
 
 ### 2.1 Sample tokens
 
 | Role  | Bearer token                                                                                                                                                                                                     |
 |-------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Admin | `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbG9jYWwtcGFsbXlyYSIsImF1ZCI6ImxvY2FsLXBhbG15cmEiLCJhdXRoX3RpbWUiOjE3NjMwMzg4NzUsInVzZXJfaWQiOiJhZG1pbi0xMjMiLCJzdWIiOiJhZG1pbi0xMjMiLCJpYXQiOjE3NjMwMzg4NzUsImV4cCI6MTc2MzA0MjQ3NSwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiRGV2IEFkbWluIiwicGljdHVyZSI6Imh0dHBzOi8vZXhhbXBsZS5jb20vYXZhdGFyLnBuZyIsImlzQWRtaW4iOnRydWUsInZlbmRvcklkIjoidmVuZG9yLXh5eiIsInRlbmFudElkIjoidGVuYW50LWRldiIsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsiYWRtaW5AZXhhbXBsZS5jb20iXX0sInNpZ25faW5fcHJvdmlkZXIiOiJwYXNzd29yZCIsInRlbmFudCI6InRlbmFudC1kZXYifX0` |
-| User  | `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbG9jYWwtcGFsbXlyYSIsImF1ZCI6ImxvY2FsLXBhbG15cmEiLCJhdXRoX3RpbWUiOjE3NjMwMzg4NzUsInVzZXJfaWQiOiJ1c2VyLTQ1NiIsInN1YiI6InVzZXItNDU2IiwiaWF0IjoxNzYzMDM4ODc1LCJleHAiOjE3NjMwNDI0NzUsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiRGV2IFVzZXIiLCJwaWN0dXJlIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hdmF0YXIucG5nIiwiaXNBZG1pbiI6ZmFsc2UsInZlbmRvcklkIjoidmVuZG9yLXh5eiIsInRlbmFudElkIjoidGVuYW50LWRldiIsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsidXNlckBleGFtcGxlLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIiwidGVuYW50IjoidGVuYW50LWRldiJ9fQ`    |
+| Admin | `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbG9jYWwtcGFsbXlyYSIsImF1ZCI6ImxvY2FsLXBhbG15cmEiLCJhdXRoX3RpbWUiOjE3NjMwNDA2MDUsInVzZXJfaWQiOiJhZG1pbi0xMjMiLCJzdWIiOiJhZG1pbi0xMjMiLCJpYXQiOjE3NjMwNDA2MDUsImV4cCI6MTc2MzA0NDIwNSwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiRGV2IEFkbWluIiwiaXNBZG1pbiI6dHJ1ZSwidGVuYW50SWQiOiJ0ZW5hbnQtZGV2IiwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJhZG1pbkBleGFtcGxlLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIiwidGVuYW50IjoidGVuYW50LWRldiJ9fQ` |
+| User  | `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbG9jYWwtcGFsbXlyYSIsImF1ZCI6ImxvY2FsLXBhbG15cmEiLCJhdXRoX3RpbWUiOjE3NjMwNDA2MDUsInVzZXJfaWQiOiJ1c2VyLTQ1NiIsInN1YiI6InVzZXItNDU2IiwiaWF0IjoxNzYzMDQwNjA1LCJleHAiOjE3NjMwNDQyMDUsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiRGV2IFVzZXIiLCJpc0FkbWluIjpmYWxzZSwidGVuYW50SWQiOiJ0ZW5hbnQtZGV2IiwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJ1c2VyQGV4YW1wbGUuY29tIl19LCJzaWduX2luX3Byb3ZpZGVyIjoicGFzc3dvcmQiLCJ0ZW5hbnQiOiJ0ZW5hbnQtZGV2In19`    |
 
 Generate your own with Node or any JWT tool, making sure to include the same claims Firebase issues (issuer/audience pair, `firebase.tenant`, and the top level `tenantId` the backend expects):
 
@@ -60,7 +60,6 @@ const payload={
   email_verified:true,
   name:'Dev Admin',
   isAdmin:true,
-  vendorId:'vendor-xyz',
   tenantId:'tenant-dev',
   firebase:{
     identities:{email:['admin@example.com']},

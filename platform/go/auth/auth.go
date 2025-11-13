@@ -25,7 +25,6 @@ type UserCredentials struct {
 	Name          *string
 	PictureURL    *string
 	IsAdmin       bool
-	VendorId      *string
 	TenantID      *string
 }
 
@@ -99,7 +98,6 @@ func DefaultCredentialExtractor(claims map[string]interface{}) (*UserCredentials
 		Name:          extractOptionalStringClaim(claims, "name"),
 		PictureURL:    extractOptionalStringClaim(claims, "picture"),
 		IsAdmin:       extractBoolClaim(claims, "isAdmin"),
-		VendorId:      extractOptionalStringClaim(claims, "vendorId"),
 		TenantID:      extractTenantID(claims),
 	}
 
