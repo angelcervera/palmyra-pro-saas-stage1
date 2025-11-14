@@ -30,6 +30,8 @@ Internally, it sits on top of the same backend persistence layer used by, for ex
 
 > TBC: Enumerate the concrete responsibilities of the SDK (e.g., read/write entities, handle schema versions, enforce invariants, map persistence concepts into tenant-friendly abstractions) and which concerns stay in the backend.
 
+- [ ] Ensure all in‑memory and offline caches are tenant‑aware: never mix data across different JWTs, partition cached state by `TenantID`, and treat any change in the active token as a signal to reset or re‑partition caches to avoid cross‑tenant leakage.
+
 ## 4. Domain & Data Model
 
 > TBC: Explain the high-level data model exposed to tenants: entities, documents, schema references, versioning concepts, and how these map (or intentionally do not map) to the underlying persistent layer tables.
@@ -44,7 +46,38 @@ Internally, it sits on top of the same backend persistence layer used by, for ex
 
 ## 7. Authentication, Authorization & Multi‑Tenancy
 
-> TBC: Clarify how auth flows into the SDK (JWT, Firebase, or session tokens), how tenant isolation is enforced at the SDK boundary, and which auth/tenant checks are delegated to the backend.
+### 7.1 Authentication (JWT as the single entry point)
+
+All authentication for `@zengateglobal/persistence-sdk` is centralized on **JWT bearer tokens**:
+
+- The SDK never issues or refreshes tokens. Callers are responsible for obtaining a valid JWT (via Firebase / Identity Platform, the dev provider or any other implementation) and for managing its lifecycle.
+- The SDK treats the JWT as an opaque credential, passing it through to the backend via the underlying `@zengateglobal/api-sdk` client on every call.
+- Integrations are expected to configure the SDK with a `getToken`/callback-style provider that returns the latest JWT so the SDK can remain stateless and work with rotating tokens.
+
+In dev mode, the same mechanism works with unsigned JWTs used by the API server; the persistence SDK does not need to distinguish between real and dev providers as long as the token shape is compatible.
+
+### 7.2 Authorization and roles
+
+Authorization decisions remain the responsibility of the backend API:
+
+- Every operation exposed by the persistence SDK ultimately maps to one or more calls to `@zengateglobal/api-sdk`, which in turn hits routes protected by JWT + role middleware.
+- The SDK does **not** replicate role logic locally. Instead, it surfaces authorization failures as domain-specific errors derived from backend ProblemDetails (e.g., “forbidden” when the token lacks the required role).
+- Custom claims such as `palmyraRoles` and `tenantRoles` are evaluated server-side. The SDK may surface these roles to the caller for conditional UI logic, but it must not be treated as the source of truth for access control.
+
+### 7.3 Multi‑Tenancy
+
+Multi‑tenant isolation is enforced primarily in the API server, based on the JWT:
+
+- The backend derives the effective `TenantID` from the token (e.g., from the `firebase.tenant` claim) and uses it to scope all persistence operations.
+- The persistence SDK assumes that any token it receives is already tenant-scoped and forwards it unchanged to the API via `@zengateglobal/api-sdk`.
+- To avoid cross-tenant leakage at the client level, the SDK should:
+  - avoid caching data across different JWTs without partitioning by `TenantID`, and
+  - treat a change in the active token as a signal to reset or re-partition any in-memory or offline caches.
+
+The net effect is that **tenant isolation is guaranteed by the backend**, while the SDK focuses on:
+
+- reliably attaching the correct JWT to each call, and
+- ensuring its own caching / offline mechanisms never mix data associated with different tenants.
 
 ## 8. Error Handling & ProblemDetails Mapping
 
