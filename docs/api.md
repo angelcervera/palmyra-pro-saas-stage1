@@ -7,10 +7,10 @@ The API definition is modular, organized by domain.
 
 ### Endpoint Naming
 
-- Use plural nouns for resource collections: `/api/v1/sets`, `/api/v1/singles`
+- Use plural nouns for resource collections: `/api/v1/users`, `/api/v1/schema-categories`
 - Use kebab-case for multi-word resources: `/api/v1/user-profiles`
 - Avoid verbs in endpoint paths; let HTTP methods convey the action
-- Use nested resources sparingly and only when the relationship is strong: `/api/v1/sets/{setId}/singles`
+- Use nested resources sparingly and only when the relationship is strong: `/api/v1/schema-repository/schemas/{schemaId}/versions`
 - **Action-style endpoints** (`:actionName` suffix) should be used only for operations that:
     - Don't fit standard CRUD semantics (e.g., `:approve`, `:reject`, `:sync`)
     - Represent RPC-style operations or commands (e.g., `:listPublic`, `:search`, `:validate`)
@@ -106,4 +106,3 @@ In the future, we may add more status codes to support more complex scenarios.
     - `X-RateLimit-Limit`
     - `X-RateLimit-Remaining`
     - `X-RateLimit-Reset`
-

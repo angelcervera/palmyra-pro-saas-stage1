@@ -2,22 +2,17 @@
 
 ## Overview & Goals
 
-ZenGate Global is an e-commerce company specializing in trading cards, operating under a hybrid retail-import fulfillment
-model. We source cards from multiple international providers, consolidate and verify them, and ship complete, validated
-orders to customers.
+ZenGate Global operates several data‑intensive workflows that require accurate, well‑governed structured data across products and teams.
 
-Currently, we lack a comprehensive and reliable database of all possible cards. External databases are often outdated,
-contain errors, and cannot be corrected or maintained by us.
+Today, critical datasets are fragmented across systems, with inconsistent schemas, limited validation, and no single source of truth for how entities are defined or stored.
 
-The goal of this project is to design and maintain a proprietary, accurate, and continuously updated database covering
-all TCG games.
+The goal of this project is to build Palmyra Pro: a contract‑first platform centered on versioned JSON Schemas and the entities that conform to them, providing a governed, continuously updated data backbone for ZenGate services.
 
 ## User Flow
 
-The main sidebar lists all available TCG games.
-For each game, two options are displayed: Sets and Singles.
+The main sidebar exposes navigation entries for the primary admin areas (Users, Schema Categories, Schema Repository, Entities, etc.).
 
-The main content area adapts dynamically to show the relevant CRUD interface based on the selected option.
+The main content area adapts dynamically to show the relevant CRUD interface based on the selected section.
 
 ### Users admin
 
@@ -41,43 +36,15 @@ The administration page includes filters to refine the list by:
 - User email
 - User status: rejected, pending, enabled, disabled
 
-### Database CRUDs
+### Schema & Entity Management
 
-The main sidebar lists all available TCG games.
-For each game, two options are displayed: Sets and Singles.
+Beyond user administration, the application exposes CRUD flows for:
 
-#### Sets
+- **Schema Categories**: administrators manage a hierarchical tree of categories used to organize schemas. Each category has a slug, name, optional parent, description, and audit fields.
+- **Schema Repository**: administrators create and inspect versioned JSON Schemas. Each schema version captures a `schemaId`, semantic `schemaVersion`, JSON Schema definition, table name, slug, category link, and lifecycle flags (timestamps, `isActive`).
+- **Entities**: authorized users work with JSON documents stored per schema/table. The UI surfaces paginated lists backed by the persistence layer, with filtering, sorting, and detail views that respect the underlying schema definitions.
 
-When Sets is selected, the main container provides full CRUD functionality for managing sets.
-Each Set belongs to a specific Game, and each Card belongs to a Set.
-
-Set Fields:
-
-- Id: Generated UUID.
-- Game Id: Reference to the game.
-- Code: Game-specific set identifier.
-- Slug: Human-readable, SEO-friendly code.
-- Name: Official name of the set.
-
-Additional fields may be added in the future depending on the specific game requirements.
-
-#### Singles
-
-When Singles is selected, the main container provides full CRUD functionality for managing cards (singles).
-Each Card belongs to a Set and a Game.
-
-Card Fields:
-
-- Id: Generated UUID.
-- Set Id: Reference to the parent set.
-- Game Id: Reference to the game.
-- Code: Game-specific card identifier.
-- Slug: Human-readable, SEO-friendly code.
-- Language: Original language of the card (e.g., Phyrexian, English, Spanish), not always an iso language code.
-- Name: Official name of the card.
-- Images: List of image URLs associated with the card.
-
-Additional fields may be added in the future depending on the specific game requirements.
+All these experiences follow the CRUD UI guideline and API conventions (pagination, ProblemDetails) defined elsewhere in this repo.
 
 ## Core Features & Scope
 
@@ -119,16 +86,19 @@ It serves as the single source of truth for the entire platform, containing the 
 #### Structure and Organization
 
 The repository is organized **vertically by domain**, not by technology.
-Each domain (e.g., `users`, `sets`, `singles`) contains both its frontend and backend code:
+Each domain (e.g., `auth`, `users`, `schema-categories`, `schema-repository`, `entities`) contains both its backend code and, where applicable, frontend modules:
 
 ```
-/contracts/                # OpenAPI definitions (one per domain)
-/contracts/auth.yaml       # ONLY signup/login/refresh/logout + securitySchemes
-/contracts/users.yaml      # ONLY user CRUD/listing + admin actions
-/contracts/common/         # Shared OpenAPI components (Pagination, Address, ProblemDetails, etc.)
+/contracts/                      # OpenAPI definitions (one per domain)
+/contracts/auth.yaml             # signup/login/refresh/logout + securitySchemes
+/contracts/users.yaml            # user CRUD/listing + admin actions
+/contracts/schema-categories.yaml  # admin CRUD for schema category hierarchy
+/contracts/schema-repository.yaml  # schema definitions and versions
+/contracts/entities.yaml         # JSON entity documents per schema/table
+/contracts/common/               # Shared OpenAPI components (Pagination, Address, ProblemDetails, etc.)
 /contracts/common/info.yaml
 /contracts/common/primitives.yaml      # UUID, Timestamp, Email, Slug, Code
-/contracts/common/problemdetails.yaml          # ProblemDetails, StandardError
+/contracts/common/problemdetails.yaml  # ProblemDetails, StandardError
 /contracts/common/pagination.yaml      # PaginationRequest, PaginationMeta, params
 /contracts/common/security.yaml        # bearerAuth + global security
 /contracts/common/iam.yaml             # UserRole, Permission, Claim, maybe Policy (shared IAM types)
@@ -138,25 +108,32 @@ Each domain (e.g., `users`, `sets`, `singles`) contains both its frontend and ba
     be/                    # Go models, handlers, services
   users/
     fe/                    # React components, stores, hooks
-    be/                    # Go models, handlers, services
-  sets/
-    fe/
-    be/
-/generated/                # Codegen output from OpenAPI (TypeScript SDKs, Go handlers)
+    be/                          # Go models, handlers, services
+  schema-categories/
+    fe/                          # React components, stores, hooks
+    be/                          # Go models, handlers, services
+  schema-repository/
+    fe/                    # React components, stores, hooks
+    be/                          # Go models, handlers, services
+  entities/
+    be/                          # Go models, handlers, services
+/generated/                      # Codegen output from OpenAPI (Go + TS SDK)
   go/
     auth/
     users/
-    sets/
-  ts/
-    auth/
-    users/
-    sets/
+    schema-categories/
+    schema-repository/
+/packages/api-sdk/src/generated/ # TypeScript clients and types
+  auth/
+  users/
+  schema-categories/
+  schema-repository/
 /platform/
-  ts/                      # Shared frontend utilities, UI, form and auth helpers
-  go/                      # Shared backend libraries (logging, config, middleware)
+  ts/                            # Shared frontend utilities, UI, form and auth helpers
+  go/                            # Shared backend libraries (logging, config, middleware, persistence)
 /apps/
-  web/                     # React 19 + Vite PWA application shell
-  api/                     # Go API entrypoint (Chi router)
+  web-admin/                     # React 19 + Vite admin application shell
+  api/                           # Go API entrypoint (Chi router)
 ```
 
 The `/generated` directory is intentionally **separated from the domain folders**, because it contains **build artifacts
@@ -308,7 +285,7 @@ Layout consists of:
 
 - Sidebar Navigation: Persistent, collapsible on both mobile and desktop, with toggles using state or media queries.
 - Top Bar: Hosts profile access, actions, and (optional) search or notifications.
-- Main Content Area: Flexible container that changes based on the selected route (Sets, Singles, Admin, etc.).
+- Main Content Area: Flexible container that changes based on the selected route (Users, Schema Categories, Schema Repository, Entities, Admin, etc.).
 
 ### Component Standards
 

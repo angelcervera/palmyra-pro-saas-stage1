@@ -246,7 +246,8 @@ Each `/domains/<domain>/be` follows:
 
 * **Auth**: Signup/Login/Refresh; public routes only for these. Everything else requires bearer token.
 * **Users**: Admin actions: approve/reject/enable/disable; list with filters (name, email, status) and pagination. Roles: `admin`, `user_manager`.
-* **Sets**/**Singles**: CRUD within game/set relationships; fields exactly as defined in PRD; singles may be disabled initially per latest scope decisions (if contract says so).
+* **Schema Categories**: Admin-only CRUD for the hierarchical category tree backing schemas; all operations require `admin` role.
+* **Schema Repository & Entities**: Manage versioned JSON Schemas (`schema-repository` domain) and JSON documents stored per schema/table (`entities` domain) as defined in the contracts and persistence-layer docs.
 
 ---
 

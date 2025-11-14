@@ -43,7 +43,7 @@ commandsUsed:
 
 - Admin App (`apps/web-admin`)
   - Audience: internal administrators and user managers
-  - Scope: CRUD and approval workflows (users, sets, singles, schema categories), advanced filtering/pagination, role‑gated UI
+  - Scope: CRUD and approval workflows (users, schema categories, schema repository, entities), advanced filtering/pagination, role‑gated UI
   - Online-only by default; graceful handling of transient network issues
 
 - PWA App (`apps/web-pwa`)
@@ -321,10 +321,10 @@ export const routes = [
 Shell composition (pwa):
 ```tsx
 // apps/web-pwa/src/routes.tsx
-import { SetsRoutes } from '../../domains/sets/fe';
+import { SchemaCategoriesRoutes } from '../../domains/schema-categories/fe';
 
 export const routes = [
-  { path: '/sets/*', element: <SetsRoutes /> },
+  { path: '/schema-categories/*', element: <SchemaCategoriesRoutes /> },
   // lean subset for offline‑first flows
 ];
 ```

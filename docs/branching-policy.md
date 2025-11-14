@@ -27,7 +27,7 @@ This repository follows a trunk‑based workflow optimized for a contract‑firs
 ## Branch Types & Naming
 
 - `feat/<domain>-<topic>` — new functionality (e.g., `feat/users-approval-flow`).
-- `fix/<domain>-<issue>` — bug fix (e.g., `fix/sets-slug-collision`).
+- `fix/<domain>-<issue>` — bug fix (e.g., `fix/schema-slug-collision`).
 - `chore/<area>-<task>` — deps, CI, formatting, tooling.
 - `hotfix/<area>-<issue>` — urgent production fix cut from the last tag.
 - `release/<yymmdd>-<name>` — optional short‑lived stabilization branch for coordinated deploys.

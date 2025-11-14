@@ -1,6 +1,6 @@
 # ZenGate Global — Palmyra Pro SaaS
 
-A contract‑first, domain‑oriented platform for building and maintaining an accurate, continuously updated Trading Card Games database. This repository is the monorepo that hosts the OpenAPI contracts, generated SDKs, backend (Go/Chi), and frontend (React 19 + Vite PWA) for ZenGate Global’s Palmyra Pro data platform.
+A contract‑first, domain‑oriented platform for managing versioned JSON Schemas and the entity data that depends on them. This repository is the monorepo that hosts the OpenAPI contracts, generated SDKs, backend (Go/Chi), and frontend (React 19 + Vite PWA) for ZenGate Global’s Palmyra Pro data platform.
 
 This README consolidates the essentials to understand the project, navigate the repository, and contribute effectively.
 
@@ -39,13 +39,17 @@ This README consolidates the essentials to understand the project, navigate the 
 
 ## Overview & Goals
 
-ZenGate Global operates a hybrid retail-import fulfillment model for trading cards, consolidating items from multiple international providers, validating them, and shipping complete orders. External public databases are often outdated or incorrect. This project builds our own proprietary, accurate, and continuously updated database that spans all TCG games.
+ZenGate Global operates several data‑intensive workflows that require accurate, well‑governed structured data across products and teams.
+
+Today, critical datasets are fragmented across systems, with inconsistent schemas, limited validation, and no single source of truth for how entities are defined or stored.
+
+Palmyra Pro provides a contract‑first platform centered on versioned JSON Schemas and the entities that conform to them, giving the organization a governed, continuously updated data backbone.
 
 High‑level goals:
 
-- Own the full data lifecycle (definition, ingestion, validation, CRUD, and curation).
+- Own the full data lifecycle (schema definition, ingestion, validation, CRUD, and curation).
 - Be contract‑first to keep frontend and backend in sync with zero drift.
-- Provide admin tooling for users, sets, and singles (cards) with robust filtering and pagination.
+- Provide admin tooling for users, schema categories, schema definitions, and entity documents with robust filtering and pagination.
 
 
 ## Core Features & Scope
@@ -55,9 +59,10 @@ In scope for the current phase:
 - Authentication (Firebase Auth + JWT)
 - Authorization with roles: admin, user_manager
 - User sign‑up and approval flow (pending → approve/reject; enable/disable)
-- CRUD for Sets (filtering + pagination)
-- CRUD for Singles/Cards (filtering + pagination)
+- Admin user management including CRUD, filtering, and pagination
 - Admin CRUD for Schema Categories (organize schemas into a hierarchy)
+- Schema Repository management for versioned JSON Schemas
+- CRUD for JSON entity documents (filtering + pagination) backed by the persistence layer
 
 Out of scope: Everything else not listed above for this phase. See docs/Project Requirements Document.md for the complete narrative.
 
@@ -67,7 +72,7 @@ Out of scope: Everything else not listed above for this phase. See docs/Project 
 Key principles:
 
 - OpenAPI‑driven / contract‑first: OpenAPI is the single source of truth between frontend and backend.
-- Monolithic, domain‑based: Each domain (auth, users, sets, singles) contains its own FE/BE code.
+- Monolithic, domain‑based: Each domain (auth, users, schema-categories, schema-repository, entities) contains its own FE/BE code where applicable.
 - Monorepo: One place for contracts, generated code, apps, and platform‑wide utilities.
 
 Benefits:
@@ -83,41 +88,40 @@ The repository is organized vertically by domain and separates generated artifac
 
 ```
 /contracts/                      # OpenAPI definitions (one per domain)
-  auth.yaml                      # ONLY signup/login/refresh/logout + securitySchemes
-  users.yaml                     # ONLY user CRUD/listing + admin actions
-  schema-categories.yaml         # Admin CRUD for schema categories hierarchy
+  auth.yaml                      # signup/login/refresh/logout + securitySchemes
+  users.yaml                     # user CRUD/listing + admin actions
+  schema-categories.yaml         # admin CRUD for schema categories hierarchy
+  schema-repository.yaml         # schema definitions and versions
+  entities.yaml                  # JSON entity documents per schema/table
   common/                        # Shared components (Pagination, ProblemDetails, IAM, primitives)
 
 /domains/
   auth/
-    fe/                          # React components, stores, hooks
     be/                          # Go handlers, services, repos, tests
   users/
-    fe/
     be/
-  sets/
-    fe/
-    be/
-  singles/
-    fe/
-    be/
-  schema-categories/             # New admin domain to organize schemas into categories
+  schema-categories/
     fe/                          # Tree UI for categories (create/update/delete)
     be/                          # Handler/Service/Repo/tests for /api/v1/schema-categories
+  schema-repository/
+    be/                          # Handler/Service/Repo/tests for schema repository endpoints
+  entities/
+    be/                          # Handler/Service/Repo/tests for entity documents
 
 /generated/                      # Codegen output (read‑only)
   go/
     auth/
     users/
-    sets/
-    singles/
     schema-categories/
-  ts/
-    auth/
-    users/
-    sets/
-    singles/
-    schema-categories/
+    schema-repository/
+    entities/
+
+/packages/api-sdk/src/generated/ # TypeScript SDK clients and types
+  auth/
+  users/
+  schema-categories/
+  schema-repository/
+  entities/
 
 /platform/
   ts/                            # Shared frontend utilities, UI, form & auth helpers
@@ -268,9 +272,9 @@ See docs/API.md for naming, versioning, status codes, pagination, filtering, and
 
 - Initialize contracts and shared components (Pagination, ProblemDetails)
 - Introduce codegen pipelines for Go and TypeScript
-- Scaffold domains: auth, users, sets, singles
+- Scaffold domains: auth, users, schema-categories, schema-repository, entities
 - Implement authentication + user approval flows
-- CRUD for sets and singles with filtering/pagination
+- CRUD for schema categories, schemas, and entity documents with filtering/pagination
 - Add Bazel build and CI caching
 - Ship PWA shell with domain pages and standardized UI
 
