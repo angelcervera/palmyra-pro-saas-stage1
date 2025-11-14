@@ -12,7 +12,7 @@ This README consolidates the essentials to understand the project, navigate the 
 - [Agent Docs Index](docs/agent-index.yaml) — canonical index for agent‑readable docs and commands.
 - [API Conventions](docs/api.md) — naming, methods, status codes, pagination, ProblemDetails.
 - [API Server Guideline](docs/api-server.md) — backend rulebook: contract‑first, routing, auth, testing, codegen.
-- [Persistence Layer](docs/persistent-layer.md) — document‑oriented persistence on PostgreSQL with schema versioning.
+- [Persistence Layer](docs/persistence-layer/persistent-layer.md) — document‑oriented persistence on PostgreSQL with schema versioning.
 - [Web App Guide](docs/web-app.md) — React 19 admin shell, build steps, SDK usage.
 - [Auth Testing Playbook](docs/auth-testing.md) — practical steps for exercising dev (unsigned) and Firebase auth flows.
 
