@@ -6,7 +6,21 @@ Internally, it sits on top of the same backend persistence layer used by, for ex
 
 ## 1. Goals & Non‑Goals
 
-> TBC: List the primary goals this SDK must achieve (e.g., safe document storage, schema-aware access, ergonomic tenant-facing API) and explicit non-goals (e.g., not an HTTP client, not an admin tooling SDK).
+### Goals
+
+- [ ] Provide a simple (also strongly‑typed if possible) document storage API for tenant UIs that feels like working with in‑memory collections instead of remote persistence primitives.
+- [ ] Encapsulate all interaction with the persistence layer (including schema versions, validation boundaries, and multi‑tenant isolation) behind a small, ergonomic TypeScript surface.
+- [ ] Offer built‑in support for offline‑first usage: local caching, optimistic writes, and background synchronization that hide most connectivity concerns from the UI.
+- [ ] Expose read/write/query operations that are safe by default (immutable documents, versioned updates, explicit pagination and filtering) and aligned with the platform’s schema governance rules.
+- [ ] Integrate cleanly with modern frontend patterns (React hooks, stores, or simple async helpers) without forcing a specific state‑management framework on consumers.
+- [ ] Provide a consistent error model that mirrors backend ProblemDetails where relevant, while translating low‑level failures into friendly error objects.
+
+### Non‑Goals
+
+- It is not a generic “local database” for arbitrary data; offline storage and sync are scoped to persistence‑backed entities defined by Palmyra Pro's schema repository.
+- This SDK is not a generic HTTP client or a replacement for `@zengateglobal/api-sdk`; it targets the persistence layer abstraction, not the full REST surface area.
+- It is not an admin or operator SDK: schema authoring, moderation workflows, and advanced curation tools belong in the admin persistence and API clients.
+- It does not own authentication or token lifecycle management; callers are responsible for acquiring and refreshing auth tokens and wiring them into the SDK’s configuration.
 
 ## 2. Architectural Overview
 
