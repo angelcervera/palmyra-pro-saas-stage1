@@ -1,6 +1,8 @@
 # `@zengateglobal/persistence-sdk` — Tenant Persistence Client SDK
 
-> TBC: High-level summary of the SDK’s purpose, who uses it (tenant-facing apps), and how it relates to the backend persistence layer and the HTTP `@zengateglobal/api-sdk`.
+The `@zengateglobal/persistence-sdk` is the tenant-facing TypeScript client that turns Palmyra Pro's document‑oriented persistence layer into a simple, high‑level storage API for frontend apps.
+Instead of dealing with raw HTTP calls, OpenAPI operations, low‑level schema plumbing, managing local storages or sync data, tenant UIs work with a small set of opinionated primitives that feel like in‑memory collections: read, write, and query immutable entity documents while the SDK quietly handles schema versions, validation boundaries, multi‑tenant isolation, offline storage ad sync.
+Internally, it sits on top of the same backend persistence layer used by, for example, the admin tooling and REST API, but exposes a deliberately narrower, UX‑driven surface tailored to tenant scenarios (browsing, enriching, and consuming data) rather than low‑level persistence features.
 
 ## 1. Goals & Non‑Goals
 
@@ -53,4 +55,3 @@
 ## 13. Open Questions & Future Work
 
 > TBC: Track unresolved design decisions, potential extensions (offline support, advanced querying, richer type inference), and TODOs for future iterations of the SDK.
-
