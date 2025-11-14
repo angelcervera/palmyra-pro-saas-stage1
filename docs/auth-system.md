@@ -35,8 +35,6 @@ Tokens issued by Firebase must align with this structure, including tenant scopi
 ```json
 {
   "name": "Dev Testing",
-  "isAdmin": true,
-  "otherClaim": "xxxxxxxx",
   "iss": "https://securetoken.google.com/cacao---dev",
   "aud": "cacao---dev",
   "auth_time": 1763038864,
@@ -54,7 +52,9 @@ Tokens issued by Firebase must align with this structure, including tenant scopi
     },
     "sign_in_provider": "password",
     "tenant": "ChocoNiger-o12xx"
-  }
+  },
+  "palmyraRoles": ["admin"],
+  "tenantRoles": ["admin"]
 }
 ```
 
@@ -203,6 +203,18 @@ Tenants/claims from Identity Platform appear in the same struct (`UserCredential
 | `403 forbidden`                                             | Role middleware blocked the request        | Confirm token has `isAdmin: true` (or expected claims)            |
 
 ### 5. Going further
+- Add roles to operations in OpenAPI using a vendor extension: set `x-required-roles` to a list of roles defined in `contracts/common/iam.yaml#/components/schemas/UserRole`. Example:
+
+  ```yaml
+  paths:
+    /admin/users:
+      get:
+        security:
+          - bearerAuth: []
+        x-required-roles: [admin, user_manager]
+  ```
+
+- Define the available roles once in `contracts/common/iam.yaml` and reference that enum across the specs. Current roles: `admin`, `user_manager`, `user`.
 
 - Script token generation as part of fixture setup (e.g., create `scripts/dev-token.js`).
 - Add automated smoke tests that hit `/api/v1/…` with both admin and non-admin tokens to ensure role protections stay intact.
