@@ -79,6 +79,9 @@ importers:
       '@zengateglobal/api-sdk':
         specifier: workspace:*
         version: link:../../packages/api-sdk
+      '@zengateglobal/persistence-sdk':
+        specifier: workspace:*
+        version: link:../../packages/persistence-sdk
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -175,6 +178,16 @@ importers:
         version: 7.2.2(@types/node@24.10.0)(jiti@2.6.1)(lightningcss@1.30.2)
 
   packages/api-sdk:
+    devDependencies:
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/persistence-sdk:
+    dependencies:
+      '@zengateglobal/api-sdk':
+        specifier: workspace:*
+        version: link:../api-sdk
     devDependencies:
       typescript:
         specifier: ~5.9.3

@@ -6,6 +6,8 @@ apps/web-admin/dist
 apps/web-admin/.vite
 packages/api-sdk/dist
 packages/api-sdk/*.build.tsbuildinfo
+packages/persistence-sdk/dist
+packages/persistence-sdk/*.build.tsbuildinfo
 openapi-ts-error-*.log
 .pnpm-store
 .env
