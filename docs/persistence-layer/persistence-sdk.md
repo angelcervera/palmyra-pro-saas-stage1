@@ -24,7 +24,43 @@ Internally, it sits on top of the same backend persistence layer used by, for ex
 
 ## 2. Architectural Overview
 
-> TBC: Describe how the SDK sits between tenant UIs and the persistence layer, key design principles, and how it collaborates (or not) with `@zengateglobal/api-sdk` and other platform modules.
+At a high level, `@zengateglobal/persistence-sdk` sits between tenant UIs and the backend persistence layer, providing a single, stable interface that can be backed by either an **online** or an **offline** implementation:
+
+```text
+Tenant UI  →  Persistence SDK (one interface)  →  Online adapter  →  @zengateglobal/api-sdk  →  API server → Persistence layer
+                                           ↘  Offline adapter → Local/offline store → (manual sync via online adapter)
+```
+
+### 2.1 Single interface, two interchangeable implementations
+
+- The SDK exposes one primary TypeScript interface (conceptually a `PersistenceClient`) that defines all tenant-facing operations: read, write, query, and sync of entity documents.
+- Both the **online** and **offline** implementations adhere to this interface, so calling code can be written once and configured to use either implementation (or switch between them) without code changes.
+- The choice of implementation is made via configuration explicit factory, not via inheritance hierarchies. The interface focuses on behavior, while concrete adapters handle transport and storage details.
+
+### 2.2 Online adapter (default path)
+
+- The online adapter is a thin, strongly-typed wrapper around `@zengateglobal/api-sdk`.
+- For each high-level persistence operation, it:
+  - obtains a JWT from the configured token provider,
+  - calls the appropriate `@zengateglobal/api-sdk` endpoint(s), and
+  - maps the results into the document-centric types and invariants expected by the persistence SDK interface.
+- All authorization, tenant isolation, and schema-governed validation remain in the backend; the online adapter is responsible for faithfully propagating errors (ProblemDetails) into the SDK’s error model.
+
+### 2.3 Offline adapter (local-first, user-triggered sync)
+
+- The offline adapter implements the same interface, but routes operations through a local storage mechanism (e.g., IndexedDB, in-memory cache, or another persistence primitive) instead of hitting the network on every call.
+- It maintains:
+  - a local cache of entity documents, scoped by tenant, and
+  - a queue of mutations that need to be synchronized when the user explicitly triggers a sync.
+- Sync is **not** a background concern: the adapter exposes explicit sync methods and progress reporting so UIs can drive when and how synchronization happens and visualize its status to the user.
+- When syncing, the offline adapter delegates to the online adapter (or an equivalent online pipeline), reusing the same JWT-based auth and API routes.
+
+### 2.4 Integration with frontend layers
+
+- The core SDK is framework-agnostic: it exposes plain async methods on the shared interface and does not depend on React or any particular state management library.
+- Optional integration layers (e.g., React hooks, store adapters) are thin wrappers around the shared interface, making it straightforward to:
+  - swap online/offline implementations without changing UI code, and
+  - test application logic by injecting mock implementations that also conform to the same interface.
 
 ## 3. Core Responsibilities
 
