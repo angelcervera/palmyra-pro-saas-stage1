@@ -1,23 +1,23 @@
 # `@zengateglobal/persistence-sdk` — Tenant Persistence Client SDK
 
-The `@zengateglobal/persistence-sdk` is the tenant-facing TypeScript client that turns Palmyra Pro's document‑oriented persistence layer into a simple, high‑level storage API for frontend apps.
-Instead of dealing with raw HTTP calls, OpenAPI operations, low‑level schema plumbing, managing local storage or sync data, tenant UIs work with a small set of opinionated primitives that feel like in‑memory collections: read, write, and query immutable entity documents while the SDK quietly handles schema versions, validation boundaries, multi‑tenant isolation, and offline storage plus **explicit, user‑triggered sync** flows.
-Internally, it sits on top of the same backend persistence layer used by, for example, the admin tooling and REST API, but exposes a deliberately narrower, UX‑driven surface tailored to tenant scenarios (browsing, enriching, and consuming data) rather than low‑level persistence features.
+The `@zengateglobal/persistence-sdk` is the tenant-facing TypeScript client that turns Palmyra Pro's document-oriented persistence layer into a simple, high-level storage API for frontend apps.
+Instead of dealing with raw HTTP calls, OpenAPI operations, low-level schema plumbing, managing local storage or sync data, tenant UIs work with a small set of opinionated primitives that feel like in-memory collections: read, write, and query immutable entity documents while the SDK quietly handles schema versions, validation boundaries, multi-tenant isolation, and offline storage plus **explicit, user-triggered sync** flows.
+Internally, it sits on top of the same backend persistence layer used by, for example, the admin tooling and REST API, but exposes a deliberately narrower, UX-driven surface tailored to tenant scenarios (browsing, enriching, and consuming data) rather than low-level persistence features.
 
-## 1. Goals & Non‑Goals
+## 1. Goals & Non-Goals
 
 ### Goals
 
-- Provide a simple (also strongly‑typed if possible) document storage API for tenant UIs that feels like working with in‑memory collections instead of remote persistence primitives.
-- Encapsulate all interaction with the persistence layer (including schema versions, validation boundaries, and multi‑tenant isolation) behind a small, ergonomic TypeScript surface.
-- Offer built‑in support for offline‑first usage: local caching, optimistic writes, and user‑triggered synchronization with visible progress, instead of automatic background sync.
+- Provide a simple (also strongly-typed if possible) document storage API for tenant UIs that feels like working with in-memory collections instead of remote persistence primitives.
+- Encapsulate all interaction with the persistence layer (including schema versions, validation boundaries, and multi-tenant isolation) behind a small, ergonomic TypeScript surface.
+- Offer built-in support for offline-first usage: local caching, optimistic writes, and user-triggered synchronization with visible progress, instead of automatic background sync.
 - Expose read/write/query operations that are safe by default (immutable documents, versioned updates, explicit pagination and filtering) and aligned with the platform’s schema governance rules.
-- Integrate cleanly with modern frontend patterns (React hooks, stores, or simple async helpers) without forcing a specific state‑management framework on consumers.
-- Provide a consistent error model that mirrors backend ProblemDetails where relevant, while translating low‑level failures into friendly error objects.
+- Integrate cleanly with modern frontend patterns (React hooks, stores, or simple async helpers) without forcing a specific state-management framework on consumers.
+- Provide a consistent error model that mirrors backend ProblemDetails where relevant, while translating low-level failures into friendly error objects.
 
-### Non‑Goals
+### Non-Goals
 
-- It is not a generic “local database” for arbitrary data; offline storage and sync are scoped to persistence‑backed entities defined by Palmyra Pro's schema repository.
+- It is not a generic “local database” for arbitrary data; offline storage and sync are scoped to persistence-backed entities defined by Palmyra Pro's schema repository.
 - This SDK is not a generic HTTP client or a replacement for `@zengateglobal/api-sdk`; it targets the persistence layer abstraction, not the full REST surface area.
 - It is not an admin or operator SDK: schema authoring, moderation workflows, and advanced curation tools belong in the admin persistence and API clients.
 - It does not own authentication or token lifecycle management; callers are responsible for acquiring and refreshing auth tokens and wiring them into the SDK’s configuration.
@@ -30,7 +30,7 @@ Internally, it sits on top of the same backend persistence layer used by, for ex
 
 > TBC: Enumerate the concrete responsibilities of the SDK (e.g., read/write entities, handle schema versions, enforce invariants, map persistence concepts into tenant-friendly abstractions) and which concerns stay in the backend.
 
-- [ ] Ensure all in‑memory and offline caches are tenant‑aware: never mix data across different JWTs, partition cached state by `TenantID`, and treat any change in the active token as a signal to reset or re‑partition caches to avoid cross‑tenant leakage.
+- [ ] Ensure all in-memory and offline caches are tenant-aware: never mix data across different JWTs, partition cached state by `TenantID`, and treat any change in the active token as a signal to reset or re-partition caches to avoid cross-tenant leakage.
 
 ## 4. Domain & Data Model
 
@@ -42,9 +42,9 @@ Internally, it sits on top of the same backend persistence layer used by, for ex
 
 ## 6. Configuration & Environment
 
-> TBC: Describe required configuration (e.g., base URLs or adapters, auth tokens, environment flags), how configuration is passed (constructor options, providers), and how it aligns with Twelve‑Factor practices.
+> TBC: Describe required configuration (e.g., base URLs or adapters, auth tokens, environment flags), how configuration is passed (constructor options, providers), and how it aligns with Twelve-Factor practices.
 
-## 7. Authentication, Authorization & Multi‑Tenancy
+## 7. Authentication, Authorization & Multi-Tenancy
 
 ### 7.1 Authentication (JWT as the single entry point)
 
@@ -64,9 +64,9 @@ Authorization decisions remain the responsibility of the backend API:
 - The SDK does **not** replicate role logic locally. Instead, it surfaces authorization failures as domain-specific errors derived from backend ProblemDetails (e.g., “forbidden” when the token lacks the required role).
 - Custom claims such as `palmyraRoles` and `tenantRoles` are evaluated server-side. The SDK may surface these roles to the caller for conditional UI logic, but it must not be treated as the source of truth for access control.
 
-### 7.3 Multi‑Tenancy
+### 7.3 Multi-Tenancy
 
-Multi‑tenant isolation is enforced primarily in the API server, based on the JWT:
+Multi-tenant isolation is enforced primarily in the API server, based on the JWT:
 
 - The backend derives the effective `TenantID` from the token (e.g., from the `firebase.tenant` claim) and uses it to scope all persistence operations.
 - The persistence SDK assumes that any token it receives is already tenant-scoped and forwards it unchanged to the API via `@zengateglobal/api-sdk`.
