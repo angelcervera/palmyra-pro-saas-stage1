@@ -26,9 +26,16 @@ Internally, it sits on top of the same backend persistence layer used by, for ex
 
 At a high level, `@zengateglobal/persistence-sdk` sits between tenant UIs and the backend persistence layer, providing a single, stable interface that can be backed by either an **online** or an **offline** implementation:
 
-```text
-Tenant UI  →  Persistence SDK (one interface)  →  Online adapter  →  @zengateglobal/api-sdk  →  API server → Persistence layer
-                                           ↘  Offline adapter → Local/offline store → (manual sync via online adapter)
+```mermaid
+flowchart LR
+    UI[Tenant UI] --> IF[Persistence SDK\n(one interface)]
+    IF --> ON[Online adapter]
+    IF --> OFF[Offline adapter]
+    ON --> APISDK[@zengateglobal/api-sdk]
+    APISDK --> API[API server]
+    API --> PL[Persistence layer]
+    OFF --> LOCAL[Local/offline store]
+    OFF -. user-triggered sync .-> ON
 ```
 
 ### 2.1 Single interface, two interchangeable implementations
