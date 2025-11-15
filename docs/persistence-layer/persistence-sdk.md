@@ -28,9 +28,9 @@ At a high level, `@zengateglobal/persistence-sdk` sits between tenant UIs and th
 
 ```mermaid
 flowchart LR
-    UI[Tenant UI] --> IF[Persistence SDK\n(one interface)]
-    IF --> ON[Online adapter]
-    IF --> OFF[Offline adapter]
+    UI[Tenant UI] --> IFACE["Persistence SDK<br/>(single interface)"]
+    IFACE --> ON[Online adapter]
+    IFACE --> OFF[Offline adapter]
     ON --> APISDK[@zengateglobal/api-sdk]
     APISDK --> API[API server]
     API --> PL[Persistence layer]
