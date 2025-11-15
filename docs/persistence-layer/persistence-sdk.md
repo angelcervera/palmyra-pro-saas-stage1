@@ -1,7 +1,7 @@
 # `@zengateglobal/persistence-sdk` — Tenant Persistence Client SDK
 
 The `@zengateglobal/persistence-sdk` is the tenant-facing TypeScript client that turns Palmyra Pro's document‑oriented persistence layer into a simple, high‑level storage API for frontend apps.
-Instead of dealing with raw HTTP calls, OpenAPI operations, low‑level schema plumbing, managing local storage or sync data, tenant UIs work with a small set of opinionated primitives that feel like in‑memory collections: read, write, and query immutable entity documents while the SDK quietly handles schema versions, validation boundaries, multi‑tenant isolation, offline storage and sync.
+Instead of dealing with raw HTTP calls, OpenAPI operations, low‑level schema plumbing, managing local storage or sync data, tenant UIs work with a small set of opinionated primitives that feel like in‑memory collections: read, write, and query immutable entity documents while the SDK quietly handles schema versions, validation boundaries, multi‑tenant isolation, and offline storage plus **explicit, user‑triggered sync** flows.
 Internally, it sits on top of the same backend persistence layer used by, for example, the admin tooling and REST API, but exposes a deliberately narrower, UX‑driven surface tailored to tenant scenarios (browsing, enriching, and consuming data) rather than low‑level persistence features.
 
 ## 1. Goals & Non‑Goals
@@ -10,7 +10,7 @@ Internally, it sits on top of the same backend persistence layer used by, for ex
 
 - Provide a simple (also strongly‑typed if possible) document storage API for tenant UIs that feels like working with in‑memory collections instead of remote persistence primitives.
 - Encapsulate all interaction with the persistence layer (including schema versions, validation boundaries, and multi‑tenant isolation) behind a small, ergonomic TypeScript surface.
-- Offer built‑in support for offline‑first usage: local caching, optimistic writes, and background synchronization that hide most connectivity concerns from the UI.
+- Offer built‑in support for offline‑first usage: local caching, optimistic writes, and user‑triggered synchronization with visible progress, instead of automatic background sync.
 - Expose read/write/query operations that are safe by default (immutable documents, versioned updates, explicit pagination and filtering) and aligned with the platform’s schema governance rules.
 - Integrate cleanly with modern frontend patterns (React hooks, stores, or simple async helpers) without forcing a specific state‑management framework on consumers.
 - Provide a consistent error model that mirrors backend ProblemDetails where relevant, while translating low‑level failures into friendly error objects.
