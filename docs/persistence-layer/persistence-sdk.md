@@ -28,14 +28,14 @@ At a high level, `@zengateglobal/persistence-sdk` sits between tenant UIs and th
 
 ```mermaid
 flowchart LR
-    UI[Tenant UI] --> IFACE["Persistence SDK<br/>(single interface)"]
-    IFACE --> ON[Online adapter]
-    IFACE --> OFF[Offline adapter]
-    ON --> APISDK[@zengateglobal/api-sdk]
-    APISDK --> API[API server]
-    API --> PL[Persistence layer]
-    OFF --> LOCAL[Local/offline store]
-    OFF -. user-triggered sync .-> ON
+    UI["Tenant UI"] --> IFACE["Persistence SDK<br/>(single interface)"]
+    IFACE --> ON["Online adapter"]
+    IFACE --> OFF["Offline adapter"]
+    ON --> APISDK["@zengateglobal/api-sdk"]
+    APISDK --> API["API server"]
+    API --> PL["Persistence layer"]
+    OFF --> LOCAL["Local/offline store"]
+    OFF -. "user-triggered sync" .-> ON
 ```
 
 ### 2.1 Single interface, two interchangeable implementations
