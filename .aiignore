@@ -13,3 +13,7 @@ out
 *.build.tsbuildinfo
 
 tmp
+.git
+.idea
+.pnpm-store
+node_modules

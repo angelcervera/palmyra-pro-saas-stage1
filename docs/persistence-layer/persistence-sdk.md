@@ -42,7 +42,7 @@ flowchart LR
 
 - The SDK exposes one primary TypeScript interface (conceptually a `PersistenceClient`) that defines all tenant-facing operations: read, write, query, and sync of entity documents.
 - Both the **online** and **offline** implementations adhere to this interface, so calling code can be written once and configured to use either implementation (or switch between them) without code changes.
-- The choice of implementation is made via configuration explicit factory, not via inheritance hierarchies. The interface focuses on behavior, while concrete adapters handle transport and storage details.
+- The choice of implementation is made via configuration (for example, an explicit factory), not via inheritance hierarchies. The interface focuses on behavior, while concrete adapters handle transport and storage details.
 
 ### 2.2 Online adapter (default path)
 
