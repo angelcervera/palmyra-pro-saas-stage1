@@ -8,7 +8,7 @@ Internally, it sits on top of the same backend persistence layer used by, for ex
 
 ### Goals
 
-- Provide a simple (also strongly-typed if possible) document storage API for tenant UIs that feels like working with in-memory collections instead of remote persistence primitives.
+- Provide a simple document storage API for tenant UIs that feels like working with in-memory collections instead of remote persistence primitives, with strongly-typed operations and metadata where possible.
 - Encapsulate all interaction with the persistence layer (including schema versions, validation boundaries, and multi-tenant isolation) behind a small, ergonomic TypeScript surface.
 - Offer built-in support for offline-first usage: local caching, optimistic writes, and user-triggered synchronization with visible progress, instead of automatic background sync.
 - Expose read/write/query operations that are safe by default (immutable documents, versioned updates, explicit pagination and filtering) and aligned with the platform’s schema governance rules.
@@ -46,7 +46,7 @@ flowchart LR
 
 ### 2.2 Online adapter (default path)
 
-- The online adapter is a thin, strongly-typed wrapper around `@zengateglobal/api-sdk`.
+- The online adapter is a thin, typed wrapper around `@zengateglobal/api-sdk`, reusing its generated TypeScript types for transport-level concerns while exposing document-centric operations through the persistence SDK interface.
 - For each high-level persistence operation, it:
   - obtains a JWT from the configured token provider,
   - calls the appropriate `@zengateglobal/api-sdk` endpoint(s), and
@@ -78,6 +78,12 @@ flowchart LR
 ## 4. Domain & Data Model
 
 > TBC: Explain the high-level data model exposed to tenants: entities, documents, schema references, versioning concepts, and how these map (or intentionally do not map) to the underlying persistent layer tables.
+
+### 4.1 Typing model for entities
+
+- Entity structures are defined via JSON Schemas that can evolve independently of any given tenant frontend, which means the SDK cannot guarantee that all document payloads are statically known at compile time.
+- The SDK will therefore be strongly typed around its public API and metadata (IDs, schema identifiers, versions, pagination, errors, sync operations), while treating document payloads as schema-driven JSON values validated at runtime.
+- Callers that want stronger typing for specific schemas can opt in by defining their own TypeScript types and layering them on top of the SDK (e.g., via generics plus runtime validation against the schema repository), but this remains a consumer choice rather than a hard guarantee from the SDK.
 
 ## 5. Public API Surface
 
