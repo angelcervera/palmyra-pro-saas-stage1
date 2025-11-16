@@ -1,0 +1,25 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.0/config.json",
+  "vcs": {
+    "clientKind": "git"
+  },
+  "files": {
+    "includes": [
+      "apps/**/*.{ts,tsx,js,jsx,json,md}",
+      "packages/**/*.{ts,tsx,js,jsx,json,md}",
+      "platform/**/*.{ts,tsx,js,jsx,json,md}",
+      "docs/**/*.md",
+      "*.{ts,tsx,js,jsx,json,md}",
+      "!**/dist/**",
+      "!**/build/**",
+      "!.pnpm-store/**",
+      "!node_modules/**"
+    ]
+  },
+  "formatter": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true
+  }
+}
