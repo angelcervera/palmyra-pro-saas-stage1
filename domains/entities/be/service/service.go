@@ -39,9 +39,8 @@ type Document struct {
 	SchemaVersion persistence.SemanticVersion
 	Payload       map[string]interface{}
 	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	DeletedAt     *time.Time
 	IsActive      bool
+	IsSoftDeleted bool
 }
 
 // ListResult contains paginated documents and metadata.
@@ -223,9 +222,8 @@ func mapRecord(record persistence.EntityRecord) (Document, error) {
 		SchemaVersion: record.SchemaVersion,
 		Payload:       payload,
 		CreatedAt:     record.CreatedAt,
-		UpdatedAt:     record.UpdatedAt,
-		DeletedAt:     record.DeletedAt,
 		IsActive:      record.IsActive,
+		IsSoftDeleted: record.IsSoftDeleted,
 	}, nil
 }
 
@@ -245,7 +243,7 @@ func normalizeSort(sort string) (string, string) {
 
 	switch field {
 	case "updatedAt":
-		return "updated_at", order
+		return "created_at", order
 	case "slug":
 		return "slug", order
 	case "createdAt":

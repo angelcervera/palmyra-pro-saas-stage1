@@ -89,8 +89,8 @@ export default function SchemaVersionDetailPage() {
                 <MetadataItem label="Slug" value={data.slug} />
                 <MetadataItem label="Category" value={categoryLabel} />
                 <MetadataItem label="Created at" value={formatDateTime(data.createdAt)} />
-                <MetadataItem label="Updated at" value={formatDateTime(data.updatedAt)} />
-                <MetadataItem label="Deleted at" value={formatDateTime(data.deletedAt ?? undefined)} />
+                <MetadataItem label="Active" value={formatBoolean(data.isActive)} />
+                <MetadataItem label="Soft deleted" value={formatBoolean(data.isSoftDeleted)} />
               </dl>
               <div className="space-y-2">
                 <h2 className="text-lg font-semibold">Schema definition</h2>
@@ -140,4 +140,11 @@ function formatDateTime(value?: string | null) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function formatBoolean(value?: boolean | null) {
+  if (value === undefined || value === null) {
+    return '—'
+  }
+  return value ? 'Yes' : 'No'
 }

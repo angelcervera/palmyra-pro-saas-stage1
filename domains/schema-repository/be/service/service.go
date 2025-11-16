@@ -36,16 +36,15 @@ var (
 
 // Schema represents a schema repository record managed by the domain service.
 type Schema struct {
-	SchemaID   uuid.UUID
-	Version    persistence.SemanticVersion
-	Definition json.RawMessage
-	TableName  string
-	Slug       string
-	CategoryID uuid.UUID
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	DeletedAt  *time.Time
-	IsActive   bool
+	SchemaID      uuid.UUID
+	Version       persistence.SemanticVersion
+	Definition    json.RawMessage
+	TableName     string
+	Slug          string
+	CategoryID    uuid.UUID
+	CreatedAt     time.Time
+	IsActive      bool
+	IsSoftDeleted bool
 }
 
 // CreateInput defines the payload required to register a schema version.
@@ -147,7 +146,7 @@ func (s *service) List(ctx context.Context, schemaID uuid.UUID, includeDeleted b
 
 	results := make([]Schema, 0, len(records))
 	for _, record := range records {
-		if !includeDeleted && record.DeletedAt != nil {
+		if !includeDeleted && record.IsSoftDeleted {
 			continue
 		}
 		results = append(results, mapRecord(record))
@@ -420,16 +419,15 @@ func isJSONObject(raw json.RawMessage) bool {
 
 func mapRecord(record persistence.SchemaRecord) Schema {
 	return Schema{
-		SchemaID:   record.SchemaID,
-		Version:    record.SchemaVersion,
-		Definition: cloneRawMessage(record.SchemaDefinition),
-		TableName:  record.TableName,
-		Slug:       record.Slug,
-		CategoryID: record.CategoryID,
-		CreatedAt:  record.CreatedAt,
-		UpdatedAt:  record.UpdatedAt,
-		DeletedAt:  record.DeletedAt,
-		IsActive:   record.IsActive,
+		SchemaID:      record.SchemaID,
+		Version:       record.SchemaVersion,
+		Definition:    cloneRawMessage(record.SchemaDefinition),
+		TableName:     record.TableName,
+		Slug:          record.Slug,
+		CategoryID:    record.CategoryID,
+		CreatedAt:     record.CreatedAt,
+		IsActive:      record.IsActive,
+		IsSoftDeleted: record.IsSoftDeleted,
 	}
 }
 

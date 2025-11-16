@@ -40,7 +40,7 @@ type SchemaRepositoryTableProps = {
   isLoading?: boolean
 }
 
-const OPTIONAL_COLUMNS = new Set(['schemaId', 'categoryId', 'createdAt', 'updatedAt', 'deletedAt'])
+const OPTIONAL_COLUMNS = new Set(['schemaId', 'categoryId', 'createdAt', 'isSoftDeleted'])
 
 export function SchemaRepositoryTable({ data, isLoading = false }: SchemaRepositoryTableProps) {
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
@@ -48,8 +48,7 @@ export function SchemaRepositoryTable({ data, isLoading = false }: SchemaReposit
     schemaId: false,
     categoryId: false,
     createdAt: false,
-    updatedAt: false,
-    deletedAt: false,
+    isSoftDeleted: false,
   })
   const [sorting, setSorting] = React.useState<SortingState>([])
 
@@ -131,15 +130,18 @@ export function SchemaRepositoryTable({ data, isLoading = false }: SchemaReposit
         enableHiding: true,
       },
       {
-        accessorKey: 'updatedAt',
-        header: 'Updated',
-        cell: ({ row }) => formatDate(row.original.updatedAt),
-        enableHiding: true,
-      },
-      {
-        accessorKey: 'deletedAt',
-        header: 'Deleted',
-        cell: ({ row }) => formatDate(row.original.deletedAt ?? undefined),
+        accessorKey: 'isSoftDeleted',
+        header: 'Soft deleted',
+        cell: ({ row }) =>
+          row.original.isSoftDeleted ? (
+            <Badge variant="destructive" className="bg-red-50 text-red-900 hover:bg-red-100">
+              Hidden
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-muted-foreground">
+              Visible
+            </Badge>
+          ),
         enableHiding: true,
       },
       {

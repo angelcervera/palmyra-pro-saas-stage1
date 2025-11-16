@@ -30,8 +30,8 @@ func TestService_ListSuccess(t *testing.T) {
 					SchemaVersion: persistence.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
 					Payload:       []byte(`{"name":"Lotus"}`),
 					CreatedAt:     createdAt,
-					UpdatedAt:     createdAt,
 					IsActive:      true,
+					IsSoftDeleted: false,
 				}},
 				Total: 1,
 			}, nil

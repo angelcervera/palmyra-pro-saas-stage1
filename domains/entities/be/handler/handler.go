@@ -171,13 +171,8 @@ func toAPIDocument(doc service.Document) (entitiesapi.EntityDocument, error) {
 		SchemaVersion: externalPrimitives.SemanticVersion(doc.SchemaVersion.String()),
 		Payload:       payload,
 		CreatedAt:     externalPrimitives.Timestamp(doc.CreatedAt),
-		UpdatedAt:     externalPrimitives.Timestamp(doc.UpdatedAt),
 		IsActive:      doc.IsActive,
-	}
-
-	if doc.DeletedAt != nil {
-		deleted := externalPrimitives.Timestamp(*doc.DeletedAt)
-		apiDoc.DeletedAt = &deleted
+		IsSoftDeleted: doc.IsSoftDeleted,
 	}
 
 	return apiDoc, nil

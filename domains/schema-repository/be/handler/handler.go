@@ -193,13 +193,8 @@ func toAPISchemaSafe(schema service.Schema) (schemarepository.SchemaVersion, err
 		Slug:             externalRef2.Slug(schema.Slug),
 		CategoryId:       externalRef2.UUID(schema.CategoryID),
 		CreatedAt:        externalRef2.Timestamp(schema.CreatedAt),
-		UpdatedAt:        externalRef2.Timestamp(schema.UpdatedAt),
 		IsActive:         schema.IsActive,
-	}
-
-	if schema.DeletedAt != nil {
-		deleted := externalRef2.Timestamp(*schema.DeletedAt)
-		apiSchema.DeletedAt = &deleted
+		IsSoftDeleted:    schema.IsSoftDeleted,
 	}
 
 	return apiSchema, nil
