@@ -304,15 +304,10 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		tableName: string,
 		document: Entities.EntityDocument,
 	): EntityRecord<TPayload> {
-		const enriched = document as Entities.EntityDocument & {
-			entityVersion?: string;
-		};
 		return {
 			tableName,
 			entityId: document.entityId,
-			// Entities API will expose entityVersion explicitly in a future revision.
-			// Until then we reuse schemaVersion so the interface has a stable identifier.
-			entityVersion: enriched.entityVersion ?? document.schemaVersion,
+			entityVersion: document.entityVersion,
 			schemaVersion: document.schemaVersion,
 			payload: fromWireJson<TPayload>(document.payload as JsonValue),
 			ts: new Date(document.createdAt),
