@@ -1,3 +1,3 @@
-export { createOfflinePersistenceClient } from "./adapters/offline";
-export { createOnlinePersistenceClient } from "./adapters/online";
 export * from "./core";
+export { createOfflinePersistenceClient } from "./providers/offline";
+export { createOnlineOpenAPIPersistenceClient } from "./providers/online-apisdk";

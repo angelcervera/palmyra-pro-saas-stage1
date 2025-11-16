@@ -1,6 +1,6 @@
 import type { SchemaIdentifier, SchemaIdentifierVersioned } from "./schemas";
 
-export interface EntityIdentifier {
+export interface EntityIdentifier extends SchemaIdentifier {
 	entityId: string;
 }
 
@@ -21,7 +21,7 @@ export interface SaveEntityInput<TPayload = unknown> extends SchemaIdentifier {
 	payload: TPayload;
 }
 
-export interface DeleteEntityInput extends EntityIdentifier, SchemaIdentifier {}
+export interface DeleteEntityInput extends EntityIdentifier {}
 
 export type BatchWrite =
 	| { type: "save"; data: SaveEntityInput }

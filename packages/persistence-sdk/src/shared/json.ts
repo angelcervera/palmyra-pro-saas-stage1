@@ -1,5 +1,5 @@
 type JsonPrimitive = string | number | boolean | null;
-type JsonValue =
+export type JsonValue =
 	| JsonPrimitive
 	| JsonValue[]
 	| {
