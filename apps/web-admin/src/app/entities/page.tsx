@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
-import EntitiesGrid from "./entities-grid"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
-import { entitiesClient, schemaRepositoryClient } from "@/lib/api"
 import { Entities, SchemaRepository } from "@zengateglobal/api-sdk"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { entitiesClient, schemaRepositoryClient } from "@/lib/api"
+import EntitiesGrid from "./entities-grid"
 
 // Demo page for an Excel-like JSON entities editor using Glide Data Grid.
 // Contract-first note: there is no Entities API in contracts yet. This page
@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 // the domain/paths exist.
 
 type Row = Record<string, unknown>
+type EntityDocument = Entities.EntityDocument
 
 const METADATA_KEYS = ["entityId", "schemaId", "schemaVersion", "createdAt", "updatedAt", "deletedAt", "isActive"]
 
@@ -101,18 +102,28 @@ export default function EntitiesPage() {
         query: { page: 1, pageSize: 20 },
       })
       const result = raw as Entities.ListDocumentsResponses[200]
-      const items = result?.items ?? []
+      const items: EntityDocument[] = result?.items ?? []
       // Flatten to grid: show payload fields at top-level but keep metadata
-      const flattened = items.map((it: any) => ({
-        entityId: it.entityId,
-        schemaId: it.schemaId,
-        schemaVersion: it.schemaVersion,
-        createdAt: it.createdAt,
-        updatedAt: it.updatedAt,
-        deletedAt: it.deletedAt,
-        isActive: it.isActive,
-        ...it.payload,
-      }))
+      const flattened = items.map((item) => {
+        const deletedAt =
+          "deletedAt" in item && typeof (item as { deletedAt?: unknown }).deletedAt === "string"
+            ? (item as { deletedAt?: string }).deletedAt
+            : undefined
+        const updatedAt =
+          "updatedAt" in item && typeof (item as { updatedAt?: unknown }).updatedAt === "string"
+            ? (item as { updatedAt?: string }).updatedAt
+            : undefined
+        return {
+          entityId: item.entityId,
+          schemaId: item.schemaId,
+          schemaVersion: item.schemaVersion,
+          createdAt: item.createdAt,
+          updatedAt,
+          deletedAt,
+          isActive: item.isActive,
+          ...item.payload,
+        }
+      })
       setRows(flattened)
       setBaselineRows(flattened)
     } catch (e) {

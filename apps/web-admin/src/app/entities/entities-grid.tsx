@@ -7,6 +7,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
 import { Separator } from "@/components/ui/separator"
 
 type RowObject = Record<string, unknown>
+type DataBackedCell = Extract<GridCell, { data?: unknown }>
+type TextCell = Extract<GridCell, { kind: GridCellKind.Text; data: string }>
 
 export type EntitiesGridProps = {
   rows: RowObject[]
@@ -33,7 +35,11 @@ export function EntitiesGrid({ rows: inputRows, onChange, primaryKey, readOnlyKe
 
   const allKeys = useMemo(() => {
     const keys = new Set<string>()
-    for (const r of rows) Object.keys(r).forEach((k) => keys.add(k))
+    for (const r of rows) {
+      Object.keys(r).forEach((k) => {
+        keys.add(k)
+      })
+    }
     return Array.from(keys)
   }, [rows])
 
@@ -103,15 +109,21 @@ export function EntitiesGrid({ rows: inputRows, onChange, primaryKey, readOnlyKe
         case GridCellKind.Boolean:
           current[key] = newValue.data
           break
-        default:
-          // Try to parse JSON for objects/arrays; fallback to string
-          const txt = (newValue as any).data as string
+        case GridCellKind.Text: {
+          const textCell = newValue as TextCell
+          const rawValue = textCell.data ?? ""
           try {
-            const parsed = JSON.parse(txt)
-            current[key] = parsed
+            current[key] = JSON.parse(rawValue)
           } catch {
-            current[key] = txt
+            current[key] = rawValue
           }
+          break
+        }
+        default: {
+          const fallbackValue = extractCellData(newValue)
+          current[key] = fallbackValue
+          break
+        }
       }
 
       next[row] = current
@@ -174,3 +186,24 @@ export function EntitiesGrid({ rows: inputRows, onChange, primaryKey, readOnlyKe
 }
 
 export default EntitiesGrid
+
+function extractCellData(cell: GridCell) {
+  if ("data" in cell) {
+    const value = (cell as DataBackedCell).data
+    if (typeof value === "string") {
+      return value
+    }
+    if (value === null || value === undefined) {
+      return ""
+    }
+    if (typeof value === "object") {
+      try {
+        return JSON.stringify(value)
+      } catch {
+        return String(value)
+      }
+    }
+    return value
+  }
+  return ""
+}
