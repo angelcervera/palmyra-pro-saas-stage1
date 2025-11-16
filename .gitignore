@@ -13,3 +13,4 @@ openapi-ts-error-*.log
 .env
 .gomodcache
 .gopath
+*.bak

@@ -82,7 +82,8 @@ flowchart LR
 ### 4.1 Typing model for entities
 
 - Entity structures are defined via JSON Schemas that can evolve independently of any given tenant frontend, which means the SDK cannot guarantee that all document payloads are statically known at compile time.
-- The SDK will therefore be strongly typed around its public API and metadata (IDs, schema identifiers, versions, pagination, errors, sync operations), while treating document payloads as schema-driven JSON values validated at runtime.
+- The SDK’s public surface accepts arbitrary app-level payloads (including `Date` instances or other rich objects). Internally, adapters normalize those payloads into JSON-safe wire values (dates → ISO strings, nested objects/arrays → JSON) before calling the backend or writing to offline storage, then surface the response back as the caller’s requested type.
+- Metadata timestamps (`createdAt`, `updatedAt`, `deletedAt`, etc.) are exposed as `Date` objects throughout the SDK; adapters handle string ↔ date conversion automatically.
 - Callers that want stronger typing for specific schemas can opt in by defining their own TypeScript types and layering them on top of the SDK (e.g., via generics plus runtime validation against the schema repository), but this remains a consumer choice rather than a hard guarantee from the SDK.
 
 ## 5. Public API Surface

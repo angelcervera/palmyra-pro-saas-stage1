@@ -17,3 +17,4 @@ tmp
 .idea
 .pnpm-store
 node_modules
+*.bak

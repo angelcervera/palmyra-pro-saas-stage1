@@ -1,2 +1,3 @@
 export * from './types';
-export * from './persistence-client';
+export * from './types/provider';
+export * from './client';
