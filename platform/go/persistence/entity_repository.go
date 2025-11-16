@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -56,8 +55,7 @@ type EntityRecord struct {
 	Slug          string          `json:"slug"`
 	Payload       json.RawMessage `json:"payload"`
 	CreatedAt     time.Time       `json:"createdAt"`
-	UpdatedAt     time.Time       `json:"updatedAt"`
-	DeletedAt     *time.Time      `json:"deletedAt,omitempty"`
+	IsSoftDeleted bool            `json:"isSoftDeleted"`
 	IsActive      bool            `json:"isActive"`
 }
 
@@ -169,9 +167,9 @@ func (r *EntityRepository) CreateEntity(ctx context.Context, params CreateEntity
 	version := SemanticVersion{Major: 1, Minor: 0, Patch: 0}
 	insertStmt := fmt.Sprintf(`
 		INSERT INTO %s (
-			entity_id, entity_version, schema_id, schema_version, slug, payload, is_active, created_at, updated_at, deleted_at
+			entity_id, entity_version, schema_id, schema_version, slug, payload, is_active, is_soft_deleted, created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, TRUE, NOW(), NOW(), NULL
+			$1, $2, $3, $4, $5, $6, TRUE, FALSE, NOW()
 		)`, r.tableIdent)
 
 	if _, err := tx.Exec(ctx, insertStmt, entityID, version.String(), schemaRecord.SchemaID, schemaRecord.VersionString(), slug, []byte(params.Payload)); err != nil {
@@ -179,7 +177,7 @@ func (r *EntityRepository) CreateEntity(ctx context.Context, params CreateEntity
 	}
 
 	selectStmt := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, updated_at, deleted_at, is_active
+		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
 		FROM %s
 		WHERE entity_id = $1 AND entity_version = $2
 	`, r.tableIdent)
@@ -222,9 +220,9 @@ func (r *EntityRepository) UpdateEntity(ctx context.Context, params UpdateEntity
 	defer tx.Rollback(ctx) // nolint:errcheck
 
 	activeSelect := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, updated_at, deleted_at, is_active
+		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
 		FROM %s
-		WHERE entity_id = $1 AND is_active = TRUE AND deleted_at IS NULL
+		WHERE entity_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE
 		FOR UPDATE
 	`, r.tableIdent)
 	currentRow := tx.QueryRow(ctx, activeSelect, params.EntityID)
@@ -248,7 +246,7 @@ func (r *EntityRepository) UpdateEntity(ctx context.Context, params UpdateEntity
 
 	deactivateStmt := fmt.Sprintf(`
 		UPDATE %s
-		SET is_active = FALSE, updated_at = NOW()
+		SET is_active = FALSE
 		WHERE entity_id = $1 AND entity_version = $2
 	`, r.tableIdent)
 	if _, err := tx.Exec(ctx, deactivateStmt, params.EntityID, currentRecord.EntityVersion.String()); err != nil {
@@ -257,9 +255,9 @@ func (r *EntityRepository) UpdateEntity(ctx context.Context, params UpdateEntity
 
 	insertStmt := fmt.Sprintf(`
 		INSERT INTO %s (
-			entity_id, entity_version, schema_id, schema_version, slug, payload, is_active, created_at, updated_at, deleted_at
+			entity_id, entity_version, schema_id, schema_version, slug, payload, is_active, is_soft_deleted, created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, TRUE, NOW(), NOW(), NULL
+			$1, $2, $3, $4, $5, $6, TRUE, FALSE, NOW()
 		)
 	`, r.tableIdent)
 	if _, err := tx.Exec(ctx, insertStmt, params.EntityID, nextVersion.String(), schemaRecord.SchemaID, schemaRecord.VersionString(), nextSlug, []byte(params.Payload)); err != nil {
@@ -267,7 +265,7 @@ func (r *EntityRepository) UpdateEntity(ctx context.Context, params UpdateEntity
 	}
 
 	selectStmt := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, updated_at, deleted_at, is_active
+		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
 		FROM %s
 		WHERE entity_id = $1 AND entity_version = $2
 	`, r.tableIdent)
@@ -291,9 +289,9 @@ func (r *EntityRepository) GetEntityByID(ctx context.Context, entityID uuid.UUID
 	}
 
 	query := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, updated_at, deleted_at, is_active
+		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
 		FROM %s
-		WHERE entity_id = $1 AND is_active = TRUE AND deleted_at IS NULL
+		WHERE entity_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE
 	`, r.tableIdent)
 
 	row := r.pool.QueryRow(ctx, query, entityID)
@@ -311,7 +309,7 @@ func (r *EntityRepository) GetEntityByID(ctx context.Context, entityID uuid.UUID
 // GetEntityVersion fetches a specific entity version.
 func (r *EntityRepository) GetEntityVersion(ctx context.Context, entityID uuid.UUID, version SemanticVersion) (EntityRecord, error) {
 	query := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, updated_at, deleted_at, is_active
+		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
 		FROM %s
 		WHERE entity_id = $1 AND entity_version = $2
 	`, r.tableIdent)
@@ -345,10 +343,10 @@ func (r *EntityRepository) ListEntities(ctx context.Context, params ListEntities
 	}
 
 	query := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, updated_at, deleted_at, is_active
+		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
 		FROM %s
 		WHERE ($1::bool = FALSE OR is_active = TRUE)
-		  AND ($2::bool = TRUE OR deleted_at IS NULL)
+		  AND ($2::bool = TRUE OR is_soft_deleted = FALSE)
 		ORDER BY %s %s
 		LIMIT $3 OFFSET $4
 	`, r.tableIdent, sortField, sortOrder)
@@ -381,7 +379,7 @@ func (r *EntityRepository) CountEntities(ctx context.Context, params ListEntitie
 		SELECT COUNT(*)
 		FROM %s
 		WHERE ($1::bool = FALSE OR is_active = TRUE)
-		  AND ($2::bool = TRUE OR deleted_at IS NULL)
+		  AND ($2::bool = TRUE OR is_soft_deleted = FALSE)
 	`, r.tableIdent)
 
 	var total int64
@@ -396,7 +394,7 @@ func sanitizeEntitySort(field, order string) (string, string, error) {
 	column := "created_at"
 	if field != "" {
 		switch field {
-		case "created_at", "updated_at", "slug":
+		case "created_at", "slug":
 			column = field
 		default:
 			return "", "", fmt.Errorf("unsupported sort field %q", field)
@@ -416,23 +414,20 @@ func sanitizeEntitySort(field, order string) (string, string, error) {
 }
 
 // SoftDeleteEntity marks all versions of the entity as deleted and non-active.
-func (r *EntityRepository) SoftDeleteEntity(ctx context.Context, entityID uuid.UUID, deletedAt time.Time) error {
+// deletedAt is ignored because entity versions are immutable and only track creation time.
+func (r *EntityRepository) SoftDeleteEntity(ctx context.Context, entityID uuid.UUID, _ time.Time) error {
 	if entityID == uuid.Nil {
 		return errors.New("entity id is required")
-	}
-	if deletedAt.IsZero() {
-		deletedAt = time.Now().UTC()
 	}
 
 	stmt := fmt.Sprintf(`
 		UPDATE %s
-		SET deleted_at = $2,
-		    is_active = FALSE,
-		    updated_at = NOW()
-		WHERE entity_id = $1 AND deleted_at IS NULL
+		SET is_soft_deleted = TRUE,
+		    is_active = FALSE
+		WHERE entity_id = $1 AND is_soft_deleted = FALSE
 	`, r.tableIdent)
 
-	tag, err := r.pool.Exec(ctx, stmt, entityID, deletedAt)
+	tag, err := r.pool.Exec(ctx, stmt, entityID)
 	if err != nil {
 		return fmt.Errorf("soft delete entity: %w", err)
 	}
@@ -475,21 +470,20 @@ CREATE TABLE IF NOT EXISTS %s (
 	slug TEXT NOT NULL CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
 	payload JSONB NOT NULL,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-	deleted_at TIMESTAMPTZ,
 	is_active BOOLEAN NOT NULL DEFAULT TRUE,
+	is_soft_deleted BOOLEAN NOT NULL DEFAULT FALSE,
 	PRIMARY KEY (entity_id, entity_version),
 	FOREIGN KEY (schema_id, schema_version) REFERENCES schema_repository(schema_id, schema_version)
 );`, r.tableIdent)
 
 	activeIndex := fmt.Sprintf(`
 CREATE UNIQUE INDEX IF NOT EXISTS %s_active_idx ON %s (entity_id)
-WHERE is_active AND deleted_at IS NULL;
+WHERE is_active AND NOT is_soft_deleted;
 `, r.tableName, r.tableIdent)
 
 	slugIndex := fmt.Sprintf(`
 CREATE UNIQUE INDEX IF NOT EXISTS %s_slug_active_idx ON %s (slug)
-WHERE is_active AND deleted_at IS NULL;
+WHERE is_active AND NOT is_soft_deleted;
 `, r.tableName, r.tableIdent)
 
 	schemaIndex := fmt.Sprintf(`
@@ -515,12 +509,11 @@ func scanEntityRecord(scanner rowScanner) (EntityRecord, error) {
 		slug          string
 		payload       []byte
 		createdAt     time.Time
-		updatedAt     time.Time
-		deletedAt     pgtype.Timestamptz
+		isSoftDeleted bool
 		isActive      bool
 	)
 
-	if err := scanner.Scan(&entityID, &entityVersion, &schemaID, &schemaVersion, &slug, &payload, &createdAt, &updatedAt, &deletedAt, &isActive); err != nil {
+	if err := scanner.Scan(&entityID, &entityVersion, &schemaID, &schemaVersion, &slug, &payload, &createdAt, &isSoftDeleted, &isActive); err != nil {
 		return EntityRecord{}, err
 	}
 
@@ -534,12 +527,6 @@ func scanEntityRecord(scanner rowScanner) (EntityRecord, error) {
 		return EntityRecord{}, fmt.Errorf("parse schema version %q: %w", schemaVersion, err)
 	}
 
-	var deletedPtr *time.Time
-	if deletedAt.Valid {
-		timeCopy := deletedAt.Time
-		deletedPtr = &timeCopy
-	}
-
 	return EntityRecord{
 		EntityID:      entityID,
 		EntityVersion: ev,
@@ -548,8 +535,7 @@ func scanEntityRecord(scanner rowScanner) (EntityRecord, error) {
 		Slug:          slug,
 		Payload:       json.RawMessage(payload),
 		CreatedAt:     createdAt,
-		UpdatedAt:     updatedAt,
-		DeletedAt:     deletedPtr,
+		IsSoftDeleted: isSoftDeleted,
 		IsActive:      isActive,
 	}, nil
 }

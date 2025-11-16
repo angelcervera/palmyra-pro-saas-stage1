@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -100,8 +99,8 @@ func (s *SchemaRepositoryStore) CreateOrUpdateSchema(ctx context.Context, params
 	if params.Activate {
 		if _, err = tx.Exec(ctx, `
 			UPDATE schema_repository
-			SET is_active = FALSE, updated_at = NOW()
-			WHERE schema_id = $1 AND deleted_at IS NULL
+			SET is_active = FALSE
+			WHERE schema_id = $1 AND is_soft_deleted = FALSE
 		`, params.SchemaID); err != nil {
 			return SchemaRecord{}, fmt.Errorf("deactivate previous schema versions: %w", err)
 		}
@@ -109,15 +108,14 @@ func (s *SchemaRepositoryStore) CreateOrUpdateSchema(ctx context.Context, params
 
 	if _, err = tx.Exec(ctx, `
         INSERT INTO schema_repository (
-            schema_id, schema_version, schema_definition, table_name, slug, category_id, is_active, created_at, updated_at, deleted_at
+            schema_id, schema_version, schema_definition, table_name, slug, category_id, is_active, is_soft_deleted, created_at
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), NULL
+            $1, $2, $3, $4, $5, $6, $7, FALSE, NOW()
         )
         ON CONFLICT (schema_id, schema_version)
         DO UPDATE
         SET schema_definition = EXCLUDED.schema_definition,
-            updated_at = NOW(),
-            deleted_at = NULL,
+            is_soft_deleted = FALSE,
             is_active = EXCLUDED.is_active,
             table_name = EXCLUDED.table_name,
             slug = EXCLUDED.slug,
@@ -127,7 +125,7 @@ func (s *SchemaRepositoryStore) CreateOrUpdateSchema(ctx context.Context, params
 	}
 
 	row := tx.QueryRow(ctx, `
-        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, updated_at, deleted_at, is_active
+        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, is_soft_deleted, is_active
         FROM schema_repository
         WHERE schema_id = $1 AND schema_version = $2
     `, params.SchemaID, params.Version.String())
@@ -147,9 +145,9 @@ func (s *SchemaRepositoryStore) CreateOrUpdateSchema(ctx context.Context, params
 // GetSchemaByVersion retrieves a specific schema version.
 func (s *SchemaRepositoryStore) GetSchemaByVersion(ctx context.Context, schemaID uuid.UUID, version SemanticVersion) (SchemaRecord, error) {
 	row := s.pool.QueryRow(ctx, `
-        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, updated_at, deleted_at, is_active
+        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, is_soft_deleted, is_active
         FROM schema_repository
-        WHERE schema_id = $1 AND schema_version = $2 AND deleted_at IS NULL
+        WHERE schema_id = $1 AND schema_version = $2 AND is_soft_deleted = FALSE
     `, schemaID, version.String())
 
 	record, err := scanSchemaRecord(row)
@@ -166,9 +164,9 @@ func (s *SchemaRepositoryStore) GetSchemaByVersion(ctx context.Context, schemaID
 // GetActiveSchema fetches the currently active schema for the provided identifier.
 func (s *SchemaRepositoryStore) GetActiveSchema(ctx context.Context, schemaID uuid.UUID) (SchemaRecord, error) {
 	row := s.pool.QueryRow(ctx, `
-        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, updated_at, deleted_at, is_active
+        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, is_soft_deleted, is_active
         FROM schema_repository
-        WHERE schema_id = $1 AND is_active = TRUE AND deleted_at IS NULL
+        WHERE schema_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE
     `, schemaID)
 
 	record, err := scanSchemaRecord(row)
@@ -185,7 +183,7 @@ func (s *SchemaRepositoryStore) GetActiveSchema(ctx context.Context, schemaID uu
 // ListSchemas returns every non-deleted schema version for the identifier ordered by version chronology.
 func (s *SchemaRepositoryStore) ListSchemas(ctx context.Context, schemaID uuid.UUID) ([]SchemaRecord, error) {
 	rows, err := s.pool.Query(ctx, `
-        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, updated_at, deleted_at, is_active
+        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, is_soft_deleted, is_active
         FROM schema_repository
         WHERE schema_id = $1
         ORDER BY created_at DESC
@@ -214,7 +212,7 @@ func (s *SchemaRepositoryStore) ListSchemas(ctx context.Context, schemaID uuid.U
 // ListAllSchemaVersions returns every schema version across all schema identifiers.
 func (s *SchemaRepositoryStore) ListAllSchemaVersions(ctx context.Context, includeInactive bool) ([]SchemaRecord, error) {
 	query := `
-        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, updated_at, deleted_at, is_active
+        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, is_soft_deleted, is_active
         FROM schema_repository
         WHERE $1::bool = TRUE OR is_active = TRUE
         ORDER BY created_at DESC
@@ -253,9 +251,9 @@ func (s *SchemaRepositoryStore) GetActiveSchemaByTableName(ctx context.Context, 
 	}
 
 	row := s.pool.QueryRow(ctx, `
-		SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, updated_at, deleted_at, is_active
+		SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, is_soft_deleted, is_active
 		FROM schema_repository
-		WHERE table_name = $1 AND is_active = TRUE AND deleted_at IS NULL
+		WHERE table_name = $1 AND is_active = TRUE AND is_soft_deleted = FALSE
 		LIMIT 1
 	`, normalized)
 
@@ -273,7 +271,7 @@ func (s *SchemaRepositoryStore) GetActiveSchemaByTableName(ctx context.Context, 
 // GetLatestSchemaBySlug returns the most recent schema record that matches the provided slug.
 func (s *SchemaRepositoryStore) GetLatestSchemaBySlug(ctx context.Context, slug string) (SchemaRecord, error) {
 	row := s.pool.QueryRow(ctx, `
-        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, updated_at, deleted_at, is_active
+        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, created_at, is_soft_deleted, is_active
         FROM schema_repository
         WHERE slug = $1
         ORDER BY created_at DESC
@@ -303,16 +301,16 @@ func (s *SchemaRepositoryStore) ActivateSchemaVersion(ctx context.Context, schem
 
 	if _, err = tx.Exec(ctx, `
 		UPDATE schema_repository
-		SET is_active = FALSE, updated_at = NOW()
-		WHERE schema_id = $1 AND deleted_at IS NULL
+		SET is_active = FALSE
+		WHERE schema_id = $1 AND is_soft_deleted = FALSE
 	`, schemaID); err != nil {
 		return fmt.Errorf("deactivate schemas: %w", err)
 	}
 
 	result, err := tx.Exec(ctx, `
 		UPDATE schema_repository
-		SET is_active = TRUE, updated_at = NOW()
-		WHERE schema_id = $1 AND schema_version = $2 AND deleted_at IS NULL
+		SET is_active = TRUE
+		WHERE schema_id = $1 AND schema_version = $2 AND is_soft_deleted = FALSE
 	`, schemaID, version.String())
 	if err != nil {
 		return fmt.Errorf("activate schema: %w", err)
@@ -327,14 +325,14 @@ func (s *SchemaRepositoryStore) ActivateSchemaVersion(ctx context.Context, schem
 }
 
 // SoftDeleteSchema marks the provided schema version as deleted and deactivates it when needed.
-func (s *SchemaRepositoryStore) SoftDeleteSchema(ctx context.Context, schemaID uuid.UUID, version SemanticVersion, deletedAt time.Time) error {
+// deletedAt is ignored because schema versions are immutable and only track creation timestamps.
+func (s *SchemaRepositoryStore) SoftDeleteSchema(ctx context.Context, schemaID uuid.UUID, version SemanticVersion, _ time.Time) error {
 	result, err := s.pool.Exec(ctx, `
 		UPDATE schema_repository
-		SET deleted_at = $3,
-		    is_active = FALSE,
-		    updated_at = NOW()
-		WHERE schema_id = $1 AND schema_version = $2 AND deleted_at IS NULL
-	`, schemaID, version.String(), deletedAt)
+		SET is_soft_deleted = TRUE,
+		    is_active = FALSE
+		WHERE schema_id = $1 AND schema_version = $2 AND is_soft_deleted = FALSE
+	`, schemaID, version.String())
 	if err != nil {
 		return fmt.Errorf("soft delete schema: %w", err)
 	}
@@ -353,31 +351,24 @@ type rowScanner interface {
 
 func scanSchemaRecord(scanner rowScanner) (SchemaRecord, error) {
 	var (
-		schemaID    uuid.UUID
-		versionText string
-		categoryID  uuid.UUID
-		tableName   string
-		slug        string
-		rawDef      []byte
-		createdAt   time.Time
-		updatedAt   time.Time
-		deletedAt   pgtype.Timestamptz
-		isActive    bool
+		schemaID      uuid.UUID
+		versionText   string
+		categoryID    uuid.UUID
+		tableName     string
+		slug          string
+		rawDef        []byte
+		createdAt     time.Time
+		isSoftDeleted bool
+		isActive      bool
 	)
 
-	if err := scanner.Scan(&schemaID, &versionText, &categoryID, &tableName, &slug, &rawDef, &createdAt, &updatedAt, &deletedAt, &isActive); err != nil {
+	if err := scanner.Scan(&schemaID, &versionText, &categoryID, &tableName, &slug, &rawDef, &createdAt, &isSoftDeleted, &isActive); err != nil {
 		return SchemaRecord{}, err
 	}
 
 	version, err := ParseSemanticVersion(versionText)
 	if err != nil {
 		return SchemaRecord{}, fmt.Errorf("parse schema version %q: %w", versionText, err)
-	}
-
-	var deletedPtr *time.Time
-	if deletedAt.Valid {
-		timeCopy := deletedAt.Time
-		deletedPtr = &timeCopy
 	}
 
 	return SchemaRecord{
@@ -388,8 +379,7 @@ func scanSchemaRecord(scanner rowScanner) (SchemaRecord, error) {
 		Slug:             slug,
 		CategoryID:       categoryID,
 		CreatedAt:        createdAt,
-		UpdatedAt:        updatedAt,
-		DeletedAt:        deletedPtr,
+		IsSoftDeleted:    isSoftDeleted,
 		IsActive:         isActive,
 	}, nil
 }

@@ -96,6 +96,7 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	require.Equal(t, SemanticVersion{Major: 1, Minor: 0, Patch: 0}, created.EntityVersion)
 	require.True(t, created.IsActive)
 	require.Equal(t, "black-lotus", created.Slug)
+	require.False(t, created.IsSoftDeleted)
 
 	fetched, err := entityRepo.GetEntityByID(ctx, created.EntityID)
 	require.NoError(t, err)
@@ -111,6 +112,7 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	require.Equal(t, created.EntityVersion.NextPatch(), updated.EntityVersion)
 	require.True(t, updated.IsActive)
 	require.Equal(t, "black-lotus", updated.Slug)
+	require.False(t, updated.IsSoftDeleted)
 
 	oldVersion, err := entityRepo.GetEntityVersion(ctx, created.EntityID, created.EntityVersion)
 	require.NoError(t, err)
@@ -160,6 +162,17 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 0, totalAfterDelete)
 
+	deletedRecords, err := entityRepo.ListEntities(ctx, ListEntitiesParams{
+		OnlyActive:     false,
+		IncludeDeleted: true,
+		Limit:          10,
+		SortField:      "created_at",
+		SortOrder:      "desc",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, deletedRecords)
+	require.True(t, deletedRecords[0].IsSoftDeleted)
+
 	_, err = entityRepo.CreateEntity(ctx, CreateEntityParams{
 		Slug:    "no-name",
 		Payload: SchemaDefinition([]byte(`{"rarity":"rare"}`)),
@@ -177,7 +190,7 @@ func TestSanitizeEntitySort(t *testing.T) {
 		wantErr   bool
 	}{
 		{name: "defaults", field: "", order: "", wantField: "created_at", wantOrder: "DESC"},
-		{name: "asc", field: "updated_at", order: "asc", wantField: "updated_at", wantOrder: "ASC"},
+		{name: "asc", field: "created_at", order: "asc", wantField: "created_at", wantOrder: "ASC"},
 		{name: "desc", field: "slug", order: "desc", wantField: "slug", wantOrder: "DESC"},
 		{name: "invalid-field", field: "DROP", order: "asc", wantErr: true},
 		{name: "invalid-order", field: "created_at", order: "sideways", wantErr: true},

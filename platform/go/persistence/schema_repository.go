@@ -24,8 +24,7 @@ CREATE TABLE IF NOT EXISTS schema_repository (
     slug TEXT NOT NULL CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
     category_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ,
+    is_soft_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (schema_id, schema_version),
     FOREIGN KEY (category_id) REFERENCES schema_categories(category_id)
@@ -33,19 +32,19 @@ CREATE TABLE IF NOT EXISTS schema_repository (
 
 CREATE UNIQUE INDEX IF NOT EXISTS schema_repository_active_schema_idx
     ON schema_repository(schema_id)
-    WHERE is_active AND deleted_at IS NULL;
+    WHERE is_active AND NOT is_soft_deleted;
 
 CREATE UNIQUE INDEX IF NOT EXISTS schema_repository_table_name_idx
     ON schema_repository(table_name)
-    WHERE deleted_at IS NULL AND is_active;
+    WHERE NOT is_soft_deleted AND is_active;
 
 CREATE UNIQUE INDEX IF NOT EXISTS schema_repository_slug_idx
     ON schema_repository(slug)
-    WHERE deleted_at IS NULL AND is_active;
+    WHERE NOT is_soft_deleted AND is_active;
 
 CREATE INDEX IF NOT EXISTS schema_repository_category_idx
     ON schema_repository(category_id)
-    WHERE deleted_at IS NULL;
+    WHERE NOT is_soft_deleted;
 `
 
 // SemanticVersion is a minimal semantic version representation (major.minor.patch).
@@ -133,8 +132,7 @@ type SchemaRecord struct {
 	Slug             string           `db:"slug" json:"slug"`
 	CategoryID       uuid.UUID        `db:"category_id" json:"categoryId"`
 	CreatedAt        time.Time        `db:"created_at" json:"createdAt"`
-	UpdatedAt        time.Time        `db:"updated_at" json:"updatedAt"`
-	DeletedAt        *time.Time       `db:"deleted_at,omitempty" json:"deletedAt,omitempty"`
+	IsSoftDeleted    bool             `db:"is_soft_deleted" json:"isSoftDeleted"`
 	IsActive         bool             `db:"is_active" json:"isActive"`
 }
 
