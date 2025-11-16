@@ -149,10 +149,13 @@ components:
     EntityDocument:
       type: object
       description: Immutable record representing a JSON document plus metadata.
-      required: [entityId, schemaId, schemaVersion, payload, createdAt, isActive, isSoftDeleted]
+      required: [entityId, entityVersion, schemaId, schemaVersion, payload, createdAt, isActive, isSoftDeleted]
       properties:
         entityId:
           $ref: "./common/primitives.yaml#/components/schemas/UUID"
+        entityVersion:
+          $ref: "./common/primitives.yaml#/components/schemas/SemanticVersion"
+          description: Semantic version of the immutable entity record.
         schemaId:
           $ref: "./common/primitives.yaml#/components/schemas/UUID"
         schemaVersion:

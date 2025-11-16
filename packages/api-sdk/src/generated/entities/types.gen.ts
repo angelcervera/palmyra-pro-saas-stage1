@@ -9,6 +9,7 @@ export type ClientOptions = {
  */
 export type EntityDocument = {
     entityId: PrimitivesUuid;
+    entityVersion: PrimitivesSemanticVersion;
     schemaId: PrimitivesUuid;
     schemaVersion: PrimitivesSemanticVersion;
     /**
