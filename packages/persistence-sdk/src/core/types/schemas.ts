@@ -9,9 +9,13 @@ export interface SchemaIdentifierVersioned extends SchemaIdentifier {
 	schemaVersion: string;
 }
 
+export type SchemaDefinition = {
+	[key: string]: unknown;
+};
+
 export interface SchemaMetadata extends SchemaIdentifier {
 	// version -> jsonSchema
-	versions: Map<string, string>;
+	versions: Map<string, SchemaDefinition>;
 	activeVersion: string;
 }
 

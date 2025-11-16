@@ -6,24 +6,23 @@ import {
 	type SchemaRepository,
 	type SchemaRepositoryClient,
 } from "@zengateglobal/api-sdk";
-import type {
-	BatchWrite,
-	DeleteEntityInput,
-	EntityIdentifier,
-	EntityRecord,
-	MetadataSnapshot,
-	PaginatedResult,
-	PaginationQuery,
-	PersistenceProvider,
-	SaveEntityInput,
-	SchemaIdentifier,
-	SchemaMetadata,
+import {
+	type BatchWrite,
+	BatchWriteError,
+	type DeleteEntityInput,
+	type EntityIdentifier,
+	type EntityRecord,
+	type MetadataSnapshot,
+	type PaginatedResult,
+	type PaginationQuery,
+	type PersistenceProvider,
+	type SaveEntityInput,
+	type SchemaDefinition,
+	type SchemaIdentifier,
+	type SchemaMetadata,
 } from "../../core";
-import { BatchWriteError } from "../../core";
 import { describeProviderError, wrapProviderError } from "../../shared/errors";
-import { fromWireJson, type JsonValue, toWireJson } from "../../shared/json";
-
-type JsonObject = Record<string, unknown>;
+import { fromWireJson, type JsonValue, toJsonObject } from "../../shared/json";
 
 const BEARER_SECURITY = Object.freeze([
 	{
@@ -53,10 +52,6 @@ export interface OnlineApiSdkProviderOptions {
 	 * Supplies the JWT used for bearer authentication.
 	 */
 	readonly getToken?: TokenSupplier;
-	/**
-	 * When true, schema metadata requests include inactive versions as well.
-	 */
-	readonly includeInactiveSchemas?: boolean;
 }
 
 export function createOnlineApiSdkProvider(
@@ -73,11 +68,9 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 	private readonly entitiesClient: EntitiesClient;
 	private readonly schemaRepositoryClient: SchemaRepositoryClient;
 	private readonly tokenSupplier?: TokenSupplier;
-	private readonly includeInactiveSchemas: boolean;
 
 	constructor(options: OnlineApiSdkProviderOptions) {
 		this.tokenSupplier = options.getToken;
-		this.includeInactiveSchemas = Boolean(options.includeInactiveSchemas);
 		const sharedConfig = {
 			baseUrl: options.baseUrl,
 			fetch: options.fetch,
@@ -98,9 +91,7 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 				"data"
 			>({
 				url: "/schema-repository/schemas",
-				query: this.includeInactiveSchemas
-					? { includeInactive: true }
-					: undefined,
+				query: { includeInactive: true },
 				security: BEARER_SECURITY,
 			});
 
@@ -175,7 +166,7 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		input: SaveEntityInput<TPayload>,
 	): Promise<EntityRecord<TPayload>> {
 		try {
-			const payload = this.normalizePayload(input.payload);
+			const payload = toJsonObject(input.payload);
 			if (input.entityId) {
 				const updated = await this.entitiesClient.patch<
 					Entities.UpdateDocumentResponses,
@@ -276,15 +267,12 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 			if (!entry) {
 				entry = {
 					tableName: schema.tableName,
-					versions: new Map<string, string>(),
+					versions: new Map<string, SchemaDefinition>(),
 					activeVersion: schema.schemaVersion,
 				};
 				tables.set(schema.tableName, entry);
 			}
-			entry.versions.set(
-				schema.schemaVersion,
-				JSON.stringify(schema.schemaDefinition ?? {}),
-			);
+			entry.versions.set(schema.schemaVersion, schema.schemaDefinition ?? {});
 			if (schema.isActive) {
 				entry.activeVersion = schema.schemaVersion;
 			}
@@ -310,18 +298,6 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 			query.pageSize = pagination.pageSize;
 		}
 		return Object.keys(query).length > 0 ? query : undefined;
-	}
-
-	private normalizePayload(payload: unknown): JsonObject {
-		const jsonValue = toWireJson(payload);
-		if (
-			jsonValue === null ||
-			typeof jsonValue !== "object" ||
-			Array.isArray(jsonValue)
-		) {
-			throw new Error("Entity payload must serialize to a JSON object");
-		}
-		return jsonValue as JsonObject;
 	}
 
 	private toEntityRecord<TPayload>(

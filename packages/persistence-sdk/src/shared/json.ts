@@ -6,6 +6,8 @@ export type JsonValue =
 			[key: string]: JsonValue;
 	  };
 
+export type JsonObject = Record<string, JsonValue>;
+
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
 	if (value === null || typeof value !== "object") {
 		return false;
@@ -33,7 +35,7 @@ export function toWireJson(value: unknown, path: string[] = []): JsonValue {
 	}
 
 	if (isPlainObject(value)) {
-		const result: Record<string, JsonValue> = {};
+		const result: JsonObject = {};
 		for (const [key, entry] of Object.entries(value)) {
 			result[key] = toWireJson(entry, [...path, key]);
 		}
@@ -52,3 +54,15 @@ export const fromWireJson = <TPayload = unknown>(
 ): TPayload => {
 	return value as unknown as TPayload;
 };
+
+export function toJsonObject(value: unknown): JsonObject {
+	const jsonValue = toWireJson(value);
+	if (
+		jsonValue === null ||
+		typeof jsonValue !== "object" ||
+		Array.isArray(jsonValue)
+	) {
+		throw new Error("Value must serialize to a JSON object");
+	}
+	return jsonValue as JsonObject;
+}
