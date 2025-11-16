@@ -19,8 +19,7 @@ export interface SaveEntityInput<TPayload = unknown> extends SchemaIdentifier {
     payload: TPayload;
 }
 
-export interface DeleteEntityInput extends SchemaIdentifier {
-    entityId: string;
+export interface DeleteEntityInput extends EntityIdentifier, SchemaIdentifier {
 }
 
 export type BatchWrite =
