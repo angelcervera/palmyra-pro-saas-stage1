@@ -149,7 +149,7 @@ components:
     EntityDocument:
       type: object
       description: Immutable record representing a JSON document plus metadata.
-      required: [entityId, schemaId, schemaVersion, payload, createdAt, updatedAt, isActive]
+      required: [entityId, schemaId, schemaVersion, payload, createdAt, isActive, isSoftDeleted]
       properties:
         entityId:
           $ref: "./common/primitives.yaml#/components/schemas/UUID"
@@ -163,15 +163,12 @@ components:
           additionalProperties: true
         createdAt:
           $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
-        updatedAt:
-          $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
-        deletedAt:
-          allOf:
-            - $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
-          nullable: true
         isActive:
           type: boolean
           description: Indicates whether this is the active record version.
+        isSoftDeleted:
+          type: boolean
+          description: Logical delete flag; true when this document version should be hidden from default queries.
 
     CreateEntityDocumentRequest:
       type: object
@@ -187,4 +184,3 @@ components:
         payload:
           type: object
           additionalProperties: true
-

@@ -113,8 +113,8 @@ components:
         - slug
         - categoryId
         - createdAt
-        - updatedAt
         - isActive
+        - isSoftDeleted
       properties:
         schemaId:
           $ref: "./common/primitives.yaml#/components/schemas/UUID"
@@ -132,15 +132,12 @@ components:
           $ref: "./common/primitives.yaml#/components/schemas/UUID"
         createdAt:
           $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
-        updatedAt:
-          $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
-        deletedAt:
-          allOf:
-            - $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
-          nullable: true
         isActive:
           type: boolean
           description: Indicates whether the schema version is the currently active definition.
+        isSoftDeleted:
+          type: boolean
+          description: Logical delete flag; true when the schema version is hidden from default consumers.
     SchemaVersionList:
       type: object
       description: Collection of schema versions.
