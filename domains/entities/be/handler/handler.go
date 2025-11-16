@@ -167,6 +167,7 @@ func toAPIDocument(doc service.Document) (entitiesapi.EntityDocument, error) {
 
 	apiDoc := entitiesapi.EntityDocument{
 		EntityId:      externalPrimitives.UUID(doc.EntityID),
+		EntityVersion: externalPrimitives.SemanticVersion(doc.EntityVersion.String()),
 		SchemaId:      externalPrimitives.UUID(doc.SchemaID),
 		SchemaVersion: externalPrimitives.SemanticVersion(doc.SchemaVersion.String()),
 		Payload:       payload,

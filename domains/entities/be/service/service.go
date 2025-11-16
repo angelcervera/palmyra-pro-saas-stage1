@@ -35,6 +35,7 @@ var (
 // Document represents an entity record enriched for API rendering.
 type Document struct {
 	EntityID      uuid.UUID
+	EntityVersion persistence.SemanticVersion
 	SchemaID      uuid.UUID
 	SchemaVersion persistence.SemanticVersion
 	Payload       map[string]interface{}
@@ -218,6 +219,7 @@ func mapRecord(record persistence.EntityRecord) (Document, error) {
 
 	return Document{
 		EntityID:      record.EntityID,
+		EntityVersion: record.EntityVersion,
 		SchemaID:      record.SchemaID,
 		SchemaVersion: record.SchemaVersion,
 		Payload:       payload,
