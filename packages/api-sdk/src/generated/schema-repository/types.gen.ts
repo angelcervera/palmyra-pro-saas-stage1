@@ -20,12 +20,14 @@ export type SchemaVersion = {
     slug: PrimitivesSlug;
     categoryId: PrimitivesUuid;
     createdAt: PrimitivesTimestamp;
-    updatedAt: PrimitivesTimestamp;
-    deletedAt?: PrimitivesTimestamp | null;
     /**
      * Indicates whether the schema version is the currently active definition.
      */
     isActive: boolean;
+    /**
+     * Logical delete flag; true when the schema version is hidden from default consumers.
+     */
+    isSoftDeleted: boolean;
 };
 
 /**

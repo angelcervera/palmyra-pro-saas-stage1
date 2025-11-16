@@ -42,6 +42,16 @@ pnpm -F @zengateglobal/api-sdk build
 
 This will compile sources (including `src/generated`) and emit ESM to `dist/`.
 
+## Regenerate OpenAPI Clients
+
+Whenever the contracts under `contracts/*.yaml` change, regenerate the TypeScript clients from the **repository root**:
+
+```
+pnpm run openapi:ts
+```
+
+This script runs the shared OpenAPI-to-TypeScript generator and overwrites the `src/generated/<domain>` folders.
+
 ## Publish
 
 ```
