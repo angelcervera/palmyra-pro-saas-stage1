@@ -4,7 +4,7 @@ export interface EntityIdentifier {
     entityId: string
 }
 
-export interface EntityIdentifierVersioned extends EntityIdentifier{
+export interface EntityIdentifierVersioned extends EntityIdentifier {
     entityVersion: string;
 }
 
@@ -17,12 +17,10 @@ export interface EntityRecord<TPayload = unknown> extends SchemaIdentifierVersio
 export interface SaveEntityInput<TPayload = unknown> extends SchemaIdentifier {
     entityId?: string;
     payload: TPayload;
-    reason?: string;
 }
 
 export interface DeleteEntityInput extends SchemaIdentifier {
     entityId: string;
-    reason?: string;
 }
 
 export type BatchWrite =
