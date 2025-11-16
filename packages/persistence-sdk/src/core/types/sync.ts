@@ -1,4 +1,4 @@
-import { SchemaIdentifier } from "./schemas";
+import type { SchemaIdentifier } from "./schemas";
 
 // This is a temporary interface until we have a proper sync contract defined.
 

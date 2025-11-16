@@ -1,4 +1,4 @@
-import { SchemaIdentifier, SchemaIdentifierVersioned } from "./schemas";
+import type { SchemaIdentifier, SchemaIdentifierVersioned } from "./schemas";
 
 export interface EntityIdentifier {
 	entityId: string;

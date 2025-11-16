@@ -1,12 +1,12 @@
-import { MetadataSnapshot, SchemaIdentifier } from "./schemas";
-import {
+import type {
 	BatchWrite,
 	DeleteEntityInput,
 	EntityIdentifier,
 	EntityRecord,
 	SaveEntityInput,
 } from "./entities";
-import { PaginatedResult, PaginationQuery } from "./pagination";
+import type { PaginatedResult, PaginationQuery } from "./pagination";
+import type { MetadataSnapshot, SchemaIdentifier } from "./schemas";
 
 /**
  * Defines the contract between the SDK client and any persistence provider.
