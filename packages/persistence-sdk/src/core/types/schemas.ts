@@ -2,21 +2,21 @@
  * Schema/table metadata types.
  */
 export interface SchemaIdentifier {
-    tableName: string;
+	tableName: string;
 }
 
 export interface SchemaIdentifierVersioned extends SchemaIdentifier {
-    schemaVersion: string;
+	schemaVersion: string;
 }
 
 export interface SchemaMetadata extends SchemaIdentifier {
-    // version -> jsonSchema
-    versions: Map<string, string>;
-    activeVersion: string;
+	// version -> jsonSchema
+	versions: Map<string, string>;
+	activeVersion: string;
 }
 
 export interface MetadataSnapshot {
-    // tableName -> SchemaMetadata
-    tables: Map<string, SchemaMetadata>;
-    fetchedAt: Date;
+	// tableName -> SchemaMetadata
+	tables: Map<string, SchemaMetadata>;
+	fetchedAt: Date;
 }

@@ -1,14 +1,14 @@
 {
-  "compilerOptions": {
-    "composite": true,
-    "module": "ESNext",
-    "target": "ES2022",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "skipLibCheck": true,
-    "jsx": "react-jsx",
-    "noEmit": true,
-    "baseUrl": "."
-  },
-  "include": ["src"]
+	"compilerOptions": {
+		"composite": true,
+		"module": "ESNext",
+		"target": "ES2022",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"skipLibCheck": true,
+		"jsx": "react-jsx",
+		"noEmit": true,
+		"baseUrl": "."
+	},
+	"include": ["src"]
 }

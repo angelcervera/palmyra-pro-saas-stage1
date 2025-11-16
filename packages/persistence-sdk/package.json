@@ -1,37 +1,37 @@
 {
-  "name": "@zengateglobal/persistence-sdk",
-  "version": "0.1.0",
-  "description": "Tenant persistence client SDK for Palmyra Pro (online/offline adapters)",
-  "private": false,
-  "type": "module",
-  "sideEffects": false,
-  "license": "UNLICENSED",
-  "engines": {
-    "node": ">=24 <25",
-    "pnpm": ">=10.20.0 <11"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "format": "pnpm biome format --write .",
-    "lint": "pnpm biome lint .",
-    "check": "pnpm biome check .",
-    "prepublishOnly": "pnpm run build"
-  },
-  "dependencies": {
-    "@zengateglobal/api-sdk": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "~5.9.3"
-  }
+	"name": "@zengateglobal/persistence-sdk",
+	"version": "0.1.0",
+	"description": "Tenant persistence client SDK for Palmyra Pro (online/offline adapters)",
+	"private": false,
+	"type": "module",
+	"sideEffects": false,
+	"license": "UNLICENSED",
+	"engines": {
+		"node": ">=24 <25",
+		"pnpm": ">=10.20.0 <11"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"format": "pnpm biome format --write .",
+		"lint": "pnpm biome lint .",
+		"check": "pnpm biome check .",
+		"prepublishOnly": "pnpm run build"
+	},
+	"dependencies": {
+		"@zengateglobal/api-sdk": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "~5.9.3"
+	}
 }

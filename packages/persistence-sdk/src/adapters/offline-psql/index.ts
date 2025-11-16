@@ -1,5 +1,5 @@
-import type { PersistenceProvider } from '../../core';
+import type { PersistenceProvider } from "../../core";
 
 export function createOfflinePersistenceClient(): PersistenceProvider {
-  throw new Error('Not implemented');
+	throw new Error("Not implemented");
 }

@@ -1,39 +1,43 @@
-import {SchemaIdentifier, SchemaIdentifierVersioned} from "./schemas";
+import { SchemaIdentifier, SchemaIdentifierVersioned } from "./schemas";
 
 export interface EntityIdentifier {
-    entityId: string
+	entityId: string;
 }
 
 export interface EntityIdentifierVersioned extends EntityIdentifier {
-    entityVersion: string;
+	entityVersion: string;
 }
 
-export interface EntityRecord<TPayload = unknown> extends SchemaIdentifierVersioned, EntityIdentifierVersioned {
-    payload: TPayload;
-    ts: Date;
-    isDeleted: boolean;
+export interface EntityRecord<TPayload = unknown>
+	extends SchemaIdentifierVersioned,
+		EntityIdentifierVersioned {
+	payload: TPayload;
+	ts: Date;
+	isDeleted: boolean;
 }
 
 export interface SaveEntityInput<TPayload = unknown> extends SchemaIdentifier {
-    entityId?: string;
-    payload: TPayload;
+	entityId?: string;
+	payload: TPayload;
 }
 
-export interface DeleteEntityInput extends EntityIdentifier, SchemaIdentifier {
-}
+export interface DeleteEntityInput extends EntityIdentifier, SchemaIdentifier {}
 
 export type BatchWrite =
-    | { type: 'save'; data: SaveEntityInput }
-    | { type: 'delete'; data: DeleteEntityInput };
-
+	| { type: "save"; data: SaveEntityInput }
+	| { type: "delete"; data: DeleteEntityInput };
 
 export class BatchWriteError extends Error {
-    readonly tableName: string;
-    readonly entityId?: string;
+	readonly tableName: string;
+	readonly entityId?: string;
 
-    constructor(params: { tableName: string; entityId?: string; reason: string }) {
-        super(params.reason);
-        this.tableName = params.tableName;
-        this.entityId = params.entityId;
-    }
+	constructor(params: {
+		tableName: string;
+		entityId?: string;
+		reason: string;
+	}) {
+		super(params.reason);
+		this.tableName = params.tableName;
+		this.entityId = params.entityId;
+	}
 }
