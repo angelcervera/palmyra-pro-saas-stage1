@@ -24,6 +24,13 @@
   - SDK (when contracts or generated clients change): `pnpm -F @zengateglobal/api-sdk build`
 - Do not submit changes with failing FE builds. Treat the build as a validation gate similar to `go test` for backend.
 
+### Frontend Biome Gate (format → lint → check)
+- Whenever modifying frontend TypeScript or React files (`apps/web-admin`, `packages/api-sdk`, `packages/persistence-sdk`), run Biome from each affected package before building:
+  - `pnpm run format`
+  - `pnpm run lint`
+  - `pnpm run check`
+- This ensures formatting, linting, and diagnostics stay consistent for the AI agent; backend Go code must continue to use `go fmt`.
+
 ## Coding Style & Contract Conventions
 - Stay contract-first: update OpenAPI first, regenerate, then touch domain code.
 - JSON payloads are camelCase; align struct tags with the schemas and reference shared components via `$ref`.

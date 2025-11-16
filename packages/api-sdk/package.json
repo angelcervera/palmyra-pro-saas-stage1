@@ -27,6 +27,9 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "format": "pnpm biome format --write .",
+    "lint": "pnpm biome lint .",
+    "check": "pnpm biome check .",
     "prepublishOnly": "pnpm run build"
   },
   "devDependencies": {

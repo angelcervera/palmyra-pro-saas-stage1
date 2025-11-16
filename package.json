@@ -8,8 +8,11 @@
   },
   "scripts": {
     "openapi:ts": "pnpm dlx @hey-api/openapi-ts@0.86.11 -f tools/codegen/openapi/ts/openapi-ts.config.ts",
+    "format": "pnpm biome format --write .",
+    "lint": "pnpm biome lint .",
+    "check": "pnpm biome check .",
     "lint:biome": "pnpm biome lint .",
-    "format:biome": "pnpm biome format ."
+    "format:biome": "pnpm biome format --write ."
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.5"
