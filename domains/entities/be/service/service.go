@@ -244,8 +244,6 @@ func normalizeSort(sort string) (string, string) {
 	}
 
 	switch field {
-	case "updatedAt":
-		return "created_at", order
 	case "slug":
 		return "slug", order
 	case "createdAt":

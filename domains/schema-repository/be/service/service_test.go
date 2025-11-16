@@ -1,4 +1,4 @@
-package tests
+package service
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	domainrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/repo"
-	"github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/service"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 )
 
@@ -18,11 +17,11 @@ func TestServiceCreateSuccess(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepository()
-	svc := service.New(repo)
+	svc := New(repo)
 
 	categoryID := uuid.New()
 
-	created, err := svc.Create(context.Background(), service.CreateInput{
+	created, err := svc.Create(context.Background(), CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "Cards-Schema",
@@ -39,9 +38,9 @@ func TestServiceCreateConflict(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepository()
-	svc := service.New(repo)
+	svc := New(repo)
 
-	initial, err := svc.Create(context.Background(), service.CreateInput{
+	initial, err := svc.Create(context.Background(), CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "cards-schema",
@@ -49,7 +48,7 @@ func TestServiceCreateConflict(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = svc.Create(context.Background(), service.CreateInput{
+	_, err = svc.Create(context.Background(), CreateInput{
 		SchemaID:   uuidPtr(initial.SchemaID),
 		Version:    versionPtr(initial.Version),
 		Definition: json.RawMessage(`{"title":"schema-v1-duplicate"}`),
@@ -57,16 +56,16 @@ func TestServiceCreateConflict(t *testing.T) {
 		Slug:       "cards-schema",
 		CategoryID: uuid.New(),
 	})
-	require.ErrorIs(t, err, service.ErrConflict)
+	require.ErrorIs(t, err, ErrConflict)
 }
 
 func TestServiceCreateRejectsSlugChange(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepository()
-	svc := service.New(repo)
+	svc := New(repo)
 
-	result, err := svc.Create(context.Background(), service.CreateInput{
+	result, err := svc.Create(context.Background(), CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "cards-schema",
@@ -74,7 +73,7 @@ func TestServiceCreateRejectsSlugChange(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = svc.Create(context.Background(), service.CreateInput{
+	_, err = svc.Create(context.Background(), CreateInput{
 		SchemaID:   uuidPtr(result.SchemaID),
 		Definition: json.RawMessage(`{"title":"schema-v2"}`),
 		TableName:  "cards_entities",
@@ -82,7 +81,7 @@ func TestServiceCreateRejectsSlugChange(t *testing.T) {
 		CategoryID: uuid.New(),
 	})
 
-	var validationErr *service.ValidationError
+	var validationErr *ValidationError
 	require.ErrorAs(t, err, &validationErr)
 	require.Contains(t, validationErr.Fields, "slug")
 }
@@ -91,9 +90,9 @@ func TestServiceListFiltersDeleted(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepository()
-	svc := service.New(repo)
+	svc := New(repo)
 
-	first, err := svc.Create(context.Background(), service.CreateInput{
+	first, err := svc.Create(context.Background(), CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "cards-schema",
@@ -103,7 +102,7 @@ func TestServiceListFiltersDeleted(t *testing.T) {
 
 	require.NoError(t, svc.Delete(context.Background(), first.SchemaID, first.Version))
 
-	second, err := svc.Create(context.Background(), service.CreateInput{
+	second, err := svc.Create(context.Background(), CreateInput{
 		SchemaID:   uuidPtr(first.SchemaID),
 		Definition: json.RawMessage(`{"title":"schema-v2"}`),
 		TableName:  "cards_entities",
@@ -126,9 +125,9 @@ func TestServiceListAll(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepository()
-	svc := service.New(repo)
+	svc := New(repo)
 
-	first, err := svc.Create(context.Background(), service.CreateInput{
+	first, err := svc.Create(context.Background(), CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "cards-schema",
@@ -136,7 +135,7 @@ func TestServiceListAll(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = svc.Create(context.Background(), service.CreateInput{
+	_, err = svc.Create(context.Background(), CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-two"}`),
 		TableName:  "another_entities",
 		Slug:       "schema-two",
@@ -163,9 +162,9 @@ func TestServiceActivateSwitchesActiveVersion(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepository()
-	svc := service.New(repo)
+	svc := New(repo)
 
-	createdV1, err := svc.Create(context.Background(), service.CreateInput{
+	createdV1, err := svc.Create(context.Background(), CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "cards-schema",
@@ -173,7 +172,7 @@ func TestServiceActivateSwitchesActiveVersion(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	createdV2, err := svc.Create(context.Background(), service.CreateInput{
+	createdV2, err := svc.Create(context.Background(), CreateInput{
 		SchemaID:   uuidPtr(createdV1.SchemaID),
 		Definition: json.RawMessage(`{"title":"schema-v2"}`),
 		TableName:  "cards_entities",
@@ -195,10 +194,10 @@ func TestServiceDeleteNotFound(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepository()
-	svc := service.New(repo)
+	svc := New(repo)
 
 	err := svc.Delete(context.Background(), uuid.New(), persistence.SemanticVersion{Major: 1, Minor: 0, Patch: 0})
-	require.ErrorIs(t, err, service.ErrNotFound)
+	require.ErrorIs(t, err, ErrNotFound)
 }
 
 func extractTitle(t *testing.T, raw json.RawMessage) string {
@@ -235,8 +234,7 @@ func (f *fakeRepository) Upsert(ctx context.Context, params persistence.CreateSc
 		record.CategoryID = params.CategoryID
 		record.Slug = params.Slug
 		record.TableName = params.TableName
-		record.DeletedAt = nil
-		record.UpdatedAt = now
+		record.IsSoftDeleted = false
 		if params.Activate {
 			f.deactivateAll(params.SchemaID)
 		}
@@ -257,8 +255,8 @@ func (f *fakeRepository) Upsert(ctx context.Context, params persistence.CreateSc
 		Slug:             params.Slug,
 		CategoryID:       params.CategoryID,
 		CreatedAt:        now,
-		UpdatedAt:        now,
 		IsActive:         params.Activate,
+		IsSoftDeleted:    false,
 	}
 
 	schemaMap[versionKey] = record
@@ -272,7 +270,7 @@ func (f *fakeRepository) GetByVersion(ctx context.Context, schemaID uuid.UUID, v
 	}
 
 	record, ok := schemaMap[version.String()]
-	if !ok || record.DeletedAt != nil {
+	if !ok || record.IsSoftDeleted {
 		return persistence.SchemaRecord{}, persistence.ErrSchemaNotFound
 	}
 
@@ -286,7 +284,7 @@ func (f *fakeRepository) GetActive(ctx context.Context, schemaID uuid.UUID) (per
 	}
 
 	for _, record := range schemaMap {
-		if record.IsActive && record.DeletedAt == nil {
+		if record.IsActive && !record.IsSoftDeleted {
 			return record, nil
 		}
 	}
@@ -312,6 +310,9 @@ func (f *fakeRepository) ListAll(ctx context.Context, includeInactive bool) ([]p
 	var results []persistence.SchemaRecord
 	for _, schemaMap := range f.records {
 		for _, record := range schemaMap {
+			if record.IsSoftDeleted && !includeInactive {
+				continue
+			}
 			if !includeInactive && !record.IsActive {
 				continue
 			}
@@ -322,14 +323,22 @@ func (f *fakeRepository) ListAll(ctx context.Context, includeInactive bool) ([]p
 }
 
 func (f *fakeRepository) GetLatestBySlug(ctx context.Context, slug string) (persistence.SchemaRecord, error) {
+	var latest *persistence.SchemaRecord
 	for _, schemaMap := range f.records {
 		for _, record := range schemaMap {
-			if record.Slug == slug && record.DeletedAt == nil {
-				return record, nil
+			if record.Slug != slug || record.IsSoftDeleted {
+				continue
+			}
+			if latest == nil || record.CreatedAt.After(latest.CreatedAt) {
+				tmp := record
+				latest = &tmp
 			}
 		}
 	}
-	return persistence.SchemaRecord{}, persistence.ErrSchemaNotFound
+	if latest == nil {
+		return persistence.SchemaRecord{}, persistence.ErrSchemaNotFound
+	}
+	return *latest, nil
 }
 
 func (f *fakeRepository) Activate(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion) error {
@@ -339,14 +348,13 @@ func (f *fakeRepository) Activate(ctx context.Context, schemaID uuid.UUID, versi
 	}
 
 	record, ok := schemaMap[version.String()]
-	if !ok || record.DeletedAt != nil {
+	if !ok || record.IsSoftDeleted {
 		return persistence.ErrSchemaNotFound
 	}
 
 	f.deactivateAll(schemaID)
 
 	record.IsActive = true
-	record.UpdatedAt = time.Now().UTC()
 	schemaMap[version.String()] = record
 
 	return nil
@@ -359,13 +367,12 @@ func (f *fakeRepository) SoftDelete(ctx context.Context, schemaID uuid.UUID, ver
 	}
 
 	record, ok := schemaMap[version.String()]
-	if !ok || record.DeletedAt != nil {
+	if !ok || record.IsSoftDeleted {
 		return persistence.ErrSchemaNotFound
 	}
 
-	record.DeletedAt = &deletedAt
 	record.IsActive = false
-	record.UpdatedAt = deletedAt
+	record.IsSoftDeleted = true
 	schemaMap[version.String()] = record
 	return nil
 }
@@ -388,10 +395,6 @@ func cloneRaw(raw json.RawMessage) json.RawMessage {
 }
 
 var _ domainrepo.Repository = (*fakeRepository)(nil)
-
-func uuidPtr(id uuid.UUID) *uuid.UUID {
-	return &id
-}
 
 func versionPtr(v persistence.SemanticVersion) *persistence.SemanticVersion {
 	return &v
