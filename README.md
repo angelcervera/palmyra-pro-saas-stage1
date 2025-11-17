@@ -10,8 +10,8 @@ This README consolidates the essentials to understand the project, navigate the 
 - [Branching & Release Policy](docs/branching-policy.md) — trunk‑based workflow, PR gates, SemVer releases.
 - [ADR Index](docs/adr/index.md) — architecture decisions with status and dates.
 - [Agent Docs Index](docs/agent-index.yaml) — canonical index for agent‑readable docs and commands.
-- [API Conventions](docs/api.md) — naming, methods, status codes, pagination, ProblemDetails.
-- [API Server Guideline](docs/api-server.md) — backend rulebook: contract‑first, routing, auth, testing, codegen.
+- [API Conventions](docs/api/api.md) — naming, methods, status codes, pagination, ProblemDetails.
+- [API Server Guideline](docs/api/api-server.md) — backend rulebook: contract‑first, routing, auth, testing, codegen.
 - [Persistence Layer](docs/persistence-layer/persistent-layer.md) — document‑oriented persistence on PostgreSQL with schema versioning.
 - [Web App Guide](docs/web-app.md) — React 19 admin shell, build steps, SDK usage.
 - [Auth Testing Playbook](docs/auth-testing.md) — practical steps for exercising dev (unsigned) and Firebase auth flows.

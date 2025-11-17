@@ -223,7 +223,7 @@ Also, we will generate a Mock implementation using MSW (Mock Service Worker).
 The project uses **OpenAPI 3.0.4** or later to support embedded JSON Schemas.  
 The API definition is modular, organized by domain.
 
-More information, at the [API.md](api.md) document.
+More information, at the [API.md](api/api.md) document.
 
 ### Frontend
 
