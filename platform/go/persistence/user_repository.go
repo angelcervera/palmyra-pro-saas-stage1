@@ -14,17 +14,6 @@ import (
 
 const UsersTable = "users"
 
-const UsersDDL = `
-CREATE TABLE IF NOT EXISTS users (
-    user_id UUID PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
-    full_name TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS users_created_at_idx ON users(created_at DESC);
-`
-
 // User represents a row in the users table.
 type User struct {
 	UserID    uuid.UUID `db:"user_id" json:"userId"`
@@ -52,25 +41,7 @@ func NewUserStore(ctx context.Context, pool *pgxpool.Pool) (*UserStore, error) {
 		return nil, errors.New("pool is required")
 	}
 
-	if err := ensureUsersDDL(ctx, pool); err != nil {
-		return nil, err
-	}
-
 	return &UserStore{pool: pool}, nil
-}
-
-func ensureUsersDDL(ctx context.Context, pool *pgxpool.Pool) error {
-	stmts := strings.Split(UsersDDL, ";")
-	for _, raw := range stmts {
-		stmt := strings.TrimSpace(raw)
-		if stmt == "" {
-			continue
-		}
-		if _, err := pool.Exec(ctx, stmt); err != nil {
-			return fmt.Errorf("ensure users ddl: %w", err)
-		}
-	}
-	return nil
 }
 
 // ListUsersParams captures filters and pagination for ListUsers.

@@ -13,40 +13,6 @@ import (
 // SchemaRepositoryTable defines the canonical table name that stores schema definitions.
 const SchemaRepositoryTable = "schema_repository"
 
-// SchemaRepositoryDDL contains the PostgreSQL definition for the schema repository table.
-// It enforces semantic version strings, soft deletes, and a single active schema per id.
-const SchemaRepositoryDDL = `
-CREATE TABLE IF NOT EXISTS schema_repository (
-    schema_id UUID NOT NULL,
-    schema_version TEXT NOT NULL CHECK (schema_version ~ '^\d+\.\d+\.\d+$'),
-    schema_definition JSONB NOT NULL,
-    table_name TEXT NOT NULL CHECK (table_name ~ '^[a-z][a-z0-9_]*$'),
-    slug TEXT NOT NULL CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
-    category_id UUID NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    is_soft_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    is_active BOOLEAN NOT NULL DEFAULT FALSE,
-    PRIMARY KEY (schema_id, schema_version),
-    FOREIGN KEY (category_id) REFERENCES schema_categories(category_id)
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS schema_repository_active_schema_idx
-    ON schema_repository(schema_id)
-    WHERE is_active AND NOT is_soft_deleted;
-
-CREATE UNIQUE INDEX IF NOT EXISTS schema_repository_table_name_idx
-    ON schema_repository(table_name)
-    WHERE NOT is_soft_deleted AND is_active;
-
-CREATE UNIQUE INDEX IF NOT EXISTS schema_repository_slug_idx
-    ON schema_repository(slug)
-    WHERE NOT is_soft_deleted AND is_active;
-
-CREATE INDEX IF NOT EXISTS schema_repository_category_idx
-    ON schema_repository(category_id)
-    WHERE NOT is_soft_deleted;
-`
-
 // SemanticVersion is a minimal semantic version representation (major.minor.patch).
 type SemanticVersion struct {
 	Major uint32

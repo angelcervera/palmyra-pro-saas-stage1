@@ -43,6 +43,8 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 		ClosePool(pool)
 	})
 
+	require.NoError(t, applyCoreSchemaDDL(ctx, pool))
+
 	schemaStore, err := NewSchemaRepositoryStore(ctx, pool)
 	require.NoError(t, err)
 

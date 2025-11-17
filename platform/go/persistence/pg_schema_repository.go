@@ -37,31 +37,7 @@ func NewSchemaRepositoryStore(ctx context.Context, pool *pgxpool.Pool) (*SchemaR
 		return nil, errors.New("pool is required")
 	}
 
-	if err := ensureSchemaCategoryDDL(ctx, pool); err != nil {
-		return nil, err
-	}
-
-	if err := ensureSchemaRepositoryDDL(ctx, pool); err != nil {
-		return nil, err
-	}
-
 	return &SchemaRepositoryStore{pool: pool}, nil
-}
-
-// ensureSchemaRepositoryDDL executes the DDL statements required for the schema repository.
-func ensureSchemaRepositoryDDL(ctx context.Context, pool *pgxpool.Pool) error {
-	for _, stmt := range strings.Split(SchemaRepositoryDDL, ";") {
-		statement := strings.TrimSpace(stmt)
-		if statement == "" {
-			continue
-		}
-
-		if _, err := pool.Exec(ctx, statement); err != nil {
-			return fmt.Errorf("ensure schema repository ddl: %w", err)
-		}
-	}
-
-	return nil
 }
 
 // CreateOrUpdateSchema persists the provided schema definition and optionally activates it.

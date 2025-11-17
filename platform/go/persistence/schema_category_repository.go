@@ -15,29 +15,6 @@ import (
 
 const SchemaCategoryTable = "schema_categories"
 
-const SchemaCategoryDDL = `
-CREATE TABLE IF NOT EXISTS schema_categories (
-    category_id UUID NOT NULL,
-    parent_category_id UUID,
-    name TEXT NOT NULL,
-    slug TEXT NOT NULL CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
-    description TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ,
-    PRIMARY KEY (category_id),
-    FOREIGN KEY (parent_category_id) REFERENCES schema_categories(category_id)
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS schema_categories_name_idx
-    ON schema_categories(name)
-    WHERE deleted_at IS NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS schema_categories_slug_idx
-    ON schema_categories(slug)
-    WHERE deleted_at IS NULL;
-`
-
 type SchemaCategory struct {
 	CategoryID       uuid.UUID  `db:"category_id" json:"categoryId"`
 	ParentCategoryID *uuid.UUID `db:"parent_category_id" json:"parentCategoryId,omitempty"`
@@ -58,26 +35,7 @@ func NewSchemaCategoryStore(ctx context.Context, pool *pgxpool.Pool) (*SchemaCat
 		return nil, errors.New("pool is required")
 	}
 
-	if err := ensureSchemaCategoryDDL(ctx, pool); err != nil {
-		return nil, err
-	}
-
 	return &SchemaCategoryStore{pool: pool}, nil
-}
-
-func ensureSchemaCategoryDDL(ctx context.Context, pool *pgxpool.Pool) error {
-	for _, stmt := range strings.Split(SchemaCategoryDDL, ";") {
-		statement := strings.TrimSpace(stmt)
-		if statement == "" {
-			continue
-		}
-
-		if _, err := pool.Exec(ctx, statement); err != nil {
-			return fmt.Errorf("ensure schema category ddl: %w", err)
-		}
-	}
-
-	return nil
 }
 
 type CreateSchemaCategoryParams struct {
