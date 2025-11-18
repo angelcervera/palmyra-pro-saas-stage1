@@ -64,7 +64,16 @@ Frontends should call `replaceMetadata` whenever they pull down new schemas from
 when the active tenant changes. All CRUD operations then behave like the online provider but run entirely on the local
 SQLite file.
 
-## 5. Integration test (optional proof)
+## 5. Change journal (FIFO queue)
+
+- Every mutation creates an immutable entity row and appends a corresponding entry in `entity_journal`.
+- The journal acts as a FIFO queue: call `listJournalEntries()` to read all pending rows (ordered by `change_id`), push
+  them to the server, then call `clearJournalEntries()` to wipe the table and reset the autoincrement sequence. After a
+  successful sync the queue is empty and ready for the next batch.
+- Because the queue is local and keyed by an autoincrement `change_id`, it is unaffected by client timezones or clock
+  drift.
+
+## 6. Integration test (optional proof)
 
 To exercise the provider against a real sqlite-wasm runtime without spinning up a browser, we ship a Vitest proof that
 swaps the worker-backed promiser with a Node-based sqlite-wasm promiser. The test seeds metadata, performs CRUD, closes

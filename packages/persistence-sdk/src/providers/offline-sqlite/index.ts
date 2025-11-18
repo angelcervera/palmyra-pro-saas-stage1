@@ -62,6 +62,7 @@ export interface OfflineSqliteProviderOptions {
 		debug?: (...args: unknown[]) => void;
 		error?: (...args: unknown[]) => void;
 	};
+	readonly enableJournal?: boolean;
 }
 
 export class OfflineSqliteProvider implements PersistenceProvider {
@@ -430,6 +431,15 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 			is_active INTEGER NOT NULL DEFAULT 0,
 			PRIMARY KEY(table_name, schema_version)
 		)`);
+		await this.runUnsafe(`CREATE TABLE IF NOT EXISTS entity_journal (
+			change_id INTEGER PRIMARY KEY AUTOINCREMENT,
+			table_name TEXT NOT NULL,
+			entity_id TEXT NOT NULL,
+			entity_version TEXT NOT NULL,
+			schema_version TEXT NOT NULL,
+			change_type TEXT NOT NULL,
+			payload TEXT
+		)`);
 		if (this.pendingMetadataSeed) {
 			await this.writeMetadataSnapshot(this.pendingMetadataSeed, {
 				unsafe: true,
@@ -451,7 +461,10 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		const run = context?.unsafe
 			? this.runUnsafe.bind(this)
 			: this.run.bind(this);
-		await run(
+		const runWithChanges = context?.unsafe
+			? this.runWithChangeCountUnsafe.bind(this)
+			: this.runWithChangeCount.bind(this);
+		const previousVersions = await runWithChanges(
 			"UPDATE " +
 				tableIdent +
 				" SET is_active = 0 WHERE entity_id = ? AND is_active = 1",
@@ -463,6 +476,14 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 				" (entity_id, entity_version, schema_version, payload, ts, is_deleted, is_active) VALUES (?, ?, ?, ?, ?, 0, 1)",
 			[entityId, entityVersion, target.activeVersion, payload, ts],
 		);
+		await this.appendJournalEntry({
+			changeType: previousVersions > 0 ? "update" : "create",
+			tableName: input.tableName,
+			entityId,
+			entityVersion,
+			schemaVersion: target.activeVersion,
+			payload,
+		});
 		return {
 			tableName: input.tableName,
 			entityId,
@@ -478,10 +499,25 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		input: DeleteEntityInput,
 		context?: ExecContext,
 	): Promise<void> {
+		const tableIdent = await this.ensureEntityTableExists(input.tableName);
+		const tableLiteral = `'${this.sanitizeIdentifier(input.tableName)}'`;
+		const existingRows = await this.all<EntityRow>(
+			"SELECT " +
+				tableLiteral +
+				" AS table_name, entity_id, entity_version, schema_version, payload, ts, is_deleted, is_active FROM " +
+				tableIdent +
+				" WHERE entity_id = ? AND is_active = 1 LIMIT 1",
+			[input.entityId],
+		);
+		const existing = existingRows[0];
+		if (!existing) {
+			throw new Error(
+				`Entity ${input.entityId} not found in ${input.tableName}`,
+			);
+		}
 		const runWithChanges = context?.unsafe
 			? this.runWithChangeCountUnsafe.bind(this)
 			: this.runWithChangeCount.bind(this);
-		const tableIdent = await this.ensureEntityTableExists(input.tableName);
 		const ts = Date.now();
 		const updated = await runWithChanges(
 			"UPDATE " +
@@ -494,6 +530,35 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 				`Entity ${input.entityId} not found in ${input.tableName}`,
 			);
 		}
+		await this.appendJournalEntry({
+			changeType: "delete",
+			tableName: input.tableName,
+			entityId: input.entityId,
+			entityVersion: existing.entity_version,
+			schemaVersion: existing.schema_version,
+			payload: existing.payload,
+		});
+	}
+
+	async listJournalEntries(): Promise<OfflineChangeJournalEntry[]> {
+		await this.ensureDatabaseReady();
+		const rows = await this.all<JournalRow>(
+			"SELECT change_id, table_name, entity_id, entity_version, schema_version, change_type, payload FROM entity_journal ORDER BY change_id ASC",
+		);
+		return rows.map((row) => ({
+			changeId: row.change_id,
+			tableName: row.table_name,
+			entityId: row.entity_id,
+			entityVersion: row.entity_version,
+			schemaVersion: row.schema_version,
+			changeType: row.change_type as JournalChangeType,
+			payload: row.payload ? fromWireJson(JSON.parse(row.payload)) : undefined,
+		}));
+	}
+
+	async clearJournalEntries(): Promise<void> {
+		await this.run("DELETE FROM entity_journal");
+		await this.run("DELETE FROM sqlite_sequence WHERE name = 'entity_journal'");
 	}
 
 	private async writeMetadataSnapshot(
@@ -542,6 +607,20 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 			throw new Error(`Schema metadata missing for ${tableName}`);
 		}
 		return entry;
+	}
+
+	private async appendJournalEntry(entry: JournalEntryPayload): Promise<void> {
+		await this.runUnsafe(
+			"INSERT INTO entity_journal (table_name, entity_id, entity_version, schema_version, change_type, payload) VALUES (?, ?, ?, ?, ?, ?)",
+			[
+				entry.tableName,
+				entry.entityId,
+				entry.entityVersion,
+				entry.schemaVersion,
+				entry.changeType,
+				entry.payload ?? null,
+			],
+		);
 	}
 
 	private toEntityRecord<TPayload>(row: EntityRow): EntityRecord<TPayload> {
@@ -663,6 +742,37 @@ type EntityRow = {
 	ts: number;
 	is_deleted: number;
 	is_active: number;
+};
+
+type JournalChangeType = "create" | "update" | "delete";
+
+type JournalRow = {
+	change_id: number;
+	table_name: string;
+	entity_id: string;
+	entity_version: string;
+	schema_version: string;
+	change_type: JournalChangeType;
+	payload?: string | null;
+};
+
+type JournalEntryPayload = {
+	tableName: string;
+	entityId: string;
+	entityVersion: string;
+	schemaVersion: string;
+	changeType: JournalChangeType;
+	payload?: string | null;
+};
+
+export type OfflineChangeJournalEntry = {
+	changeId: number;
+	tableName: string;
+	entityId: string;
+	entityVersion: string;
+	schemaVersion: string;
+	changeType: JournalChangeType;
+	payload?: JsonValue;
 };
 
 export function createOfflineSqliteProvider(

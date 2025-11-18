@@ -54,7 +54,6 @@ describe("offline sqlite provider (node sqlite-wasm)", () => {
 
 		const page = await provider.queryEntities({ tableName: "entities" });
 		expect(page.items.length).toBe(1);
-
 		await provider.close();
 
 		const reopened = createOfflineSqliteProvider({
