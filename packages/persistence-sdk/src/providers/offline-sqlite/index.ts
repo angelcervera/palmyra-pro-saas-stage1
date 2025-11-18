@@ -78,6 +78,7 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 	private dbId?: number;
 	private metadataCache?: MetadataSnapshot;
 	private pendingMetadataSeed?: MetadataSnapshot;
+	private readonly ensuredEntityTables = new Set<string>();
 
 	constructor(options: OfflineSqliteProviderOptions = {}) {
 		this.databaseName = options.databaseName ?? DEFAULT_DB_NAME;
@@ -94,6 +95,45 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		}
 	}
 
+	private sanitizeIdentifier(identifier: string): string {
+		if (!/^[A-Za-z0-9_]+$/.test(identifier)) {
+			throw new Error(`Invalid identifier: ${identifier}`);
+		}
+		return identifier;
+	}
+
+	private quoteIdentifier(identifier: string): string {
+		return `"${this.sanitizeIdentifier(identifier)}"`;
+	}
+
+	private async ensureEntityTableExists(tableName: string): Promise<string> {
+		const sanitized = this.sanitizeIdentifier(tableName);
+		if (this.ensuredEntityTables.has(sanitized)) {
+			return this.quoteIdentifier(sanitized);
+		}
+		const tableIdent = this.quoteIdentifier(sanitized);
+		await this.runUnsafe(`CREATE TABLE IF NOT EXISTS ${tableIdent} (
+			entity_id TEXT NOT NULL,
+			entity_version TEXT NOT NULL,
+			schema_version TEXT NOT NULL,
+			payload TEXT NOT NULL,
+			ts INTEGER NOT NULL,
+			is_deleted INTEGER NOT NULL DEFAULT 0,
+			is_active INTEGER NOT NULL DEFAULT 1,
+			PRIMARY KEY(entity_id, entity_version)
+		)`);
+		const activeIndex = this.quoteIdentifier(`idx_${sanitized}_entity_active`);
+		await this.runUnsafe(
+			`CREATE UNIQUE INDEX IF NOT EXISTS ${activeIndex} ON ${tableIdent} (entity_id) WHERE is_active = 1`,
+		);
+		const tsIndex = this.quoteIdentifier(`idx_${sanitized}_entity_ts`);
+		await this.runUnsafe(
+			`CREATE INDEX IF NOT EXISTS ${tsIndex} ON ${tableIdent} (ts DESC)`,
+		);
+		this.ensuredEntityTables.add(sanitized);
+		return tableIdent;
+	}
+
 	async getMetadata(): Promise<MetadataSnapshot> {
 		await this.ensureDatabaseReady();
 		if (this.metadataCache) {
@@ -105,7 +145,8 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 				m.active_version AS active_version,
 				m.fetched_at AS fetched_at,
 				v.schema_version AS schema_version,
-				v.definition AS definition
+				v.definition AS definition,
+				v.is_active AS version_is_active
 			FROM schema_metadata m
 			LEFT JOIN schema_versions v ON v.table_name = m.table_name
 			ORDER BY m.table_name, v.schema_version`,
@@ -131,10 +172,24 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 				} catch (error) {
 					this.logger?.error?.("Failed to parse schema definition", error);
 				}
+				if (row.version_is_active === 1) {
+					entry.activeVersion = row.schema_version;
+				}
+			}
+			if (!entry.activeVersion && row.active_version) {
+				entry.activeVersion = row.active_version;
 			}
 			const fetched = Date.parse(row.fetched_at ?? "");
 			if (!Number.isNaN(fetched)) {
 				fetchedAtEpoch = Math.max(fetchedAtEpoch, fetched);
+			}
+		}
+		for (const entry of tables.values()) {
+			if (!entry.activeVersion) {
+				const first = entry.versions.keys().next().value;
+				if (first) {
+					entry.activeVersion = first;
+				}
 			}
 		}
 		const snapshot: MetadataSnapshot = {
@@ -150,12 +205,15 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 	): Promise<EntityRecord<TPayload>> {
 		await this.ensureDatabaseReady();
 		try {
+			const tableIdent = await this.ensureEntityTableExists(ref.tableName);
+			const tableLiteral = `'${this.sanitizeIdentifier(ref.tableName)}'`;
 			const rows = await this.all<EntityRow>(
-				`SELECT table_name, entity_id, entity_version, schema_version, payload, ts, is_deleted
-				FROM entities
-				WHERE table_name = ? AND entity_id = ?
-				LIMIT 1`,
-				[ref.tableName, ref.entityId],
+				"SELECT " +
+					tableLiteral +
+					" AS table_name, entity_id, entity_version, schema_version, payload, ts, is_deleted, is_active FROM " +
+					tableIdent +
+					" WHERE entity_id = ? ORDER BY ts DESC LIMIT 1",
+				[ref.entityId],
 			);
 			const row = rows[0];
 			if (!row) {
@@ -176,17 +234,20 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		const page = Math.max(1, pagination?.page ?? 1);
 		const offset = (page - 1) * pageSize;
 		try {
+			const tableIdent = await this.ensureEntityTableExists(scope.tableName);
+			const tableLiteral = `'${this.sanitizeIdentifier(scope.tableName)}'`;
 			const rows = await this.all<EntityRow>(
-				`SELECT table_name, entity_id, entity_version, schema_version, payload, ts, is_deleted
-				FROM entities
-				WHERE table_name = ? AND is_deleted = 0
-				ORDER BY ts DESC
-				LIMIT ? OFFSET ?`,
-				[scope.tableName, pageSize, offset],
+				"SELECT " +
+					tableLiteral +
+					" AS table_name, entity_id, entity_version, schema_version, payload, ts, is_deleted, is_active FROM " +
+					tableIdent +
+					" WHERE is_active = 1 AND is_deleted = 0 ORDER BY ts DESC LIMIT ? OFFSET ?",
+				[pageSize, offset],
 			);
 			const total = await this.all<{ total: number }>(
-				`SELECT COUNT(1) AS total FROM entities WHERE table_name = ? AND is_deleted = 0`,
-				[scope.tableName],
+				"SELECT COUNT(1) AS total FROM " +
+					tableIdent +
+					" WHERE is_active = 1 AND is_deleted = 0",
 			);
 			const totalItems = Number(total[0]?.total ?? 0);
 			const totalPages =
@@ -307,18 +368,27 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 	}
 
 	private async ensureDatabaseReady(): Promise<void> {
-		if (this.openPromise) {
-			return this.openPromise;
+		if (this.dbId) {
+			return;
 		}
-		this.openPromise = this.openDatabase();
-		try {
-			await this.openPromise;
-		} finally {
-			this.openPromise = undefined;
+		if (!this.openPromise) {
+			const task = this.openDatabase();
+			this.openPromise = task
+				.then(() => {
+					this.openPromise = undefined;
+				})
+				.catch((error) => {
+					this.openPromise = undefined;
+					throw error;
+				});
 		}
+		await this.openPromise;
 	}
 
 	private async openDatabase(): Promise<void> {
+		if (this.dbId) {
+			return;
+		}
 		this.logger?.debug?.("opening database", this.databaseName);
 		const promiser = await this.promiserPromise;
 		const filename = this.buildFilename();
@@ -357,21 +427,9 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 			table_name TEXT NOT NULL,
 			schema_version TEXT NOT NULL,
 			definition TEXT NOT NULL,
+			is_active INTEGER NOT NULL DEFAULT 0,
 			PRIMARY KEY(table_name, schema_version)
 		)`);
-		await this.runUnsafe(`CREATE TABLE IF NOT EXISTS entities (
-			table_name TEXT NOT NULL,
-			entity_id TEXT NOT NULL,
-			entity_version TEXT NOT NULL,
-			schema_version TEXT NOT NULL,
-			payload TEXT NOT NULL,
-			ts INTEGER NOT NULL,
-			is_deleted INTEGER NOT NULL DEFAULT 0,
-			PRIMARY KEY(table_name, entity_id)
-		)`);
-		await this.runUnsafe(
-			"CREATE INDEX IF NOT EXISTS idx_entities_table_ts ON entities(table_name, ts DESC)",
-		);
 		if (this.pendingMetadataSeed) {
 			await this.writeMetadataSnapshot(this.pendingMetadataSeed, {
 				unsafe: true,
@@ -385,6 +443,7 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		context?: ExecContext,
 	): Promise<EntityRecord<TPayload>> {
 		const target = await this.requireSchemaMetadata(input.tableName);
+		const tableIdent = await this.ensureEntityTableExists(input.tableName);
 		const entityId = input.entityId ?? this.generateEntityId();
 		const entityVersion = this.generateEntityVersion();
 		const ts = Date.now();
@@ -393,22 +452,16 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 			? this.runUnsafe.bind(this)
 			: this.run.bind(this);
 		await run(
-			`INSERT INTO entities (table_name, entity_id, entity_version, schema_version, payload, ts, is_deleted)
-			VALUES (?, ?, ?, ?, ?, ?, 0)
-			ON CONFLICT(table_name, entity_id) DO UPDATE SET
-				entity_version = excluded.entity_version,
-				schema_version = excluded.schema_version,
-				payload = excluded.payload,
-				ts = excluded.ts,
-				is_deleted = 0`,
-			[
-				input.tableName,
-				entityId,
-				entityVersion,
-				target.activeVersion,
-				payload,
-				ts,
-			],
+			"UPDATE " +
+				tableIdent +
+				" SET is_active = 0 WHERE entity_id = ? AND is_active = 1",
+			[entityId],
+		);
+		await run(
+			"INSERT INTO " +
+				tableIdent +
+				" (entity_id, entity_version, schema_version, payload, ts, is_deleted, is_active) VALUES (?, ?, ?, ?, ?, 0, 1)",
+			[entityId, entityVersion, target.activeVersion, payload, ts],
 		);
 		return {
 			tableName: input.tableName,
@@ -425,18 +478,16 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		input: DeleteEntityInput,
 		context?: ExecContext,
 	): Promise<void> {
-		const exec = context?.unsafe
-			? this.execWithChangesUnsafe.bind(this)
-			: this.execWithChanges.bind(this);
-		const entityVersion = this.generateEntityVersion();
+		const runWithChanges = context?.unsafe
+			? this.runWithChangeCountUnsafe.bind(this)
+			: this.runWithChangeCount.bind(this);
+		const tableIdent = await this.ensureEntityTableExists(input.tableName);
 		const ts = Date.now();
-		const updated = await exec(
-			`UPDATE entities
-			SET is_deleted = 1,
-				entity_version = ?,
-				ts = ?
-			WHERE table_name = ? AND entity_id = ?`,
-			[entityVersion, ts, input.tableName, input.entityId],
+		const updated = await runWithChanges(
+			"UPDATE " +
+				tableIdent +
+				" SET is_deleted = 1, is_active = 0, ts = ? WHERE entity_id = ? AND is_active = 1",
+			[ts, input.entityId],
 		);
 		if (updated === 0) {
 			throw new Error(
@@ -465,12 +516,20 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 				);
 				for (const [schemaVersion, definition] of meta.versions.entries()) {
 					await run(
-						"INSERT INTO schema_versions (table_name, schema_version, definition) VALUES (?, ?, ?)",
-						[tableName, schemaVersion, JSON.stringify(definition ?? {})],
+						"INSERT INTO schema_versions (table_name, schema_version, definition, is_active) VALUES (?, ?, ?, ?)",
+						[
+							tableName,
+							schemaVersion,
+							JSON.stringify(definition ?? {}),
+							schemaVersion === meta.activeVersion ? 1 : 0,
+						],
 					);
 				}
 			}
 		});
+		for (const tableName of snapshot.tables.keys()) {
+			await this.ensureEntityTableExists(tableName);
+		}
 		this.metadataCache = snapshot;
 	}
 
@@ -518,6 +577,28 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		});
 	}
 
+	private async runWithChangeCount(
+		sql: string,
+		bind?: WorkerBind,
+	): Promise<number> {
+		await this.ensureDatabaseReady();
+		return this.runWithChangeCountUnsafe(sql, bind);
+	}
+
+	private async runWithChangeCountUnsafe(
+		sql: string,
+		bind?: WorkerBind,
+	): Promise<number> {
+		const promiser = await this.promiserPromise;
+		const response = (await promiser("exec", {
+			dbId: this.dbId,
+			sql,
+			bind,
+			countChanges: 1,
+		})) as WorkerExecResponse;
+		return Number(response.result?.changeCount ?? 0);
+	}
+
 	private async all<T>(sql: string, bind?: WorkerBind): Promise<T[]> {
 		await this.ensureDatabaseReady();
 		return this.allUnsafe<T>(sql, bind);
@@ -533,28 +614,6 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 			resultRows: [],
 		})) as WorkerExecResponse<T>;
 		return response.result?.resultRows ?? [];
-	}
-
-	private async execWithChanges(
-		sql: string,
-		bind?: WorkerBind,
-	): Promise<number> {
-		await this.ensureDatabaseReady();
-		return this.execWithChangesUnsafe(sql, bind);
-	}
-
-	private async execWithChangesUnsafe(
-		sql: string,
-		bind?: WorkerBind,
-	): Promise<number> {
-		const promiser = await this.promiserPromise;
-		const response = (await promiser("exec", {
-			dbId: this.dbId,
-			sql,
-			bind,
-			countChanges: 1,
-		})) as WorkerExecResponse;
-		return Number(response.result?.changeCount ?? 0);
 	}
 
 	private async transaction<T>(fn: () => Promise<T>): Promise<T> {
@@ -592,6 +651,7 @@ type MetadataRow = {
 	fetched_at?: string;
 	schema_version?: string;
 	definition?: string;
+	version_is_active?: number;
 };
 
 type EntityRow = {
@@ -602,6 +662,7 @@ type EntityRow = {
 	payload: string;
 	ts: number;
 	is_deleted: number;
+	is_active: number;
 };
 
 export function createOfflineSqliteProvider(
