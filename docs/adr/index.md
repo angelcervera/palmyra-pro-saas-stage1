@@ -1,7 +1,7 @@
 ---
 id: adr-index
 version: 1.0.0
-lastUpdated: 2025-11-16
+lastUpdated: 2025-11-18
 scope: decisions
 appliesTo:
   - apps/*
@@ -44,3 +44,7 @@ This index lists accepted high‑level decisions with stable IDs. Each ADR inclu
 - ADR-0007 — Biome formatting plus minimal ESLint for React hooks
   - File: `docs/adr/0007-frontend-tooling-biome-eslint-hooks.md`
   - Status: Accepted — 2025-11-16
+
+- ADR-0008 — Prefer Vitest (Node sqlite-wasm) for offline SQLite proof tests
+  - File: `docs/adr/0008-testing-tool-vitest-vs-playwright.md`
+  - Status: Accepted — 2025-11-18

@@ -63,3 +63,18 @@ await provider.close(); // when logging out
 Frontends should call `replaceMetadata` whenever they pull down new schemas from the online API and switch databases
 when the active tenant changes. All CRUD operations then behave like the online provider but run entirely on the local
 SQLite file.
+
+## 5. Integration test (optional proof)
+
+To exercise the provider against a real sqlite-wasm runtime without spinning up a browser, we ship a Vitest proof that
+swaps the worker-backed promiser with a Node-based sqlite-wasm promiser. The test seeds metadata, performs CRUD, closes
+the provider, reopens a new provider instance, and confirms the data is still available within the same sqlite-wasm
+process (satisfying the “one DB per session” requirement).
+
+```bash
+pnpm -C packages/persistence-sdk run test:offline-sqlite
+```
+
+The command runs a single Vitest file (`src/providers/offline-sqlite/offline-sqlite.integration.test.ts`) and is opt-in so day-to-day CI jobs
+remain fast. Because this uses sqlite-wasm’s Node build, it validates the provider wiring while avoiding browser
+automation dependencies.

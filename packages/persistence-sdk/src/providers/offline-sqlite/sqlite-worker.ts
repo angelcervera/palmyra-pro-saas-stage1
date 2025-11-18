@@ -2,10 +2,13 @@ import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 
 const logPrefix = "[@zengate/sqlite-worker]";
 
+// helper to avoid eslint no-console errors in this module.
 const print = (...parts: unknown[]) => {
 	// eslint-disable-next-line no-console
 	console.log(logPrefix, ...parts);
 };
+
+print("worker booting");
 
 const printErr = (...parts: unknown[]) => {
 	// eslint-disable-next-line no-console

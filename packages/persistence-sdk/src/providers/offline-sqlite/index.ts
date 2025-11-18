@@ -1,4 +1,3 @@
-import { sqlite3Worker1Promiser } from "@sqlite.org/sqlite-wasm";
 import {
 	type BatchWrite,
 	BatchWriteError,
@@ -20,7 +19,24 @@ const DEFAULT_DB_NAME = "/palmyra-offline.db";
 const DEFAULT_VFS = "opfs-sahpool";
 const DEFAULT_PAGE_SIZE = 20;
 
-type WorkerPromiser = Awaited<ReturnType<typeof sqlite3Worker1Promiser.v2>>;
+type WorkerPromiser = (
+	type: string,
+	args?: Record<string, unknown>,
+) => Promise<Record<string, unknown>>;
+
+type WorkerPromiserFactoryModule = {
+	v2(config?: Record<string, unknown>): Promise<WorkerPromiser>;
+};
+let cachedWorkerPromiser: WorkerPromiserFactoryModule | undefined;
+
+async function resolveWorkerPromiser(): Promise<WorkerPromiserFactoryModule> {
+	if (!cachedWorkerPromiser) {
+		const mod = await import("@sqlite.org/sqlite-wasm");
+		cachedWorkerPromiser =
+			mod.sqlite3Worker1Promiser as unknown as WorkerPromiserFactoryModule;
+	}
+	return cachedWorkerPromiser;
+}
 type WorkerBind = ReadonlyArray<unknown> | Record<string, unknown>;
 
 type WorkerExecResponse<T = unknown> = {
@@ -40,6 +56,7 @@ export interface OfflineSqliteProviderOptions {
 	readonly databaseName?: string;
 	readonly vfs?: "opfs-sahpool" | "kvvfs";
 	readonly workerFactory?: () => Worker;
+	readonly promiserFactory?: () => Promise<WorkerPromiser>;
 	readonly initialMetadata?: MetadataSnapshot;
 	readonly logger?: {
 		debug?: (...args: unknown[]) => void;
@@ -68,7 +85,9 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		this.logger = options.logger;
 		this.workerFactory =
 			options.workerFactory ?? (() => this.createDefaultWorker());
-		this.promiserPromise = this.createPromiser();
+		this.promiserPromise = options.promiserFactory
+			? options.promiserFactory()
+			: this.createPromiser();
 		if (options.initialMetadata) {
 			this.metadataCache = options.initialMetadata;
 			this.pendingMetadataSeed = options.initialMetadata;
@@ -272,8 +291,15 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		});
 	}
 
-	private createPromiser(): Promise<WorkerPromiser> {
-		return sqlite3Worker1Promiser.v2({
+	private async createPromiser(): Promise<WorkerPromiser> {
+		// Tests (and potential future environments) can inject a custom promiser
+		// instead of relying on a Worker + sqlite-wasm bundle. We still lazily
+		// import the browser version here so Node-only runs never pull the wasm
+		// worker unless needed. If we add more providers later, consider splitting
+		// implementations into dedicated packages to keep these concerns isolated.
+		this.logger?.debug?.("spawning sqlite worker");
+		const promiserModule = await resolveWorkerPromiser();
+		return promiserModule.v2({
 			worker: () => this.workerFactory(),
 			onerror: (error: unknown) =>
 				this.logger?.error?.("sqlite worker error", error),
@@ -293,8 +319,10 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 	}
 
 	private async openDatabase(): Promise<void> {
+		this.logger?.debug?.("opening database", this.databaseName);
 		const promiser = await this.promiserPromise;
 		const filename = this.buildFilename();
+		this.logger?.debug?.("computed filename", filename);
 		const response = (await promiser("open", {
 			filename,
 		})) as WorkerExecResponse;
@@ -303,6 +331,7 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 			throw new Error("Failed to obtain sqlite database handle");
 		}
 		this.dbId = dbId;
+		this.logger?.debug?.("database opened", dbId);
 		await this.bootstrapSchema();
 	}
 
