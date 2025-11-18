@@ -29,6 +29,7 @@
 		"prepublishOnly": "pnpm run build"
 	},
 	"dependencies": {
+		"@sqlite.org/sqlite-wasm": "3.51.1-build1",
 		"@zengateglobal/api-sdk": "workspace:*"
 	},
 	"devDependencies": {
