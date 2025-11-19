@@ -55,7 +55,10 @@ versions, preserving historical state and enabling **temporal (time-travel) quer
 
 Each entity table includes:
 
-* `entity_id`: A globally unique identifier.
+* `entity_id`: A client-supplied identifier. During design review we decided to stop forcing UUIDs so that
+  platform clients can reuse the IDs they already manage (for example, natural keys from legacy systems or
+  short slugs exposed in their UI). This keeps Palmyra from becoming the system of record for identifier
+  assignment and simplifies migrations because documents can retain their original keys.
 * `entity_version`: A semantic version number (`major.minor.patch`).
 * `schema_ref`: A foreign key referencing the schema identifier and version in use.
 * `payload`: A `JSONB` field containing the serialized document data.
