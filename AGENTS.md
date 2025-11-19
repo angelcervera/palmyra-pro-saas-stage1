@@ -16,6 +16,7 @@
 - `go generate ./tools/codegen/openapi/go` — rerun codegen with the config set whenever a contract changes.
 - `go test ./...` — execute the domain suites (testify + httptest) and keep them green before reviews.
 - `go fmt ./...` — rely on the formatter for Go sources; avoid manual whitespace tweaks.
+- Do **not** override `GOMODCACHE`; rely on the default Go module cache outside the repo instead of writing vendor data into this tree.
 - `pnpm install` — initializes the React workspace when frontend work resumes.
 
 ### Frontend Build Gate (must run after each FE change)
