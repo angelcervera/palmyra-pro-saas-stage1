@@ -274,6 +274,10 @@ func translateError(err error) error {
 		if errors.As(err, &validationErr) {
 			return &ValidationError{Reason: validationErr.Error()}
 		}
+		var idErr *persistence.InvalidEntityIdentifierError
+		if errors.As(err, &idErr) {
+			return &ValidationError{Reason: idErr.Error()}
+		}
 		return err
 	}
 }
