@@ -116,6 +116,39 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	require.Equal(t, "black-lotus", updated.Slug)
 	require.False(t, updated.IsSoftDeleted)
 
+	// Create or update flow should create when the entity does not exist yet.
+	upsertSlug := "time-walk"
+	upsertCreatePayload := SchemaDefinition([]byte(`{"name":"Time Walk"}`))
+	upserted, err := entityRepo.CreateOrUpdateEntity(ctx, CreateOrUpdateEntityParams{
+		Slug:    &upsertSlug,
+		Payload: upsertCreatePayload,
+	})
+	require.NoError(t, err)
+	require.Equal(t, SemanticVersion{Major: 1, Minor: 0, Patch: 0}, upserted.EntityVersion)
+	require.Equal(t, upsertSlug, upserted.Slug)
+
+	// Subsequent calls without slug reuse the last slug and bump version.
+	upsertUpdatePayload := SchemaDefinition([]byte(`{"name":"Time Walk","rarity":"rare"}`))
+	updatedUpsert, err := entityRepo.CreateOrUpdateEntity(ctx, CreateOrUpdateEntityParams{
+		EntityID: upserted.EntityID,
+		Payload:  upsertUpdatePayload,
+	})
+	require.NoError(t, err)
+	require.Equal(t, upserted.EntityVersion.NextPatch(), updatedUpsert.EntityVersion)
+	require.Equal(t, upsertSlug, updatedUpsert.Slug)
+
+	// Providing a new slug should overwrite it while incrementing the patch version.
+	renamedSlug := "time-walk-legacy"
+	upsertRenamePayload := SchemaDefinition([]byte(`{"name":"Time Walk","rarity":"mythic"}`))
+	renamedRecord, err := entityRepo.CreateOrUpdateEntity(ctx, CreateOrUpdateEntityParams{
+		EntityID: upserted.EntityID,
+		Slug:     &renamedSlug,
+		Payload:  upsertRenamePayload,
+	})
+	require.NoError(t, err)
+	require.Equal(t, updatedUpsert.EntityVersion.NextPatch(), renamedRecord.EntityVersion)
+	require.Equal(t, renamedSlug, renamedRecord.Slug)
+
 	oldVersion, err := entityRepo.GetEntityVersion(ctx, created.EntityID, created.EntityVersion)
 	require.NoError(t, err)
 	require.False(t, oldVersion.IsActive)
@@ -129,17 +162,16 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 		SortOrder:      "desc",
 	})
 	require.NoError(t, err)
-	require.Len(t, list, 1)
-	require.Equal(t, updated.EntityID, list[0].EntityID)
-	require.Equal(t, updated.EntityVersion, list[0].EntityVersion)
-	require.Equal(t, "black-lotus", list[0].Slug)
+	require.Len(t, list, 2)
+	require.Equal(t, renamedSlug, list[0].Slug)
+	require.Equal(t, "black-lotus", list[1].Slug)
 
 	total, err := entityRepo.CountEntities(ctx, ListEntitiesParams{
 		OnlyActive:     true,
 		IncludeDeleted: false,
 	})
 	require.NoError(t, err)
-	require.EqualValues(t, 1, total)
+	require.EqualValues(t, 2, total)
 
 	err = entityRepo.SoftDeleteEntity(ctx, created.EntityID, time.Now().UTC())
 	require.NoError(t, err)
@@ -155,14 +187,15 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 		SortOrder:      "desc",
 	})
 	require.NoError(t, err)
-	require.Len(t, records, 0)
+	require.Len(t, records, 1)
+	require.Equal(t, renamedSlug, records[0].Slug)
 
 	totalAfterDelete, err := entityRepo.CountEntities(ctx, ListEntitiesParams{
 		OnlyActive:     true,
 		IncludeDeleted: false,
 	})
 	require.NoError(t, err)
-	require.EqualValues(t, 0, totalAfterDelete)
+	require.EqualValues(t, 1, totalAfterDelete)
 
 	deletedRecords, err := entityRepo.ListEntities(ctx, ListEntitiesParams{
 		OnlyActive:     false,
@@ -173,7 +206,19 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, deletedRecords)
-	require.True(t, deletedRecords[0].IsSoftDeleted)
+	foundSoftDeleted := false
+	for _, rec := range deletedRecords {
+		if rec.IsSoftDeleted {
+			foundSoftDeleted = true
+			break
+		}
+	}
+	require.True(t, foundSoftDeleted)
+
+	_, err = entityRepo.CreateOrUpdateEntity(ctx, CreateOrUpdateEntityParams{
+		Payload: SchemaDefinition([]byte(`{"name":"Missing Slug"}`)),
+	})
+	require.Error(t, err)
 
 	_, err = entityRepo.CreateEntity(ctx, CreateEntityParams{
 		Slug:    "no-name",
