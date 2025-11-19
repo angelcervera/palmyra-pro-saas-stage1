@@ -2,11 +2,11 @@ package persistence
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
-var entityIdentifierPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+const maxEntityIdentifierLength = 128
 
 // InvalidEntityIdentifierError indicates the identifier is missing or does not match the required pattern.
 type InvalidEntityIdentifierError struct {
@@ -17,14 +17,14 @@ func (e *InvalidEntityIdentifierError) Error() string {
 	return e.reason
 }
 
-// NormalizeEntityIdentifier trims input and ensures it matches the allowed pattern.
+// NormalizeEntityIdentifier trims input and ensures it is non-empty and within the maximum length.
 func NormalizeEntityIdentifier(input string) (string, error) {
 	trimmed := strings.TrimSpace(input)
 	if trimmed == "" {
 		return "", &InvalidEntityIdentifierError{reason: "entityId is required"}
 	}
-	if !entityIdentifierPattern.MatchString(trimmed) {
-		return "", &InvalidEntityIdentifierError{reason: fmt.Sprintf("entityId %q does not match required pattern", input)}
+	if utf8.RuneCountInString(trimmed) > maxEntityIdentifierLength {
+		return "", &InvalidEntityIdentifierError{reason: fmt.Sprintf("entityId must be at most %d characters", maxEntityIdentifierLength)}
 	}
 	return trimmed, nil
 }

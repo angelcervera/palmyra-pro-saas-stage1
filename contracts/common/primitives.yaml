@@ -43,8 +43,7 @@ components:
       examples: ["cards_entities", "user_profiles"]
     EntityIdentifier:
       type: string
-      description: Client-supplied identifier for immutable entity records. Allows alphanumeric characters plus dot, dash, underscore, and colon.
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      description: Client-supplied identifier for immutable entity records. Accepts any characters but must be non-empty and at most 128 characters after trimming.
       minLength: 1
       maxLength: 128
-      examples: ["CARD-0001", "profiles.alpha", "inventory:item-42"]
+      examples: ["CARD-0001", "profiles.alpha", "inventory:item-42", "id with spaces", "emoji-🚀"]

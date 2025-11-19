@@ -50,7 +50,7 @@ export type PaginationPaginationMeta = {
 };
 
 /**
- * Client-supplied identifier for immutable entity records. Allows alphanumeric characters plus dot, dash, underscore, and colon.
+ * Client-supplied identifier for immutable entity records. Accepts any characters but must be non-empty and at most 128 characters after trimming.
  */
 export type PrimitivesEntityIdentifier = string;
 

@@ -533,7 +533,7 @@ func (r *EntityRepository) resolveSchema(ctx context.Context, version *SemanticV
 func (r *EntityRepository) ensureEntityTable(ctx context.Context) error {
 	tableDDL := fmt.Sprintf(`
 CREATE TABLE IF NOT EXISTS %s (
-	entity_id TEXT NOT NULL CHECK (entity_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'),
+	entity_id TEXT NOT NULL,
 	entity_version TEXT NOT NULL CHECK (entity_version ~ '^\d+\.\d+\.\d+$'),
 	schema_id UUID NOT NULL,
 	schema_version TEXT NOT NULL CHECK (schema_version ~ '^\d+\.\d+\.\d+$'),

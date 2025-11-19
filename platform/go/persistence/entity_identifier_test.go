@@ -13,11 +13,11 @@ func TestNormalizeEntityIdentifier(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "trim and accept", input: "  order-123 ", want: "order-123"},
-		{name: "uppercase allowed", input: "Card.ABC", want: "Card.ABC"},
-		{name: "colon allowed", input: "inv:item-42", want: "inv:item-42"},
+		{name: "any punctuation allowed", input: "  inv/123 🔥  ", want: "inv/123 🔥"},
+		{name: "emoji allowed", input: "🚀-alpha", want: "🚀-alpha"},
 		{name: "empty", input: "", wantErr: true},
-		{name: "invalid char", input: "bad/char", wantErr: true},
-		{name: "too long", input: strings.Repeat("a", 130), wantErr: true},
+		{name: "too long ascii", input: strings.Repeat("a", 130), wantErr: true},
+		{name: "too long unicode", input: strings.Repeat("🚀", 129), wantErr: true},
 	}
 
 	for _, tt := range tests {

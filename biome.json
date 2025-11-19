@@ -10,6 +10,7 @@
       "platform/**/*.{ts,tsx,js,jsx,json,md}",
       "docs/**/*.md",
       "*.{ts,tsx,js,jsx,json,md}",
+      "!packages/api-sdk/src/generated/**",
       "!**/dist/**",
       "!**/build/**",
       "!.pnpm-store/**",

@@ -59,9 +59,10 @@ versions, preserving historical state and enabling **temporal (time-travel) quer
 
 Each entity table currently stores the columns below (see `EntityRepository.ensureEntityTable` for the authoritative DDL):
 
-* `entity_id TEXT`: Primary key (together with `entity_version`). Callers may supply their own identifier as long as it
-  matches `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`; when omitted the API generates a UUID automatically. Using text keeps the
-  database aligned with the contract change described above while preserving backward-compatible UUID behavior.
+* `entity_id TEXT`: Primary key (together with `entity_version`). Callers may supply their own identifier; any characters
+  are accepted once trimmed, so long as the value is non-empty and no longer than 128 characters. When omitted the API
+  generates a UUID automatically. Using text keeps the database aligned with the contract change described above while
+  preserving backward-compatible UUID behavior.
 * `entity_version TEXT`: Semantic version string (`major.minor.patch`) representing each immutable revision.
 * `schema_id UUID`: Foreign key to `schema_repository.schema_id`.
 * `schema_version TEXT`: Foreign key to `schema_repository.schema_version`; paired with `schema_id` to pin the schema.

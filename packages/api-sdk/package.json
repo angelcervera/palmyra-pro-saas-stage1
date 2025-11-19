@@ -1,38 +1,38 @@
 {
-  "name": "@zengateglobal/api-sdk",
-  "version": "0.1.0",
-  "description": "Palmyra Pro API TypeScript SDK (generated clients + thin HTTP helpers)",
-  "private": false,
-  "type": "module",
-  "sideEffects": false,
-  "license": "UNLICENSED",
-  "engines": {
-    "node": ">=24 <25",
-    "pnpm": ">=10.20.0 <11"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./http": {
-      "types": "./dist/http.d.ts",
-      "import": "./dist/http.js"
-    }
-  },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "format": "pnpm biome format --write .",
-    "lint": "pnpm biome lint .",
-    "check": "pnpm biome check .",
-    "prepublishOnly": "pnpm run build"
-  },
-  "devDependencies": {
-    "typescript": "~5.9.3"
-  }
+	"name": "@zengateglobal/api-sdk",
+	"version": "0.1.0",
+	"description": "Palmyra Pro API TypeScript SDK (generated clients + thin HTTP helpers)",
+	"private": false,
+	"type": "module",
+	"sideEffects": false,
+	"license": "UNLICENSED",
+	"engines": {
+		"node": ">=24 <25",
+		"pnpm": ">=10.20.0 <11"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./http": {
+			"types": "./dist/http.d.ts",
+			"import": "./dist/http.js"
+		}
+	},
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"format": "pnpm biome format --write .",
+		"lint": "pnpm biome lint .",
+		"check": "pnpm biome check .",
+		"prepublishOnly": "pnpm run build"
+	},
+	"devDependencies": {
+		"typescript": "~5.9.3"
+	}
 }
