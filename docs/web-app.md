@@ -129,8 +129,9 @@ Client usage pattern:
   - Map `429`, `5xx`, and network failures to retry policies used by TanStack Query
 - Import domain namespaces (e.g., `Auth`, `Users`) from `@zengateglobal/api-sdk`; never import directly from `packages/api-sdk/src/generated/*`.
 
-Run codegen:
-- `pnpm openapi:ts` (uses the config file above)
+Run codegen (always follow both steps so generated sources and compiled output stay in sync):
+- `pnpm openapi:ts` to regenerate TypeScript sources under `packages/api-sdk/src/generated/*` using `@hey-api/openapi-ts` and the shared config at `tools/codegen/openapi/ts/openapi-ts.config.ts`.
+- `pnpm -F @zengateglobal/api-sdk build` to compile the regenerated sources into `packages/api-sdk/dist` before consumers import the package.
 
 ---
 
