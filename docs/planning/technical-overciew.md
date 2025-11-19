@@ -28,6 +28,7 @@ This document covers:
 * The **integration model** for external systems, based on schemas and configuration.
 * The **security and multi-tenancy model**, including tenant isolation and access control.
 * An overview of **operations and reliability** at a conceptual level.
+* Examples of **headless commodity implementations** for honey and cocoa.
 
 The goal is to provide enough information for an architecture team to:
 
@@ -367,12 +368,12 @@ This section describes the **logical security model** and **multi-tenancy approa
 
 Security and data protection are treated as a **shared responsibility** between the platform and the organisations using it:
 
-* Palmyra Pro:
+* **Palmyra Pro**:
 
     * Provides tenant isolation, access control mechanisms, secure integration endpoints and audit capabilities.
     * Ensures that the interaction with Winter Protocol and the blockchain follows a minimal-disclosure principle.
 
-* Tenants and integration partners:
+* **Tenants and integration partners**:
 
     * Manage their user accounts, roles and credentials.
     * Ensure that their client applications and backend systems interact with the platform in a secure and compliant way (for example, protecting API keys and enforcing their own internal access policies).
@@ -447,4 +448,99 @@ This section describes how Palmyra Pro is operated as a SaaS platform at a conce
 
 * **Communication with integration partners**
   When changes may affect integrations (for example, new required fields in schemas, or deprecation of legacy constructs), they are communicated in advance to technical contacts so that they can assess and plan any necessary adjustments on their side.
+
+---
+
+## 7. Headless Commodity Implementations: Honey and Cocoa
+
+While Palmyra Pro is designed and operated as a **generic, schema-driven traceability platform**, ZenGate also delivers **headless commodity solutions** built on top of the same core. These solutions provide programme- and commodity-specific configurations and user interfaces, while continuing to use the Palmyra Pro SaaS Platform as the single backend.
+
+At the time of writing, two commodities are in scope:
+
+* **Honey** – a headless implementation already running on the platform.
+* **Cocoa** – a similar headless implementation under preparation, built on the same approach.
+
+### 7.1 Headless Architecture Overview
+
+In this context, *headless* means:
+
+* The **core platform** (Palmyra Pro SaaS Platform, persistence layer, tenant databases, Winter Protocol integration) remains **generic and schema-driven**.
+* For each commodity, ZenGate configures:
+
+    * A set of **commodity-specific schemas** and relationships (for example, how production, aggregation, processing, quality checks and shipments are represented).
+    * One or more **user interfaces and integration components** that are tailored to that commodity but still communicate exclusively via the Palmyra Pro SaaS Platform.
+* There is **no separate backend per commodity**; instead, each commodity solution is a different configuration and UI layer on top of the same Palmyra Pro core.
+
+This approach allows Palmyra Pro to support different supply chains without duplicating backend logic or fragmenting the platform.
+
+### 7.2 Honey Supply Chain (Headless Implementation)
+
+The honey solution is an example of a headless commodity implementation currently running on Palmyra Pro.
+
+From a technical perspective:
+
+* **Commodity-specific schemas**
+
+    * Honey programmes define schemas for key records such as production at origin, aggregation at collection points, processing steps, shipments, and laboratory or quality results.
+    * These schemas are registered in the Palmyra Pro SaaS Platform and used for validation, storage and traceability graph construction.
+
+* **Actors and integrations**
+
+    * Producers, aggregators, processors and buyers interact through:
+
+        * Honey-specific web or mobile interfaces built on top of the Palmyra Pro APIs, and/or
+        * Integrations between their existing ERP systems or operational tools and the Palmyra Pro SaaS Platform using the honey schemas.
+    * All data is still persisted in the tenant databases managed by Palmyra Pro.
+
+* **Headless behaviour**
+
+    * The front-end applications and any middleware are **stateless clients** of the Palmyra Pro SaaS Platform.
+    * No honey-specific logic is embedded **inside** the core platform; the differentiation is in schemas, configuration and UI, not in a separate backend.
+
+* **On-chain anchoring for honey**
+
+    * Selected honey-related events (for example, specific programme-defined milestones) can be anchored on the Cardano blockchain via Winter Protocol, using the same mechanisms described in earlier sections.
+    * Internal records remain off-chain in Palmyra Pro; on-chain commitments are used as additional evidence points.
+
+### 7.3 Cocoa Supply Chain (Headless Implementation in Preparation)
+
+A similar **headless implementation for cocoa** is being prepared using the same architectural model:
+
+* **Cocoa-specific schemas**
+
+    * Cocoa programmes will define their own schemas for farm-level activities, fermentation, drying, grading, aggregation, shipping and other relevant steps.
+    * These schemas will be configured in the Palmyra Pro SaaS Platform in the same way as for honey, allowing cocoa data to use the same generic traceability engine.
+
+* **Reuse of core integration model**
+
+    * Existing patterns described in the Integration Model (Section 4) apply directly: systems integrating for cocoa will use the same Palmyra Pro SaaS Platform, with cocoa-specific schemas and configuration.
+    * User interfaces, if provided, will again be headless clients of the Palmyra Pro APIs rather than custom backends.
+
+* **Optional on-chain anchoring**
+
+    * As with honey, selected cocoa events can be anchored via Winter Protocol and Cardano, with minimal on-chain disclosure and full records retained in Palmyra Pro.
+
+### 7.4 Benefits of the Headless Commodity Approach
+
+Using Palmyra Pro as a **single generic platform** with **headless commodity implementations** on top provides several advantages:
+
+* **Reuse of core capabilities**
+
+    * Multi-tenancy, security, auditability, schema management and on-chain anchoring are implemented once and reused across commodities.
+
+* **Commodity-specific flexibility without platform forks**
+
+    * Honey and cocoa can each have their own data structures, workflows and UIs, without requiring separate backend systems or diverging codebases.
+
+* **Clean integration options for partners**
+
+    * Integration teams can:
+
+        * Integrate directly with the Palmyra Pro SaaS Platform using commodity-specific schemas, or
+        * Use the headless UIs and supplementary components provided for particular programmes.
+    * In both cases, the technical contract remains the same Palmyra Pro Platform APIs.
+
+* **Easier evolution over time**
+
+    * As programmes or commodity requirements change, updates are handled primarily through schemas and configuration, while the underlying platform, security model and operational practices remain stable.
 
