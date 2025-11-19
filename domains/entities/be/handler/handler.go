@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/zenGate-Global/palmyra-pro-saas/domains/entities/be/service"
@@ -89,7 +88,13 @@ func (h *Handler) CreateDocument(ctx context.Context, request entitiesapi.Create
 		return entitiesapi.CreateDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
 	}
 
-	doc, err := h.svc.Create(ctx, string(request.TableName), request.Body.Payload)
+	var entityID *string
+	if request.Body.EntityId != nil {
+		id := string(*request.Body.EntityId)
+		entityID = &id
+	}
+
+	doc, err := h.svc.Create(ctx, string(request.TableName), entityID, request.Body.Payload)
 	if err != nil {
 		status, problem := h.problemForError(err)
 		return entitiesapi.CreateDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -112,7 +117,7 @@ func (h *Handler) CreateDocument(ctx context.Context, request entitiesapi.Create
 }
 
 func (h *Handler) GetDocument(ctx context.Context, request entitiesapi.GetDocumentRequestObject) (entitiesapi.GetDocumentResponseObject, error) {
-	doc, err := h.svc.Get(ctx, string(request.TableName), uuid.UUID(request.EntityId))
+	doc, err := h.svc.Get(ctx, string(request.TableName), string(request.EntityId))
 	if err != nil {
 		status, problem := h.problemForError(err)
 		return entitiesapi.GetDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -133,7 +138,7 @@ func (h *Handler) UpdateDocument(ctx context.Context, request entitiesapi.Update
 		return entitiesapi.UpdateDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
 	}
 
-	doc, err := h.svc.Update(ctx, string(request.TableName), uuid.UUID(request.EntityId), *request.Body.Payload)
+	doc, err := h.svc.Update(ctx, string(request.TableName), string(request.EntityId), *request.Body.Payload)
 	if err != nil {
 		status, problem := h.problemForError(err)
 		return entitiesapi.UpdateDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -149,7 +154,7 @@ func (h *Handler) UpdateDocument(ctx context.Context, request entitiesapi.Update
 }
 
 func (h *Handler) DeleteDocument(ctx context.Context, request entitiesapi.DeleteDocumentRequestObject) (entitiesapi.DeleteDocumentResponseObject, error) {
-	if err := h.svc.Delete(ctx, string(request.TableName), uuid.UUID(request.EntityId)); err != nil {
+	if err := h.svc.Delete(ctx, string(request.TableName), string(request.EntityId)); err != nil {
 		status, problem := h.problemForError(err)
 		return entitiesapi.DeleteDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
 	}
@@ -166,7 +171,7 @@ func toAPIDocument(doc service.Document) (entitiesapi.EntityDocument, error) {
 	}
 
 	apiDoc := entitiesapi.EntityDocument{
-		EntityId:      externalPrimitives.UUID(doc.EntityID),
+		EntityId:      externalPrimitives.EntityIdentifier(doc.EntityID),
 		EntityVersion: externalPrimitives.SemanticVersion(doc.EntityVersion.String()),
 		SchemaId:      externalPrimitives.UUID(doc.SchemaID),
 		SchemaVersion: externalPrimitives.SemanticVersion(doc.SchemaVersion.String()),

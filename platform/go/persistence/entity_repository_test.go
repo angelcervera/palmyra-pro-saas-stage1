@@ -95,10 +95,20 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 		Payload: createPayload,
 	})
 	require.NoError(t, err)
+	require.NotEmpty(t, created.EntityID)
 	require.Equal(t, SemanticVersion{Major: 1, Minor: 0, Patch: 0}, created.EntityVersion)
 	require.True(t, created.IsActive)
 	require.Equal(t, "black-lotus", created.Slug)
 	require.False(t, created.IsSoftDeleted)
+
+	customID := "CARD-ALPHA"
+	customRecord, err := entityRepo.CreateEntity(ctx, CreateEntityParams{
+		EntityID: customID,
+		Slug:     "card-alpha",
+		Payload:  SchemaDefinition([]byte(`{"name":"Card Alpha"}`)),
+	})
+	require.NoError(t, err)
+	require.Equal(t, customID, customRecord.EntityID)
 
 	fetched, err := entityRepo.GetEntityByID(ctx, created.EntityID)
 	require.NoError(t, err)
@@ -162,16 +172,17 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 		SortOrder:      "desc",
 	})
 	require.NoError(t, err)
-	require.Len(t, list, 2)
+	require.Len(t, list, 3)
 	require.Equal(t, renamedSlug, list[0].Slug)
 	require.Equal(t, "black-lotus", list[1].Slug)
+	require.Equal(t, "card-alpha", list[2].Slug)
 
 	total, err := entityRepo.CountEntities(ctx, ListEntitiesParams{
 		OnlyActive:     true,
 		IncludeDeleted: false,
 	})
 	require.NoError(t, err)
-	require.EqualValues(t, 2, total)
+	require.EqualValues(t, 3, total)
 
 	err = entityRepo.SoftDeleteEntity(ctx, created.EntityID, time.Now().UTC())
 	require.NoError(t, err)
@@ -187,15 +198,16 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 		SortOrder:      "desc",
 	})
 	require.NoError(t, err)
-	require.Len(t, records, 1)
+	require.Len(t, records, 2)
 	require.Equal(t, renamedSlug, records[0].Slug)
+	require.Equal(t, "card-alpha", records[1].Slug)
 
 	totalAfterDelete, err := entityRepo.CountEntities(ctx, ListEntitiesParams{
 		OnlyActive:     true,
 		IncludeDeleted: false,
 	})
 	require.NoError(t, err)
-	require.EqualValues(t, 1, totalAfterDelete)
+	require.EqualValues(t, 2, totalAfterDelete)
 
 	deletedRecords, err := entityRepo.ListEntities(ctx, ListEntitiesParams{
 		OnlyActive:     false,
