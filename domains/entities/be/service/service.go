@@ -34,7 +34,7 @@ var (
 
 // Document represents an entity record enriched for API rendering.
 type Document struct {
-	EntityID      uuid.UUID
+	EntityID      string
 	EntityVersion persistence.SemanticVersion
 	SchemaID      uuid.UUID
 	SchemaVersion persistence.SemanticVersion
@@ -63,10 +63,10 @@ type ListOptions struct {
 // Service exposes entity operations backed by the persistence layer.
 type Service interface {
 	List(ctx context.Context, tableName string, opts ListOptions) (ListResult, error)
-	Create(ctx context.Context, tableName string, payload map[string]interface{}) (Document, error)
-	Get(ctx context.Context, tableName string, entityID uuid.UUID) (Document, error)
-	Update(ctx context.Context, tableName string, entityID uuid.UUID, payload map[string]interface{}) (Document, error)
-	Delete(ctx context.Context, tableName string, entityID uuid.UUID) error
+	Create(ctx context.Context, tableName string, entityID *string, payload map[string]interface{}) (Document, error)
+	Get(ctx context.Context, tableName string, entityID string) (Document, error)
+	Update(ctx context.Context, tableName string, entityID string, payload map[string]interface{}) (Document, error)
+	Delete(ctx context.Context, tableName string, entityID string) error
 }
 
 type service struct {
@@ -131,7 +131,7 @@ func (s *service) List(ctx context.Context, tableName string, opts ListOptions) 
 	}, nil
 }
 
-func (s *service) Create(ctx context.Context, tableName string, payload map[string]interface{}) (Document, error) {
+func (s *service) Create(ctx context.Context, tableName string, entityID *string, payload map[string]interface{}) (Document, error) {
 	if strings.TrimSpace(tableName) == "" {
 		return Document{}, &ValidationError{Reason: "tableName is required"}
 	}
@@ -139,12 +139,20 @@ func (s *service) Create(ctx context.Context, tableName string, payload map[stri
 		return Document{}, &ValidationError{Reason: "payload is required"}
 	}
 
+	var desiredID string
+	if entityID != nil {
+		desiredID = strings.TrimSpace(*entityID)
+		if desiredID == "" {
+			return Document{}, &ValidationError{Reason: "entityId cannot be blank"}
+		}
+	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return Document{}, fmt.Errorf("encode payload: %w", err)
 	}
 
-	record, err := s.repo.Create(ctx, tableName, body)
+	record, err := s.repo.Create(ctx, tableName, desiredID, body)
 	if err != nil {
 		return Document{}, translateError(err)
 	}
@@ -152,11 +160,11 @@ func (s *service) Create(ctx context.Context, tableName string, payload map[stri
 	return mapRecord(record)
 }
 
-func (s *service) Get(ctx context.Context, tableName string, entityID uuid.UUID) (Document, error) {
+func (s *service) Get(ctx context.Context, tableName string, entityID string) (Document, error) {
 	if strings.TrimSpace(tableName) == "" {
 		return Document{}, &ValidationError{Reason: "tableName is required"}
 	}
-	if entityID == uuid.Nil {
+	if strings.TrimSpace(entityID) == "" {
 		return Document{}, &ValidationError{Reason: "entityId is required"}
 	}
 
@@ -168,11 +176,11 @@ func (s *service) Get(ctx context.Context, tableName string, entityID uuid.UUID)
 	return mapRecord(record)
 }
 
-func (s *service) Update(ctx context.Context, tableName string, entityID uuid.UUID, payload map[string]interface{}) (Document, error) {
+func (s *service) Update(ctx context.Context, tableName string, entityID string, payload map[string]interface{}) (Document, error) {
 	if strings.TrimSpace(tableName) == "" {
 		return Document{}, &ValidationError{Reason: "tableName is required"}
 	}
-	if entityID == uuid.Nil {
+	if strings.TrimSpace(entityID) == "" {
 		return Document{}, &ValidationError{Reason: "entityId is required"}
 	}
 	if payload == nil {
@@ -192,11 +200,11 @@ func (s *service) Update(ctx context.Context, tableName string, entityID uuid.UU
 	return mapRecord(record)
 }
 
-func (s *service) Delete(ctx context.Context, tableName string, entityID uuid.UUID) error {
+func (s *service) Delete(ctx context.Context, tableName string, entityID string) error {
 	if strings.TrimSpace(tableName) == "" {
 		return &ValidationError{Reason: "tableName is required"}
 	}
-	if entityID == uuid.Nil {
+	if strings.TrimSpace(entityID) == "" {
 		return &ValidationError{Reason: "entityId is required"}
 	}
 
@@ -265,6 +273,10 @@ func translateError(err error) error {
 		var validationErr *jsonschema.ValidationError
 		if errors.As(err, &validationErr) {
 			return &ValidationError{Reason: validationErr.Error()}
+		}
+		var idErr *persistence.InvalidEntityIdentifierError
+		if errors.As(err, &idErr) {
+			return &ValidationError{Reason: idErr.Error()}
 		}
 		return err
 	}

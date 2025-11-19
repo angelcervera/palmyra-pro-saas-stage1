@@ -89,7 +89,7 @@ paths:
         in: path
         required: true
         schema:
-          $ref: "./common/primitives.yaml#/components/schemas/UUID"
+          $ref: "./common/primitives.yaml#/components/schemas/EntityIdentifier"
     get:
       tags: [Entities]
       summary: Get document by id
@@ -152,7 +152,7 @@ components:
       required: [entityId, entityVersion, schemaId, schemaVersion, payload, createdAt, isActive, isSoftDeleted]
       properties:
         entityId:
-          $ref: "./common/primitives.yaml#/components/schemas/UUID"
+          $ref: "./common/primitives.yaml#/components/schemas/EntityIdentifier"
         entityVersion:
           $ref: "./common/primitives.yaml#/components/schemas/SemanticVersion"
           description: Semantic version of the immutable entity record.
@@ -177,6 +177,9 @@ components:
       type: object
       required: [payload]
       properties:
+        entityId:
+          $ref: "./common/primitives.yaml#/components/schemas/EntityIdentifier"
+          description: Optional client-supplied identifier; when omitted the server generates a UUID.
         payload:
           type: object
           additionalProperties: true

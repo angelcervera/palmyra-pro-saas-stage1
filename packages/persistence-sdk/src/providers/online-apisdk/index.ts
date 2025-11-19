@@ -168,23 +168,43 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		try {
 			const payload = toJsonObject(input.payload);
 			if (input.entityId) {
-				const updated = await this.entitiesClient.patch<
-					Entities.UpdateDocumentResponses,
-					Entities.UpdateDocumentErrors,
-					true,
-					"data"
-				>({
-					url: "/entities/{tableName}/documents/{entityId}",
-					path: {
-						entityId: input.entityId,
-						tableName: input.tableName,
-					},
-					body: { payload },
-					headers: { "Content-Type": "application/json" },
-					security: BEARER_SECURITY,
-				});
+				try {
+					const updated = await this.entitiesClient.patch<
+						Entities.UpdateDocumentResponses,
+						Entities.UpdateDocumentErrors,
+						true,
+						"data"
+					>({
+						url: "/entities/{tableName}/documents/{entityId}",
+						path: {
+							entityId: input.entityId,
+							tableName: input.tableName,
+						},
+						body: { payload },
+						headers: { "Content-Type": "application/json" },
+						security: BEARER_SECURITY,
+					});
 
-				return this.toEntityRecord<TPayload>(input.tableName, updated);
+					return this.toEntityRecord<TPayload>(input.tableName, updated);
+				} catch (error) {
+					if (!this.isNotFoundError(error)) {
+						throw error;
+					}
+					const created = await this.entitiesClient.post<
+						Entities.CreateDocumentResponses,
+						Entities.CreateDocumentErrors,
+						true,
+						"data"
+					>({
+						url: "/entities/{tableName}/documents",
+						path: { tableName: input.tableName },
+						body: { entityId: input.entityId, payload },
+						headers: { "Content-Type": "application/json" },
+						security: BEARER_SECURITY,
+					});
+
+					return this.toEntityRecord<TPayload>(input.tableName, created);
+				}
 			}
 
 			const created = await this.entitiesClient.post<
@@ -313,6 +333,20 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 			ts: new Date(document.createdAt),
 			isDeleted: Boolean(document.isSoftDeleted),
 		};
+	}
+
+	private isNotFoundError(error: unknown): boolean {
+		const candidate = error && typeof error === "object" ? (error as any) : undefined;
+		if (!candidate) {
+			return false;
+		}
+		if (typeof candidate.status === "number") {
+			return candidate.status === 404;
+		}
+		if (candidate.cause) {
+			return this.isNotFoundError(candidate.cause);
+		}
+		return false;
 	}
 }
 

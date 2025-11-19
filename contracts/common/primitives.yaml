@@ -41,3 +41,10 @@ components:
       pattern: "^[a-z][a-z0-9_]*$"
       description: Lowercase snake_case PostgreSQL table identifier
       examples: ["cards_entities", "user_profiles"]
+    EntityIdentifier:
+      type: string
+      description: Client-supplied identifier for immutable entity records. Allows alphanumeric characters plus dot, dash, underscore, and colon.
+      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      minLength: 1
+      maxLength: 128
+      examples: ["CARD-0001", "profiles.alpha", "inventory:item-42"]

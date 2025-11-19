@@ -31,7 +31,9 @@ const (
 
 // CreateEntityDocumentRequest defines model for CreateEntityDocumentRequest.
 type CreateEntityDocumentRequest struct {
-	Payload map[string]interface{} `json:"payload"`
+	// EntityId Client-supplied identifier for immutable entity records. Allows alphanumeric characters plus dot, dash, underscore, and colon.
+	EntityId *externalRef2.EntityIdentifier `json:"entityId,omitempty"`
+	Payload  map[string]interface{}         `json:"payload"`
 }
 
 // EntityDocument Immutable record representing a JSON document plus metadata.
@@ -39,8 +41,8 @@ type EntityDocument struct {
 	// CreatedAt ISO 8601 timestamp in UTC
 	CreatedAt externalRef2.Timestamp `json:"createdAt"`
 
-	// EntityId RFC 4122 UUID string
-	EntityId externalRef2.UUID `json:"entityId"`
+	// EntityId Client-supplied identifier for immutable entity records. Allows alphanumeric characters plus dot, dash, underscore, and colon.
+	EntityId externalRef2.EntityIdentifier `json:"entityId"`
 
 	// EntityVersion Semantic version string in major.minor.patch format
 	EntityVersion externalRef2.SemanticVersion `json:"entityVersion"`
@@ -94,13 +96,13 @@ type ServerInterface interface {
 	CreateDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName)
 	// Delete document
 	// (DELETE /entities/{tableName}/documents/{entityId})
-	DeleteDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.UUID)
+	DeleteDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.EntityIdentifier)
 	// Get document by id
 	// (GET /entities/{tableName}/documents/{entityId})
-	GetDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.UUID)
+	GetDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.EntityIdentifier)
 	// Update document (partial)
 	// (PATCH /entities/{tableName}/documents/{entityId})
-	UpdateDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.UUID)
+	UpdateDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.EntityIdentifier)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -121,19 +123,19 @@ func (_ Unimplemented) CreateDocument(w http.ResponseWriter, r *http.Request, ta
 
 // Delete document
 // (DELETE /entities/{tableName}/documents/{entityId})
-func (_ Unimplemented) DeleteDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.UUID) {
+func (_ Unimplemented) DeleteDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.EntityIdentifier) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get document by id
 // (GET /entities/{tableName}/documents/{entityId})
-func (_ Unimplemented) GetDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.UUID) {
+func (_ Unimplemented) GetDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.EntityIdentifier) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Update document (partial)
 // (PATCH /entities/{tableName}/documents/{entityId})
-func (_ Unimplemented) UpdateDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.UUID) {
+func (_ Unimplemented) UpdateDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.EntityIdentifier) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -250,7 +252,7 @@ func (siw *ServerInterfaceWrapper) DeleteDocument(w http.ResponseWriter, r *http
 	}
 
 	// ------------- Path parameter "entityId" -------------
-	var entityId externalRef2.UUID
+	var entityId externalRef2.EntityIdentifier
 
 	err = runtime.BindStyledParameterWithOptions("simple", "entityId", chi.URLParam(r, "entityId"), &entityId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -290,7 +292,7 @@ func (siw *ServerInterfaceWrapper) GetDocument(w http.ResponseWriter, r *http.Re
 	}
 
 	// ------------- Path parameter "entityId" -------------
-	var entityId externalRef2.UUID
+	var entityId externalRef2.EntityIdentifier
 
 	err = runtime.BindStyledParameterWithOptions("simple", "entityId", chi.URLParam(r, "entityId"), &entityId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -330,7 +332,7 @@ func (siw *ServerInterfaceWrapper) UpdateDocument(w http.ResponseWriter, r *http
 	}
 
 	// ------------- Path parameter "entityId" -------------
-	var entityId externalRef2.UUID
+	var entityId externalRef2.EntityIdentifier
 
 	err = runtime.BindStyledParameterWithOptions("simple", "entityId", chi.URLParam(r, "entityId"), &entityId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -562,8 +564,8 @@ func (response CreateDocumentdefaultApplicationProblemPlusJSONResponse) VisitCre
 }
 
 type DeleteDocumentRequestObject struct {
-	TableName externalRef2.TableName `json:"tableName"`
-	EntityId  externalRef2.UUID      `json:"entityId"`
+	TableName externalRef2.TableName        `json:"tableName"`
+	EntityId  externalRef2.EntityIdentifier `json:"entityId"`
 }
 
 type DeleteDocumentResponseObject interface {
@@ -591,8 +593,8 @@ func (response DeleteDocumentdefaultApplicationProblemPlusJSONResponse) VisitDel
 }
 
 type GetDocumentRequestObject struct {
-	TableName externalRef2.TableName `json:"tableName"`
-	EntityId  externalRef2.UUID      `json:"entityId"`
+	TableName externalRef2.TableName        `json:"tableName"`
+	EntityId  externalRef2.EntityIdentifier `json:"entityId"`
 }
 
 type GetDocumentResponseObject interface {
@@ -621,8 +623,8 @@ func (response GetDocumentdefaultApplicationProblemPlusJSONResponse) VisitGetDoc
 }
 
 type UpdateDocumentRequestObject struct {
-	TableName externalRef2.TableName `json:"tableName"`
-	EntityId  externalRef2.UUID      `json:"entityId"`
+	TableName externalRef2.TableName        `json:"tableName"`
+	EntityId  externalRef2.EntityIdentifier `json:"entityId"`
 	Body      *UpdateDocumentJSONRequestBody
 }
 
@@ -760,7 +762,7 @@ func (sh *strictHandler) CreateDocument(w http.ResponseWriter, r *http.Request, 
 }
 
 // DeleteDocument operation middleware
-func (sh *strictHandler) DeleteDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.UUID) {
+func (sh *strictHandler) DeleteDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.EntityIdentifier) {
 	var request DeleteDocumentRequestObject
 
 	request.TableName = tableName
@@ -787,7 +789,7 @@ func (sh *strictHandler) DeleteDocument(w http.ResponseWriter, r *http.Request, 
 }
 
 // GetDocument operation middleware
-func (sh *strictHandler) GetDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.UUID) {
+func (sh *strictHandler) GetDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.EntityIdentifier) {
 	var request GetDocumentRequestObject
 
 	request.TableName = tableName
@@ -814,7 +816,7 @@ func (sh *strictHandler) GetDocument(w http.ResponseWriter, r *http.Request, tab
 }
 
 // UpdateDocument operation middleware
-func (sh *strictHandler) UpdateDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.UUID) {
+func (sh *strictHandler) UpdateDocument(w http.ResponseWriter, r *http.Request, tableName externalRef2.TableName, entityId externalRef2.EntityIdentifier) {
 	var request UpdateDocumentRequestObject
 
 	request.TableName = tableName
@@ -850,35 +852,38 @@ func (sh *strictHandler) UpdateDocument(w http.ResponseWriter, r *http.Request, 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"M6m5kWrzsimRGmmxKP4TAAD//5qpTnTVHAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

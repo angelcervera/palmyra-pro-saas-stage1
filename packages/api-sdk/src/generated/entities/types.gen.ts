@@ -8,7 +8,7 @@ export type ClientOptions = {
  * Immutable record representing a JSON document plus metadata.
  */
 export type EntityDocument = {
-    entityId: PrimitivesUuid;
+    entityId: PrimitivesEntityIdentifier;
     entityVersion: PrimitivesSemanticVersion;
     schemaId: PrimitivesUuid;
     schemaVersion: PrimitivesSemanticVersion;
@@ -30,6 +30,7 @@ export type EntityDocument = {
 };
 
 export type CreateEntityDocumentRequest = {
+    entityId?: PrimitivesEntityIdentifier;
     payload: {
         [key: string]: unknown;
     };
@@ -47,6 +48,11 @@ export type PaginationPaginationMeta = {
     totalItems: number;
     totalPages: number;
 };
+
+/**
+ * Client-supplied identifier for immutable entity records. Allows alphanumeric characters plus dot, dash, underscore, and colon.
+ */
+export type PrimitivesEntityIdentifier = string;
 
 /**
  * Semantic version string in major.minor.patch format
@@ -194,7 +200,7 @@ export type DeleteDocumentData = {
     body?: never;
     path: {
         tableName: PrimitivesTableName;
-        entityId: PrimitivesUuid;
+        entityId: PrimitivesEntityIdentifier;
     };
     query?: never;
     url: '/entities/{tableName}/documents/{entityId}';
@@ -222,7 +228,7 @@ export type GetDocumentData = {
     body?: never;
     path: {
         tableName: PrimitivesTableName;
-        entityId: PrimitivesUuid;
+        entityId: PrimitivesEntityIdentifier;
     };
     query?: never;
     url: '/entities/{tableName}/documents/{entityId}';
@@ -250,7 +256,7 @@ export type UpdateDocumentData = {
     body: UpdateEntityDocumentRequest;
     path: {
         tableName: PrimitivesTableName;
-        entityId: PrimitivesUuid;
+        entityId: PrimitivesEntityIdentifier;
     };
     query?: never;
     url: '/entities/{tableName}/documents/{entityId}';

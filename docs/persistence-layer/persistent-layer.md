@@ -31,15 +31,19 @@ This ensures **auditability**, **traceability**, and a consistent **data lineage
 The repository enables **data migration processes** between schema versions when evolution is required, ensuring
 long-term compatibility of stored data and facilitating automated validation and transformation.
 
-Each schema entry contains:
+Each schema entry currently stores the following columns (see `SchemaRepositoryStore.CreateOrUpdateSchema` for the exact wiring):
 
-* `schema_id`: A unique schema identifier.
-* `schema_version`: A semantic version number (`major.minor.patch`).
-* `schema_definition`: A `JSONB` field containing the formal JSON Schema definition specifying structure and constraints.
-* `created_at`: A creation timestamp.
-* `updated_at`: A last-modified timestamp.
-* `deleted_at`: A soft-delete timestamp for logical removal.
-* `is_active`: A flag indicating whether it is the currently active version.
+* `schema_id UUID`: Stable identifier for the schema family (e.g., `cards`).
+* `schema_version TEXT`: Semantic version string (`major.minor.patch`) that pairs with `schema_id` as the primary key.
+* `schema_definition JSONB`: Canonical JSON Schema payload validated before persistence.
+* `table_name TEXT`: Lowercase snake_case table name where entity documents for this schema live.
+* `slug TEXT`: Human-friendly slug constrained to the same pattern as other slugs (`^[a-z0-9]+(?:-[a-z0-9]+)*$`).
+* `category_id UUID`: Foreign key to `schema_categories` so every schema is classified.
+* `is_active BOOLEAN`: Indicates which version is currently active per schema.
+* `is_soft_deleted BOOLEAN`: Logical delete flag; soft deletes set this to true and clear `is_active`.
+* `created_at TIMESTAMPTZ`: Timestamp captured when the version was inserted.
+
+There are no `updated_at` or `deleted_at` timestamps because schema versions, like entity versions, are immutable once written.
 
 ## Entity Tables
 
@@ -53,13 +57,19 @@ storage structures**, ensuring schema conformity, referential integrity, and ver
 Entity records are **immutable by design**. Updates do not overwrite existing data but instead create new document
 versions, preserving historical state and enabling **temporal (time-travel) queries** and **audit tracking**.
 
-Each entity table includes:
+Each entity table currently stores the columns below (see `EntityRepository.ensureEntityTable` for the authoritative DDL):
 
-* `entity_id`: A globally unique identifier.
-* `entity_version`: A semantic version number (`major.minor.patch`).
-* `schema_ref`: A foreign key referencing the schema identifier and version in use.
-* `payload`: A `JSONB` field containing the serialized document data.
-* `created_at`: A creation timestamp.
-* `updated_at`: A last-modified timestamp.
-* `deleted_at`: A soft-delete timestamp for logical removal.
-* `is_active`: A flag indicating whether the record is the active version.
+* `entity_id TEXT`: Primary key (together with `entity_version`). Callers may supply their own identifier as long as it
+  matches `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`; when omitted the API generates a UUID automatically. Using text keeps the
+  database aligned with the contract change described above while preserving backward-compatible UUID behavior.
+* `entity_version TEXT`: Semantic version string (`major.minor.patch`) representing each immutable revision.
+* `schema_id UUID`: Foreign key to `schema_repository.schema_id`.
+* `schema_version TEXT`: Foreign key to `schema_repository.schema_version`; paired with `schema_id` to pin the schema.
+* `slug TEXT`: Search-friendly slug constrained to `^[a-z0-9]+(?:-[a-z0-9]+)*$`; unique among active records.
+* `payload JSONB`: The validated document body.
+* `created_at TIMESTAMPTZ`: Insert timestamp captured by Postgres.
+* `is_active BOOLEAN`: Indicates the latest version for a given `entity_id` (enforced via partial unique index).
+* `is_soft_deleted BOOLEAN`: Marks versions hidden from default queries; soft deletes toggle this flag and clear
+  `is_active` for the entity.
+
+There are no `updated_at`/`deleted_at` timestamps because entity versions are immutable and only track creation time.
