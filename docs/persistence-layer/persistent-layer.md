@@ -53,22 +53,19 @@ storage structures**, ensuring schema conformity, referential integrity, and ver
 Entity records are **immutable by design**. Updates do not overwrite existing data but instead create new document
 versions, preserving historical state and enabling **temporal (time-travel) queries** and **audit tracking**.
 
-Each entity table includes:
+Each entity table currently stores the columns below (see `EntityRepository.ensureEntityTable` for the authoritative DDL):
 
-* `entity_id`: Preferably a client-supplied identifier. During design review we decided to stop forcing UUIDs so that
-  platform clients can reuse the IDs they already manage (for example, natural keys from legacy systems or
-  short slugs exposed in their UI). Identifiers must match `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`, which keeps them
-  ASCII-safe for URLs, SQL, logging, and indexing while still allowing common separators (`. _ : -`). We intentionally
-  disallow `/` because entity IDs live inside the path `/entities/{tableName}/documents/{entityId}`; letting `/` through
-  would require special server configuration for encoded slashes and makes curl/CLI usage error-prone. When the caller
-  does not provide an identifier, the API generates a random UUID to guarantee uniqueness so existing workflows
-  continue to function without extra coordination. This keeps Palmyra from becoming the system of record for identifier
-  assignment and simplifies migrations because documents can retain their original keys, yet callers can still rely on
-  the platform to mint safe IDs when convenient.
-* `entity_version`: A semantic version number (`major.minor.patch`).
-* `schema_ref`: A foreign key referencing the schema identifier and version in use.
-* `payload`: A `JSONB` field containing the serialized document data.
-* `created_at`: A creation timestamp.
-* `updated_at`: A last-modified timestamp.
-* `deleted_at`: A soft-delete timestamp for logical removal.
-* `is_active`: A flag indicating whether the record is the active version.
+* `entity_id UUID`: Primary key (together with `entity_version`). During design we plan to allow client-provided IDs,
+  but the implementation still stores UUIDs today, generating them automatically when the caller omits an ID. Once the
+  new identifier format lands, this column will move to text with the regex documented above.
+* `entity_version TEXT`: Semantic version string (`major.minor.patch`) representing each immutable revision.
+* `schema_id UUID`: Foreign key to `schema_repository.schema_id`.
+* `schema_version TEXT`: Foreign key to `schema_repository.schema_version`; paired with `schema_id` to pin the schema.
+* `slug TEXT`: Search-friendly slug constrained to `^[a-z0-9]+(?:-[a-z0-9]+)*$`; unique among active records.
+* `payload JSONB`: The validated document body.
+* `created_at TIMESTAMPTZ`: Insert timestamp captured by Postgres.
+* `is_active BOOLEAN`: Indicates the latest version for a given `entity_id` (enforced via partial unique index).
+* `is_soft_deleted BOOLEAN`: Marks versions hidden from default queries; soft deletes toggle this flag and clear
+  `is_active` for the entity.
+
+There are no `updated_at`/`deleted_at` timestamps because entity versions are immutable and only track creation time.
