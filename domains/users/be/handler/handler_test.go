@@ -16,57 +16,58 @@ import (
 	externalRef2 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/primitives"
 	users "github.com/zenGate-Global/palmyra-pro-saas/generated/go/users"
 	platformauth "github.com/zenGate-Global/palmyra-pro-saas/platform/go/auth"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 type mockService struct {
-	createFn     func(ctx context.Context, input service.CreateInput) (service.User, error)
-	listFn       func(ctx context.Context, opts service.ListOptions) (service.ListResult, error)
-	getFn        func(ctx context.Context, id uuid.UUID) (service.User, error)
-	updateFn     func(ctx context.Context, id uuid.UUID, input service.UpdateInput) (service.User, error)
-	updateSelfFn func(ctx context.Context, id uuid.UUID, input service.UpdateSelfInput) (service.User, error)
-	deleteFn     func(ctx context.Context, id uuid.UUID) error
+	createFn     func(ctx context.Context, audit requesttrace.AuditInfo, input service.CreateInput) (service.User, error)
+	listFn       func(ctx context.Context, audit requesttrace.AuditInfo, opts service.ListOptions) (service.ListResult, error)
+	getFn        func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) (service.User, error)
+	updateFn     func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input service.UpdateInput) (service.User, error)
+	updateSelfFn func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input service.UpdateSelfInput) (service.User, error)
+	deleteFn     func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) error
 }
 
-func (m *mockService) Create(ctx context.Context, input service.CreateInput) (service.User, error) {
+func (m *mockService) Create(ctx context.Context, audit requesttrace.AuditInfo, input service.CreateInput) (service.User, error) {
 	if m.createFn == nil {
 		panic("createFn not configured")
 	}
-	return m.createFn(ctx, input)
+	return m.createFn(ctx, audit, input)
 }
 
-func (m *mockService) List(ctx context.Context, opts service.ListOptions) (service.ListResult, error) {
+func (m *mockService) List(ctx context.Context, audit requesttrace.AuditInfo, opts service.ListOptions) (service.ListResult, error) {
 	if m.listFn == nil {
 		panic("listFn not configured")
 	}
-	return m.listFn(ctx, opts)
+	return m.listFn(ctx, audit, opts)
 }
 
-func (m *mockService) Get(ctx context.Context, id uuid.UUID) (service.User, error) {
+func (m *mockService) Get(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) (service.User, error) {
 	if m.getFn == nil {
 		panic("getFn not configured")
 	}
-	return m.getFn(ctx, id)
+	return m.getFn(ctx, audit, id)
 }
 
-func (m *mockService) Update(ctx context.Context, id uuid.UUID, input service.UpdateInput) (service.User, error) {
+func (m *mockService) Update(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input service.UpdateInput) (service.User, error) {
 	if m.updateFn == nil {
 		panic("updateFn not configured")
 	}
-	return m.updateFn(ctx, id, input)
+	return m.updateFn(ctx, audit, id, input)
 }
 
-func (m *mockService) UpdateSelf(ctx context.Context, id uuid.UUID, input service.UpdateSelfInput) (service.User, error) {
+func (m *mockService) UpdateSelf(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input service.UpdateSelfInput) (service.User, error) {
 	if m.updateSelfFn == nil {
 		panic("updateSelfFn not configured")
 	}
-	return m.updateSelfFn(ctx, id, input)
+	return m.updateSelfFn(ctx, audit, id, input)
 }
 
-func (m *mockService) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *mockService) Delete(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) error {
 	if m.deleteFn == nil {
 		panic("deleteFn not configured")
 	}
-	return m.deleteFn(ctx, id)
+	return m.deleteFn(ctx, audit, id)
 }
 
 func TestUsersListSuccess(t *testing.T) {
@@ -76,7 +77,7 @@ func TestUsersListSuccess(t *testing.T) {
 	now := time.Now().UTC()
 	userID := uuid.New()
 
-	svc.listFn = func(ctx context.Context, opts service.ListOptions) (service.ListResult, error) {
+	svc.listFn = func(ctx context.Context, audit requesttrace.AuditInfo, opts service.ListOptions) (service.ListResult, error) {
 		return service.ListResult{
 			Users: []service.User{{
 				ID:        userID,
@@ -120,7 +121,7 @@ func TestUsersCreateValidationError(t *testing.T) {
 	t.Parallel()
 
 	svc := &mockService{}
-	svc.createFn = func(ctx context.Context, input service.CreateInput) (service.User, error) {
+	svc.createFn = func(ctx context.Context, audit requesttrace.AuditInfo, input service.CreateInput) (service.User, error) {
 		return service.User{}, &service.ValidationError{Fields: service.FieldErrors{"email": {"invalid"}}}
 	}
 
@@ -146,7 +147,7 @@ func TestUsersCreateSuccess(t *testing.T) {
 	userID := uuid.New()
 
 	svc := &mockService{}
-	svc.createFn = func(ctx context.Context, input service.CreateInput) (service.User, error) {
+	svc.createFn = func(ctx context.Context, audit requesttrace.AuditInfo, input service.CreateInput) (service.User, error) {
 		return service.User{
 			ID:        userID,
 			Email:     "admin@example.com",
@@ -205,7 +206,7 @@ func TestUsersUpdateMeSuccess(t *testing.T) {
 	userID := uuid.New()
 	now := time.Now().UTC()
 
-	svc.updateSelfFn = func(ctx context.Context, id uuid.UUID, input service.UpdateSelfInput) (service.User, error) {
+	svc.updateSelfFn = func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input service.UpdateSelfInput) (service.User, error) {
 		require.Equal(t, userID, id)
 		require.NotNil(t, input.FullName)
 		return service.User{
@@ -238,7 +239,7 @@ func TestUsersDeleteSuccess(t *testing.T) {
 
 	userID := uuid.New()
 	svc := &mockService{}
-	svc.deleteFn = func(ctx context.Context, id uuid.UUID) error {
+	svc.deleteFn = func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) error {
 		require.Equal(t, userID, id)
 		return nil
 	}
@@ -262,7 +263,7 @@ func TestUsersDeleteNotFound(t *testing.T) {
 
 	userID := uuid.New()
 	svc := &mockService{}
-	svc.deleteFn = func(ctx context.Context, id uuid.UUID) error {
+	svc.deleteFn = func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) error {
 		return service.ErrNotFound
 	}
 
