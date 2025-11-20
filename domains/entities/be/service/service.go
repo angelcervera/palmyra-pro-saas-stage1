@@ -153,7 +153,7 @@ func (s *service) Create(ctx context.Context, audit requesttrace.AuditInfo, tabl
 		return Document{}, fmt.Errorf("encode payload: %w", err)
 	}
 
-	record, err := s.repo.Create(ctx, tableName, desiredID, body)
+	record, err := s.repo.Create(ctx, tableName, desiredID, body, audit.UserID)
 	if err != nil {
 		return Document{}, translateError(err)
 	}
@@ -193,7 +193,7 @@ func (s *service) Update(ctx context.Context, audit requesttrace.AuditInfo, tabl
 		return Document{}, fmt.Errorf("encode payload: %w", err)
 	}
 
-	record, err := s.repo.Update(ctx, tableName, entityID, body)
+	record, err := s.repo.Update(ctx, tableName, entityID, body, audit.UserID)
 	if err != nil {
 		return Document{}, translateError(err)
 	}

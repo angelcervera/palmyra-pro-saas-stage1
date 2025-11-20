@@ -59,7 +59,7 @@ func TestService_CreateValidation(t *testing.T) {
 
 func TestService_CreateNotFound(t *testing.T) {
 	repo := &stubRepository{
-		createFn: func(context.Context, string, string, json.RawMessage) (persistence.EntityRecord, error) {
+		createFn: func(context.Context, string, string, json.RawMessage, *string) (persistence.EntityRecord, error) {
 			return persistence.EntityRecord{}, persistence.ErrSchemaNotFound
 		},
 	}
@@ -89,9 +89,9 @@ func TestService_DeleteNotFound(t *testing.T) {
 
 type stubRepository struct {
 	listFn   func(context.Context, string, domainrepo.ListParams) (domainrepo.ListResult, error)
-	createFn func(context.Context, string, string, json.RawMessage) (persistence.EntityRecord, error)
+	createFn func(context.Context, string, string, json.RawMessage, *string) (persistence.EntityRecord, error)
 	getFn    func(context.Context, string, string) (persistence.EntityRecord, error)
-	updateFn func(context.Context, string, string, json.RawMessage) (persistence.EntityRecord, error)
+	updateFn func(context.Context, string, string, json.RawMessage, *string) (persistence.EntityRecord, error)
 	deleteFn func(context.Context, string, string) error
 }
 
@@ -102,11 +102,11 @@ func (s *stubRepository) List(ctx context.Context, table string, params domainre
 	return s.listFn(ctx, table, params)
 }
 
-func (s *stubRepository) Create(ctx context.Context, table string, entityID string, payload json.RawMessage) (persistence.EntityRecord, error) {
+func (s *stubRepository) Create(ctx context.Context, table string, entityID string, payload json.RawMessage, createdBy *string) (persistence.EntityRecord, error) {
 	if s.createFn == nil {
 		return persistence.EntityRecord{}, nil
 	}
-	return s.createFn(ctx, table, entityID, payload)
+	return s.createFn(ctx, table, entityID, payload, createdBy)
 }
 
 func (s *stubRepository) Get(ctx context.Context, table string, entityID string) (persistence.EntityRecord, error) {
@@ -116,11 +116,11 @@ func (s *stubRepository) Get(ctx context.Context, table string, entityID string)
 	return s.getFn(ctx, table, entityID)
 }
 
-func (s *stubRepository) Update(ctx context.Context, table string, entityID string, payload json.RawMessage) (persistence.EntityRecord, error) {
+func (s *stubRepository) Update(ctx context.Context, table string, entityID string, payload json.RawMessage, createdBy *string) (persistence.EntityRecord, error) {
 	if s.updateFn == nil {
 		return persistence.EntityRecord{}, nil
 	}
-	return s.updateFn(ctx, table, entityID, payload)
+	return s.updateFn(ctx, table, entityID, payload, createdBy)
 }
 
 func (s *stubRepository) Delete(ctx context.Context, table string, entityID string) error {
