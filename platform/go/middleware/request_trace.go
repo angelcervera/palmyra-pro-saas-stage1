@@ -33,6 +33,16 @@ func RequestTrace(next http.Handler) http.Handler {
 			audit = requesttrace.Anonymous(requestID)
 		}
 
-		next.ServeHTTP(w, r.WithContext(requesttrace.IntoContext(r.Context(), audit)))
+		ctx := requesttrace.IntoContext(r.Context(), audit)
+		if logger != nil {
+			fields := []zap.Field{zap.String("actor_kind", string(audit.ActorKind))}
+			if audit.UserID != nil && *audit.UserID != "" {
+				fields = append(fields, zap.String("user_id", *audit.UserID))
+			}
+			logger = logger.With(fields...)
+			ctx = platformlogging.WithLogger(ctx, logger)
+		}
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
