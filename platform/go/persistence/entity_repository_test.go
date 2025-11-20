@@ -91,20 +91,17 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 
 	createPayload := SchemaDefinition([]byte(`{"name":"Black Lotus"}`))
 	created, err := entityRepo.CreateEntity(ctx, CreateEntityParams{
-		Slug:    "black-lotus",
 		Payload: createPayload,
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, created.EntityID)
 	require.Equal(t, SemanticVersion{Major: 1, Minor: 0, Patch: 0}, created.EntityVersion)
 	require.True(t, created.IsActive)
-	require.Equal(t, "black-lotus", created.Slug)
 	require.False(t, created.IsSoftDeleted)
 
 	customID := "CARD-ALPHA"
 	customRecord, err := entityRepo.CreateEntity(ctx, CreateEntityParams{
 		EntityID: customID,
-		Slug:     "card-alpha",
 		Payload:  SchemaDefinition([]byte(`{"name":"Card Alpha"}`)),
 	})
 	require.NoError(t, err)
@@ -113,7 +110,8 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	fetched, err := entityRepo.GetEntityByID(ctx, created.EntityID)
 	require.NoError(t, err)
 	require.Equal(t, created.EntityVersion, fetched.EntityVersion)
-	require.Equal(t, "black-lotus", fetched.Slug)
+	// ensure payload round-trips
+	require.JSONEq(t, string(createPayload), string(fetched.Payload))
 
 	updatePayload := SchemaDefinition([]byte(`{"name":"Black Lotus","rarity":"mythic"}`))
 	updated, err := entityRepo.UpdateEntity(ctx, UpdateEntityParams{
@@ -123,21 +121,17 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, created.EntityVersion.NextPatch(), updated.EntityVersion)
 	require.True(t, updated.IsActive)
-	require.Equal(t, "black-lotus", updated.Slug)
 	require.False(t, updated.IsSoftDeleted)
 
 	// Create or update flow should create when the entity does not exist yet.
-	upsertSlug := "time-walk"
 	upsertCreatePayload := SchemaDefinition([]byte(`{"name":"Time Walk"}`))
 	upserted, err := entityRepo.CreateOrUpdateEntity(ctx, CreateOrUpdateEntityParams{
-		Slug:    &upsertSlug,
 		Payload: upsertCreatePayload,
 	})
 	require.NoError(t, err)
 	require.Equal(t, SemanticVersion{Major: 1, Minor: 0, Patch: 0}, upserted.EntityVersion)
-	require.Equal(t, upsertSlug, upserted.Slug)
 
-	// Subsequent calls without slug reuse the last slug and bump version.
+	// Subsequent calls bump version.
 	upsertUpdatePayload := SchemaDefinition([]byte(`{"name":"Time Walk","rarity":"rare"}`))
 	updatedUpsert, err := entityRepo.CreateOrUpdateEntity(ctx, CreateOrUpdateEntityParams{
 		EntityID: upserted.EntityID,
@@ -145,19 +139,13 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, upserted.EntityVersion.NextPatch(), updatedUpsert.EntityVersion)
-	require.Equal(t, upsertSlug, updatedUpsert.Slug)
-
-	// Providing a new slug should overwrite it while incrementing the patch version.
-	renamedSlug := "time-walk-legacy"
 	upsertRenamePayload := SchemaDefinition([]byte(`{"name":"Time Walk","rarity":"mythic"}`))
 	renamedRecord, err := entityRepo.CreateOrUpdateEntity(ctx, CreateOrUpdateEntityParams{
 		EntityID: upserted.EntityID,
-		Slug:     &renamedSlug,
 		Payload:  upsertRenamePayload,
 	})
 	require.NoError(t, err)
 	require.Equal(t, updatedUpsert.EntityVersion.NextPatch(), renamedRecord.EntityVersion)
-	require.Equal(t, renamedSlug, renamedRecord.Slug)
 
 	oldVersion, err := entityRepo.GetEntityVersion(ctx, created.EntityID, created.EntityVersion)
 	require.NoError(t, err)
@@ -173,9 +161,9 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, list, 3)
-	require.Equal(t, renamedSlug, list[0].Slug)
-	require.Equal(t, "black-lotus", list[1].Slug)
-	require.Equal(t, "card-alpha", list[2].Slug)
+	require.Equal(t, upserted.EntityID, list[0].EntityID)
+	require.Equal(t, created.EntityID, list[1].EntityID)
+	require.Equal(t, customRecord.EntityID, list[2].EntityID)
 
 	total, err := entityRepo.CountEntities(ctx, ListEntitiesParams{
 		OnlyActive:     true,
@@ -199,8 +187,8 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, records, 2)
-	require.Equal(t, renamedSlug, records[0].Slug)
-	require.Equal(t, "card-alpha", records[1].Slug)
+	require.Equal(t, upserted.EntityID, records[0].EntityID)
+	require.Equal(t, customRecord.EntityID, records[1].EntityID)
 
 	totalAfterDelete, err := entityRepo.CountEntities(ctx, ListEntitiesParams{
 		OnlyActive:     true,
@@ -227,16 +215,6 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	}
 	require.True(t, foundSoftDeleted)
 
-	_, err = entityRepo.CreateOrUpdateEntity(ctx, CreateOrUpdateEntityParams{
-		Payload: SchemaDefinition([]byte(`{"name":"Missing Slug"}`)),
-	})
-	require.Error(t, err)
-
-	_, err = entityRepo.CreateEntity(ctx, CreateEntityParams{
-		Slug:    "no-name",
-		Payload: SchemaDefinition([]byte(`{"rarity":"rare"}`)),
-	})
-	require.Error(t, err)
 }
 
 func TestSanitizeEntitySort(t *testing.T) {
@@ -250,7 +228,6 @@ func TestSanitizeEntitySort(t *testing.T) {
 	}{
 		{name: "defaults", field: "", order: "", wantField: "created_at", wantOrder: "DESC"},
 		{name: "asc", field: "created_at", order: "asc", wantField: "created_at", wantOrder: "ASC"},
-		{name: "desc", field: "slug", order: "desc", wantField: "slug", wantOrder: "DESC"},
 		{name: "invalid-field", field: "DROP", order: "asc", wantErr: true},
 		{name: "invalid-order", field: "created_at", order: "sideways", wantErr: true},
 	}
