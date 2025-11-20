@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS schema_repository (
     schema_id UUID NOT NULL,
     schema_version TEXT NOT NULL CHECK (schema_version ~ '^[0-9]+\.[0-9]+\.[0-9]+$'),
     schema_definition JSONB NOT NULL,
+    hash TEXT NOT NULL CHECK (hash ~ '^[a-f0-9]{64}$'),
     table_name TEXT NOT NULL CHECK (table_name ~ '^[a-z][a-z0-9_]*$'),
     slug TEXT NOT NULL CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
     category_id UUID NOT NULL REFERENCES schema_categories(category_id),

@@ -183,6 +183,7 @@ components:
         payload:
           type: object
           additionalProperties: true
+          description: Document body; server computes hash from this content.
 
     UpdateEntityDocumentRequest:
       type: object
