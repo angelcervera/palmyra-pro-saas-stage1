@@ -12,50 +12,51 @@ import (
 	"github.com/zenGate-Global/palmyra-pro-saas/domains/schema-categories/be/service"
 	externalRef2 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/primitives"
 	schemacategories "github.com/zenGate-Global/palmyra-pro-saas/generated/go/schema-categories"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 	"go.uber.org/zap/zaptest"
 )
 
 type mockService struct {
-	listFn   func(ctx context.Context, includeDeleted bool) ([]service.Category, error)
-	createFn func(ctx context.Context, input service.CreateInput) (service.Category, error)
-	getFn    func(ctx context.Context, id uuid.UUID) (service.Category, error)
-	updateFn func(ctx context.Context, id uuid.UUID, input service.UpdateInput) (service.Category, error)
-	deleteFn func(ctx context.Context, id uuid.UUID) error
+	listFn   func(ctx context.Context, audit requesttrace.AuditInfo, includeDeleted bool) ([]service.Category, error)
+	createFn func(ctx context.Context, audit requesttrace.AuditInfo, input service.CreateInput) (service.Category, error)
+	getFn    func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) (service.Category, error)
+	updateFn func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input service.UpdateInput) (service.Category, error)
+	deleteFn func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) error
 }
 
-func (m *mockService) List(ctx context.Context, includeDeleted bool) ([]service.Category, error) {
+func (m *mockService) List(ctx context.Context, audit requesttrace.AuditInfo, includeDeleted bool) ([]service.Category, error) {
 	if m.listFn == nil {
 		panic("listFn not configured")
 	}
-	return m.listFn(ctx, includeDeleted)
+	return m.listFn(ctx, audit, includeDeleted)
 }
 
-func (m *mockService) Create(ctx context.Context, input service.CreateInput) (service.Category, error) {
+func (m *mockService) Create(ctx context.Context, audit requesttrace.AuditInfo, input service.CreateInput) (service.Category, error) {
 	if m.createFn == nil {
 		panic("createFn not configured")
 	}
-	return m.createFn(ctx, input)
+	return m.createFn(ctx, audit, input)
 }
 
-func (m *mockService) Get(ctx context.Context, id uuid.UUID) (service.Category, error) {
+func (m *mockService) Get(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) (service.Category, error) {
 	if m.getFn == nil {
 		panic("getFn not configured")
 	}
-	return m.getFn(ctx, id)
+	return m.getFn(ctx, audit, id)
 }
 
-func (m *mockService) Update(ctx context.Context, id uuid.UUID, input service.UpdateInput) (service.Category, error) {
+func (m *mockService) Update(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input service.UpdateInput) (service.Category, error) {
 	if m.updateFn == nil {
 		panic("updateFn not configured")
 	}
-	return m.updateFn(ctx, id, input)
+	return m.updateFn(ctx, audit, id, input)
 }
 
-func (m *mockService) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *mockService) Delete(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) error {
 	if m.deleteFn == nil {
 		panic("deleteFn not configured")
 	}
-	return m.deleteFn(ctx, id)
+	return m.deleteFn(ctx, audit, id)
 }
 
 func TestHandlerListSchemaCategories(t *testing.T) {
@@ -65,7 +66,7 @@ func TestHandlerListSchemaCategories(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	handler := New(svc, logger)
 
-	svc.listFn = func(ctx context.Context, includeDeleted bool) ([]service.Category, error) {
+	svc.listFn = func(ctx context.Context, audit requesttrace.AuditInfo, includeDeleted bool) ([]service.Category, error) {
 		require.True(t, includeDeleted)
 		now := time.Now().UTC()
 		return []service.Category{
@@ -98,7 +99,7 @@ func TestHandlerCreateSchemaCategory(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	handler := New(svc, logger)
 
-	svc.createFn = func(ctx context.Context, input service.CreateInput) (service.Category, error) {
+	svc.createFn = func(ctx context.Context, audit requesttrace.AuditInfo, input service.CreateInput) (service.Category, error) {
 		require.Equal(t, "Cards", input.Name)
 		require.Equal(t, "cards", input.Slug)
 		now := time.Now().UTC()
@@ -132,7 +133,7 @@ func TestHandlerCreateSchemaCategoryValidationError(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	handler := New(svc, logger)
 
-	svc.createFn = func(ctx context.Context, input service.CreateInput) (service.Category, error) {
+	svc.createFn = func(ctx context.Context, audit requesttrace.AuditInfo, input service.CreateInput) (service.Category, error) {
 		return service.Category{}, &service.ValidationError{Fields: service.FieldErrors{"name": {"required"}}}
 	}
 
@@ -158,7 +159,7 @@ func TestHandlerGetSchemaCategoryNotFound(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	handler := New(svc, logger)
 
-	svc.getFn = func(ctx context.Context, id uuid.UUID) (service.Category, error) {
+	svc.getFn = func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) (service.Category, error) {
 		return service.Category{}, service.ErrNotFound
 	}
 
@@ -197,7 +198,7 @@ func TestHandlerUpdateSchemaCategorySuccess(t *testing.T) {
 	categoryID := uuid.New()
 	now := time.Now().UTC()
 
-	svc.updateFn = func(ctx context.Context, id uuid.UUID, input service.UpdateInput) (service.Category, error) {
+	svc.updateFn = func(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input service.UpdateInput) (service.Category, error) {
 		require.Equal(t, categoryID, id)
 		require.NotNil(t, input.Slug)
 		require.Equal(t, "updated-slug", *input.Slug)

@@ -51,6 +51,14 @@ func FromContext(ctx context.Context) (AuditInfo, bool) {
 	return audit, ok
 }
 
+// FromContextOrAnonymous returns the AuditInfo stored on the context, or an anonymous record when absent.
+func FromContextOrAnonymous(ctx context.Context) AuditInfo {
+	if audit, ok := FromContext(ctx); ok {
+		return audit
+	}
+	return Anonymous("")
+}
+
 // FromCredentials builds an AuditInfo from authenticated user credentials and a request ID.
 // Returns an error when creds are nil or missing a UserID.
 func FromCredentials(creds *platformauth.UserCredentials, requestID string) (AuditInfo, error) {

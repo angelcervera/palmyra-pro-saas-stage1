@@ -11,6 +11,7 @@ import (
 
 	domainrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/entities/be/repo"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 func TestService_ListSuccess(t *testing.T) {
@@ -39,7 +40,8 @@ func TestService_ListSuccess(t *testing.T) {
 	}
 
 	svc := New(repo)
-	res, err := svc.List(ctx, "cards_entities", ListOptions{Page: 1, PageSize: 20, Sort: "-createdAt"})
+	audit := requesttrace.Anonymous("")
+	res, err := svc.List(ctx, audit, "cards_entities", ListOptions{Page: 1, PageSize: 20, Sort: "-createdAt"})
 	require.NoError(t, err)
 	require.Equal(t, 1, res.TotalPages)
 	require.Len(t, res.Items, 1)
@@ -49,7 +51,7 @@ func TestService_ListSuccess(t *testing.T) {
 
 func TestService_CreateValidation(t *testing.T) {
 	svc := New(&stubRepository{})
-	_, err := svc.Create(context.Background(), "", nil, map[string]interface{}{"name": "test"})
+	_, err := svc.Create(context.Background(), requesttrace.Anonymous(""), "", nil, map[string]interface{}{"name": "test"})
 	require.Error(t, err)
 	var valErr *ValidationError
 	require.ErrorAs(t, err, &valErr)
@@ -62,13 +64,13 @@ func TestService_CreateNotFound(t *testing.T) {
 		},
 	}
 	svc := New(repo)
-	_, err := svc.Create(context.Background(), "cards_entities", nil, map[string]interface{}{"name": "test"})
+	_, err := svc.Create(context.Background(), requesttrace.Anonymous(""), "cards_entities", nil, map[string]interface{}{"name": "test"})
 	require.ErrorIs(t, err, ErrTableNotFound)
 }
 
 func TestService_UpdateRequiresPayload(t *testing.T) {
 	svc := New(&stubRepository{})
-	_, err := svc.Update(context.Background(), "cards_entities", "entity-123", nil)
+	_, err := svc.Update(context.Background(), requesttrace.Anonymous(""), "cards_entities", "entity-123", nil)
 	require.Error(t, err)
 	var valErr *ValidationError
 	require.ErrorAs(t, err, &valErr)
@@ -81,7 +83,7 @@ func TestService_DeleteNotFound(t *testing.T) {
 		},
 	}
 	svc := New(repo)
-	err := svc.Delete(context.Background(), "cards_entities", "entity-123")
+	err := svc.Delete(context.Background(), requesttrace.Anonymous(""), "cards_entities", "entity-123")
 	require.ErrorIs(t, err, ErrDocumentNotFound)
 }
 

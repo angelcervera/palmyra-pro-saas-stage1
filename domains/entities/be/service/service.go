@@ -14,6 +14,7 @@ import (
 
 	domainrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/entities/be/repo"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 // ValidationError captures payload validation issues surfaced by the JSON schema validator.
@@ -62,11 +63,11 @@ type ListOptions struct {
 
 // Service exposes entity operations backed by the persistence layer.
 type Service interface {
-	List(ctx context.Context, tableName string, opts ListOptions) (ListResult, error)
-	Create(ctx context.Context, tableName string, entityID *string, payload map[string]interface{}) (Document, error)
-	Get(ctx context.Context, tableName string, entityID string) (Document, error)
-	Update(ctx context.Context, tableName string, entityID string, payload map[string]interface{}) (Document, error)
-	Delete(ctx context.Context, tableName string, entityID string) error
+	List(ctx context.Context, audit requesttrace.AuditInfo, tableName string, opts ListOptions) (ListResult, error)
+	Create(ctx context.Context, audit requesttrace.AuditInfo, tableName string, entityID *string, payload map[string]interface{}) (Document, error)
+	Get(ctx context.Context, audit requesttrace.AuditInfo, tableName string, entityID string) (Document, error)
+	Update(ctx context.Context, audit requesttrace.AuditInfo, tableName string, entityID string, payload map[string]interface{}) (Document, error)
+	Delete(ctx context.Context, audit requesttrace.AuditInfo, tableName string, entityID string) error
 }
 
 type service struct {
@@ -82,7 +83,7 @@ func New(repo domainrepo.Repository) Service {
 	return &service{repo: repo}
 }
 
-func (s *service) List(ctx context.Context, tableName string, opts ListOptions) (ListResult, error) {
+func (s *service) List(ctx context.Context, audit requesttrace.AuditInfo, tableName string, opts ListOptions) (ListResult, error) { //nolint:revive // audit reserved for persistence layer wiring
 	if strings.TrimSpace(tableName) == "" {
 		return ListResult{}, &ValidationError{Reason: "tableName is required"}
 	}
@@ -131,7 +132,7 @@ func (s *service) List(ctx context.Context, tableName string, opts ListOptions) 
 	}, nil
 }
 
-func (s *service) Create(ctx context.Context, tableName string, entityID *string, payload map[string]interface{}) (Document, error) {
+func (s *service) Create(ctx context.Context, audit requesttrace.AuditInfo, tableName string, entityID *string, payload map[string]interface{}) (Document, error) { //nolint:revive // audit reserved for persistence layer wiring
 	if strings.TrimSpace(tableName) == "" {
 		return Document{}, &ValidationError{Reason: "tableName is required"}
 	}
@@ -160,7 +161,7 @@ func (s *service) Create(ctx context.Context, tableName string, entityID *string
 	return mapRecord(record)
 }
 
-func (s *service) Get(ctx context.Context, tableName string, entityID string) (Document, error) {
+func (s *service) Get(ctx context.Context, audit requesttrace.AuditInfo, tableName string, entityID string) (Document, error) { //nolint:revive // audit reserved for persistence layer wiring
 	if strings.TrimSpace(tableName) == "" {
 		return Document{}, &ValidationError{Reason: "tableName is required"}
 	}
@@ -176,7 +177,7 @@ func (s *service) Get(ctx context.Context, tableName string, entityID string) (D
 	return mapRecord(record)
 }
 
-func (s *service) Update(ctx context.Context, tableName string, entityID string, payload map[string]interface{}) (Document, error) {
+func (s *service) Update(ctx context.Context, audit requesttrace.AuditInfo, tableName string, entityID string, payload map[string]interface{}) (Document, error) { //nolint:revive // audit reserved for persistence layer wiring
 	if strings.TrimSpace(tableName) == "" {
 		return Document{}, &ValidationError{Reason: "tableName is required"}
 	}
@@ -200,7 +201,7 @@ func (s *service) Update(ctx context.Context, tableName string, entityID string,
 	return mapRecord(record)
 }
 
-func (s *service) Delete(ctx context.Context, tableName string, entityID string) error {
+func (s *service) Delete(ctx context.Context, audit requesttrace.AuditInfo, tableName string, entityID string) error { //nolint:revive // audit reserved for persistence layer wiring
 	if strings.TrimSpace(tableName) == "" {
 		return &ValidationError{Reason: "tableName is required"}
 	}

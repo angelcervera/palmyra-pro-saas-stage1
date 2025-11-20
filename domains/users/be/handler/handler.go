@@ -16,6 +16,7 @@ import (
 	users "github.com/zenGate-Global/palmyra-pro-saas/generated/go/users"
 	platformauth "github.com/zenGate-Global/palmyra-pro-saas/platform/go/auth"
 	platformlogging "github.com/zenGate-Global/palmyra-pro-saas/platform/go/logging"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 const (
@@ -56,9 +57,10 @@ func New(svc service.Service, logger *zap.Logger) *Handler {
 }
 
 func (h *Handler) UsersList(ctx context.Context, request users.UsersListRequestObject) (users.UsersListResponseObject, error) {
+	audit := requesttrace.FromContextOrAnonymous(ctx)
 	opts := buildListOptions(request.Params)
 
-	result, err := h.svc.List(ctx, opts)
+	result, err := h.svc.List(ctx, audit, opts)
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, listOperation)
 		return users.UsersListdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -79,6 +81,7 @@ func (h *Handler) UsersList(ctx context.Context, request users.UsersListRequestO
 }
 
 func (h *Handler) UsersCreate(ctx context.Context, request users.UsersCreateRequestObject) (users.UsersCreateResponseObject, error) {
+	audit := requesttrace.FromContextOrAnonymous(ctx)
 	if request.Body == nil {
 		problem := h.buildProblem("Invalid request body", "request body is required", problemTypeValidation, http.StatusBadRequest, nil)
 		return users.UsersCreatedefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: http.StatusBadRequest}, nil
@@ -86,7 +89,7 @@ func (h *Handler) UsersCreate(ctx context.Context, request users.UsersCreateRequ
 
 	input := toServiceCreateInput(request.Body)
 
-	created, err := h.svc.Create(ctx, input)
+	created, err := h.svc.Create(ctx, audit, input)
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, createOperation)
 		return users.UsersCreatedefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -101,7 +104,8 @@ func (h *Handler) UsersCreate(ctx context.Context, request users.UsersCreateRequ
 }
 
 func (h *Handler) UsersGet(ctx context.Context, request users.UsersGetRequestObject) (users.UsersGetResponseObject, error) {
-	user, err := h.svc.Get(ctx, uuid.UUID(request.UserId))
+	audit := requesttrace.FromContextOrAnonymous(ctx)
+	user, err := h.svc.Get(ctx, audit, uuid.UUID(request.UserId))
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, getOperation)
 		return users.UsersGetdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -111,6 +115,7 @@ func (h *Handler) UsersGet(ctx context.Context, request users.UsersGetRequestObj
 }
 
 func (h *Handler) UsersUpdate(ctx context.Context, request users.UsersUpdateRequestObject) (users.UsersUpdateResponseObject, error) {
+	audit := requesttrace.FromContextOrAnonymous(ctx)
 	if request.Body == nil {
 		problem := h.buildProblem("Invalid request body", "request body is required", problemTypeValidation, http.StatusBadRequest, nil)
 		return users.UsersUpdatedefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: http.StatusBadRequest}, nil
@@ -118,7 +123,7 @@ func (h *Handler) UsersUpdate(ctx context.Context, request users.UsersUpdateRequ
 
 	input := toServiceUpdateInput(request.Body)
 
-	updated, err := h.svc.Update(ctx, uuid.UUID(request.UserId), input)
+	updated, err := h.svc.Update(ctx, audit, uuid.UUID(request.UserId), input)
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, updateOperation)
 		return users.UsersUpdatedefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -134,7 +139,8 @@ func (h *Handler) UsersMe(ctx context.Context, _ users.UsersMeRequestObject) (us
 		return users.UsersMedefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: http.StatusUnauthorized}, nil
 	}
 
-	user, svcErr := h.svc.Get(ctx, userID)
+	audit := requesttrace.FromContextOrAnonymous(ctx)
+	user, svcErr := h.svc.Get(ctx, audit, userID)
 	if svcErr != nil {
 		status, problem := h.problemForError(ctx, svcErr, meGetOperation)
 		return users.UsersMedefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -157,7 +163,8 @@ func (h *Handler) UsersUpdateMe(ctx context.Context, request users.UsersUpdateMe
 
 	input := service.UpdateSelfInput{FullName: request.Body.FullName}
 
-	updated, svcErr := h.svc.UpdateSelf(ctx, userID, input)
+	audit := requesttrace.FromContextOrAnonymous(ctx)
+	updated, svcErr := h.svc.UpdateSelf(ctx, audit, userID, input)
 	if svcErr != nil {
 		status, problem := h.problemForError(ctx, svcErr, meUpdateOperation)
 		return users.UsersUpdateMedefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -167,7 +174,8 @@ func (h *Handler) UsersUpdateMe(ctx context.Context, request users.UsersUpdateMe
 }
 
 func (h *Handler) UsersDelete(ctx context.Context, request users.UsersDeleteRequestObject) (users.UsersDeleteResponseObject, error) {
-	if err := h.svc.Delete(ctx, uuid.UUID(request.UserId)); err != nil {
+	audit := requesttrace.FromContextOrAnonymous(ctx)
+	if err := h.svc.Delete(ctx, audit, uuid.UUID(request.UserId)); err != nil {
 		status, problem := h.problemForError(ctx, err, deleteOperation)
 		return users.UsersDeletedefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
 	}

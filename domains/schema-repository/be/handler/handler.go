@@ -16,6 +16,7 @@ import (
 	schemarepository "github.com/zenGate-Global/palmyra-pro-saas/generated/go/schema-repository"
 	platformlogging "github.com/zenGate-Global/palmyra-pro-saas/platform/go/logging"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 const (
@@ -50,6 +51,7 @@ func New(svc service.Service, logger *zap.Logger) *Handler {
 }
 
 func (h *Handler) CreateSchemaVersion(ctx context.Context, request schemarepository.CreateSchemaVersionRequestObject) (schemarepository.CreateSchemaVersionResponseObject, error) {
+	audit := requesttrace.FromContextOrAnonymous(ctx)
 	if request.Body == nil {
 		problem := h.buildProblem("Invalid request body", "request body is required", problemTypeValidation, http.StatusBadRequest, nil)
 		return schemarepository.CreateSchemaVersiondefaultApplicationProblemPlusJSONResponse{
@@ -67,7 +69,7 @@ func (h *Handler) CreateSchemaVersion(ctx context.Context, request schemareposit
 		}, nil
 	}
 
-	schemaVersion, err := h.svc.Create(ctx, input)
+	schemaVersion, err := h.svc.Create(ctx, audit, input)
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, createOperation)
 		return schemarepository.CreateSchemaVersiondefaultApplicationProblemPlusJSONResponse{
@@ -85,12 +87,13 @@ func (h *Handler) CreateSchemaVersion(ctx context.Context, request schemareposit
 }
 
 func (h *Handler) ListAllSchemaVersions(ctx context.Context, request schemarepository.ListAllSchemaVersionsRequestObject) (schemarepository.ListAllSchemaVersionsResponseObject, error) {
+	audit := requesttrace.FromContextOrAnonymous(ctx)
 	includeInactive := false
 	if request.Params.IncludeInactive != nil {
 		includeInactive = *request.Params.IncludeInactive
 	}
 
-	versions, err := h.svc.ListAll(ctx, includeInactive)
+	versions, err := h.svc.ListAll(ctx, audit, includeInactive)
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, listOperation)
 		return schemarepository.ListAllSchemaVersionsdefaultApplicationProblemPlusJSONResponse{
@@ -118,6 +121,7 @@ func (h *Handler) ListAllSchemaVersions(ctx context.Context, request schemarepos
 }
 
 func (h *Handler) GetSchemaVersion(ctx context.Context, request schemarepository.GetSchemaVersionRequestObject) (schemarepository.GetSchemaVersionResponseObject, error) {
+	audit := requesttrace.FromContextOrAnonymous(ctx)
 	schemaID := uuidFromExternal(request.SchemaId)
 	version, err := persistence.ParseSemanticVersion(string(request.SchemaVersion))
 	if err != nil {
@@ -133,7 +137,7 @@ func (h *Handler) GetSchemaVersion(ctx context.Context, request schemarepository
 		}, nil
 	}
 
-	schemaVersion, err := h.svc.Get(ctx, schemaID, version)
+	schemaVersion, err := h.svc.Get(ctx, audit, schemaID, version)
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, getOperation)
 		return schemarepository.GetSchemaVersiondefaultApplicationProblemPlusJSONResponse{

@@ -11,17 +11,19 @@ import (
 
 	domainrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/repo"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 func TestServiceCreateSuccess(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepository()
+	audit := requesttrace.Anonymous("test")
 	svc := New(repo)
 
 	categoryID := uuid.New()
 
-	created, err := svc.Create(context.Background(), CreateInput{
+	created, err := svc.Create(context.Background(), audit, CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "Cards-Schema",
@@ -39,8 +41,9 @@ func TestServiceCreateConflict(t *testing.T) {
 
 	repo := newFakeRepository()
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	initial, err := svc.Create(context.Background(), CreateInput{
+	initial, err := svc.Create(context.Background(), audit, CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "cards-schema",
@@ -48,7 +51,7 @@ func TestServiceCreateConflict(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = svc.Create(context.Background(), CreateInput{
+	_, err = svc.Create(context.Background(), audit, CreateInput{
 		SchemaID:   uuidPtr(initial.SchemaID),
 		Version:    versionPtr(initial.Version),
 		Definition: json.RawMessage(`{"title":"schema-v1-duplicate"}`),
@@ -64,8 +67,9 @@ func TestServiceCreateRejectsSlugChange(t *testing.T) {
 
 	repo := newFakeRepository()
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	result, err := svc.Create(context.Background(), CreateInput{
+	result, err := svc.Create(context.Background(), audit, CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "cards-schema",
@@ -73,7 +77,7 @@ func TestServiceCreateRejectsSlugChange(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = svc.Create(context.Background(), CreateInput{
+	_, err = svc.Create(context.Background(), audit, CreateInput{
 		SchemaID:   uuidPtr(result.SchemaID),
 		Definition: json.RawMessage(`{"title":"schema-v2"}`),
 		TableName:  "cards_entities",
@@ -91,8 +95,9 @@ func TestServiceListFiltersDeleted(t *testing.T) {
 
 	repo := newFakeRepository()
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	first, err := svc.Create(context.Background(), CreateInput{
+	first, err := svc.Create(context.Background(), audit, CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "cards-schema",
@@ -100,9 +105,9 @@ func TestServiceListFiltersDeleted(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, svc.Delete(context.Background(), first.SchemaID, first.Version))
+	require.NoError(t, svc.Delete(context.Background(), audit, first.SchemaID, first.Version))
 
-	second, err := svc.Create(context.Background(), CreateInput{
+	second, err := svc.Create(context.Background(), audit, CreateInput{
 		SchemaID:   uuidPtr(first.SchemaID),
 		Definition: json.RawMessage(`{"title":"schema-v2"}`),
 		TableName:  "cards_entities",
@@ -111,12 +116,12 @@ func TestServiceListFiltersDeleted(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	list, err := svc.List(context.Background(), first.SchemaID, false)
+	list, err := svc.List(context.Background(), audit, first.SchemaID, false)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 	require.Equal(t, second.Version, list[0].Version)
 
-	listAll, err := svc.List(context.Background(), first.SchemaID, true)
+	listAll, err := svc.List(context.Background(), audit, first.SchemaID, true)
 	require.NoError(t, err)
 	require.Len(t, listAll, 2)
 }
@@ -126,8 +131,9 @@ func TestServiceListAll(t *testing.T) {
 
 	repo := newFakeRepository()
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	first, err := svc.Create(context.Background(), CreateInput{
+	first, err := svc.Create(context.Background(), audit, CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "cards-schema",
@@ -135,7 +141,7 @@ func TestServiceListAll(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = svc.Create(context.Background(), CreateInput{
+	_, err = svc.Create(context.Background(), audit, CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-two"}`),
 		TableName:  "another_entities",
 		Slug:       "schema-two",
@@ -143,17 +149,17 @@ func TestServiceListAll(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	all, err := svc.ListAll(context.Background(), false)
+	all, err := svc.ListAll(context.Background(), audit, false)
 	require.NoError(t, err)
 	require.Len(t, all, 2)
 
-	require.NoError(t, svc.Delete(context.Background(), first.SchemaID, first.Version))
+	require.NoError(t, svc.Delete(context.Background(), audit, first.SchemaID, first.Version))
 
-	activeOnly, err := svc.ListAll(context.Background(), false)
+	activeOnly, err := svc.ListAll(context.Background(), audit, false)
 	require.NoError(t, err)
 	require.Len(t, activeOnly, 1)
 
-	withDeleted, err := svc.ListAll(context.Background(), true)
+	withDeleted, err := svc.ListAll(context.Background(), audit, true)
 	require.NoError(t, err)
 	require.Len(t, withDeleted, 2)
 }
@@ -163,8 +169,9 @@ func TestServiceActivateSwitchesActiveVersion(t *testing.T) {
 
 	repo := newFakeRepository()
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	createdV1, err := svc.Create(context.Background(), CreateInput{
+	createdV1, err := svc.Create(context.Background(), audit, CreateInput{
 		Definition: json.RawMessage(`{"title":"schema-v1"}`),
 		TableName:  "cards_entities",
 		Slug:       "cards-schema",
@@ -172,7 +179,7 @@ func TestServiceActivateSwitchesActiveVersion(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	createdV2, err := svc.Create(context.Background(), CreateInput{
+	createdV2, err := svc.Create(context.Background(), audit, CreateInput{
 		SchemaID:   uuidPtr(createdV1.SchemaID),
 		Definition: json.RawMessage(`{"title":"schema-v2"}`),
 		TableName:  "cards_entities",
@@ -181,11 +188,11 @@ func TestServiceActivateSwitchesActiveVersion(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	activated, err := svc.Activate(context.Background(), createdV1.SchemaID, createdV2.Version)
+	activated, err := svc.Activate(context.Background(), audit, createdV1.SchemaID, createdV2.Version)
 	require.NoError(t, err)
 	require.True(t, activated.IsActive)
 
-	fetchedV1, err := svc.Get(context.Background(), createdV1.SchemaID, createdV1.Version)
+	fetchedV1, err := svc.Get(context.Background(), audit, createdV1.SchemaID, createdV1.Version)
 	require.NoError(t, err)
 	require.False(t, fetchedV1.IsActive)
 }
@@ -195,8 +202,9 @@ func TestServiceDeleteNotFound(t *testing.T) {
 
 	repo := newFakeRepository()
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	err := svc.Delete(context.Background(), uuid.New(), persistence.SemanticVersion{Major: 1, Minor: 0, Patch: 0})
+	err := svc.Delete(context.Background(), audit, uuid.New(), persistence.SemanticVersion{Major: 1, Minor: 0, Patch: 0})
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
