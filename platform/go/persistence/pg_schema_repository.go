@@ -85,19 +85,20 @@ func (s *SchemaRepositoryStore) CreateOrUpdateSchema(ctx context.Context, params
 
 	if _, err = tx.Exec(ctx, `
         INSERT INTO schema_repository (
-            schema_id, schema_version, schema_definition, table_name, slug, category_id, is_active, is_soft_deleted, created_at
+			schema_id, schema_version, schema_definition, table_name, slug, category_id, is_active, is_soft_deleted, created_at, created_by
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, FALSE, NOW()
+			$1, $2, $3, $4, $5, $6, $7, FALSE, NOW(), $8
         )
         ON CONFLICT (schema_id, schema_version)
         DO UPDATE
         SET schema_definition = EXCLUDED.schema_definition,
             is_soft_deleted = FALSE,
             is_active = EXCLUDED.is_active,
-            table_name = EXCLUDED.table_name,
-            slug = EXCLUDED.slug,
-            category_id = EXCLUDED.category_id
-    `, params.SchemaID, params.Version.String(), []byte(params.Definition), tableName, slug, params.CategoryID, params.Activate); err != nil {
+			table_name = EXCLUDED.table_name,
+			slug = EXCLUDED.slug,
+			category_id = EXCLUDED.category_id,
+			created_by = COALESCE(EXCLUDED.created_by, schema_repository.created_by)
+	`, params.SchemaID, params.Version.String(), []byte(params.Definition), tableName, slug, params.CategoryID, params.Activate, params.CreatedBy); err != nil {
 		return SchemaRecord{}, fmt.Errorf("upsert schema: %w", err)
 	}
 

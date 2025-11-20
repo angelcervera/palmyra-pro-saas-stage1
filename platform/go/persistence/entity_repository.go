@@ -317,6 +317,7 @@ func (r *EntityRepository) CreateOrUpdateEntity(ctx context.Context, params Crea
 			SchemaVersion: params.SchemaVersion,
 			Slug:          *params.Slug,
 			Payload:       params.Payload,
+			CreatedBy:     params.CreatedBy,
 		})
 	}
 
@@ -324,6 +325,7 @@ func (r *EntityRepository) CreateOrUpdateEntity(ctx context.Context, params Crea
 		EntityID:      params.EntityID,
 		SchemaVersion: params.SchemaVersion,
 		Payload:       params.Payload,
+		CreatedBy:     params.CreatedBy,
 	}
 	if params.Slug != nil {
 		updateParams.Slug = params.Slug
