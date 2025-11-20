@@ -66,7 +66,6 @@ Each entity table currently stores the columns below (see `EntityRepository.ensu
 * `entity_version TEXT`: Semantic version string (`major.minor.patch`) representing each immutable revision.
 * `schema_id UUID`: Foreign key to `schema_repository.schema_id`.
 * `schema_version TEXT`: Foreign key to `schema_repository.schema_version`; paired with `schema_id` to pin the schema.
-* `slug TEXT`: Search-friendly slug constrained to `^[a-z0-9]+(?:-[a-z0-9]+)*$`; unique among active records.
 * `payload JSONB`: The validated document body.
 * `created_at TIMESTAMPTZ`: Insert timestamp captured by Postgres.
 * `is_active BOOLEAN`: Indicates the latest version for a given `entity_id` (enforced via partial unique index).
