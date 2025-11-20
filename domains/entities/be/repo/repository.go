@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
@@ -100,14 +98,8 @@ func (r *repository) Create(ctx context.Context, tableName string, entityID stri
 		return persistence.EntityRecord{}, err
 	}
 
-	slug, err := persistence.NormalizeSlug(uuid.New().String())
-	if err != nil {
-		return persistence.EntityRecord{}, fmt.Errorf("generate slug: %w", err)
-	}
-
 	return repo.CreateEntity(ctx, persistence.CreateEntityParams{
 		EntityID:  entityID,
-		Slug:      slug,
 		Payload:   payload,
 		CreatedBy: createdBy,
 	})
