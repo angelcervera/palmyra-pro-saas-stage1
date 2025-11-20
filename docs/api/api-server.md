@@ -29,6 +29,7 @@ commandsUsed:
 - BE-AUTH-004 (MUST) JWT everywhere (except `POST /auth/signup`, `POST /auth/login`). Enforce role-based authorization with middleware (`admin`, `user_manager`).
 - BE-JSON-005 (MUST) JSON uses camelCase, ISO-8601 timestamps, and UUID ids; align with shared primitives.
 - BE-ROUTE-006 (SHOULD) Serve under `/api/v1/...`; use plural, kebab-case paths; limit nested routes to strong relationships.
+- BE-NAME-007 (MUST) Use self-explanatory names for packages, files, functions, types, variables, and flags; avoid ambiguous abbreviations unless they are widely recognized (e.g., HTTP, JSON).
 
 ---
 
