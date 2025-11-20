@@ -36,6 +36,7 @@ Each schema entry currently stores the following columns (see `SchemaRepositoryS
 * `schema_id UUID`: Stable identifier for the schema family (e.g., `cards`).
 * `schema_version TEXT`: Semantic version string (`major.minor.patch`) that pairs with `schema_id` as the primary key.
 * `schema_definition JSONB`: Canonical JSON Schema payload validated before persistence.
+* `hash TEXT`: SHA-256 hex hash of `schema_definition`, computed server-side for integrity proofs.
 * `table_name TEXT`: Lowercase snake_case table name where entity documents for this schema live.
 * `slug TEXT`: Human-friendly slug constrained to the same pattern as other slugs (`^[a-z0-9]+(?:-[a-z0-9]+)*$`).
 * `category_id UUID`: Foreign key to `schema_categories` so every schema is classified.
@@ -67,6 +68,7 @@ Each entity table currently stores the columns below (see `EntityRepository.ensu
 * `schema_id UUID`: Foreign key to `schema_repository.schema_id`.
 * `schema_version TEXT`: Foreign key to `schema_repository.schema_version`; paired with `schema_id` to pin the schema.
 * `payload JSONB`: The validated document body.
+* `hash TEXT`: SHA-256 hex hash of the canonicalized payload stored in the row; computed server-side.
 * `created_at TIMESTAMPTZ`: Insert timestamp captured by Postgres.
 * `is_active BOOLEAN`: Indicates the latest version for a given `entity_id` (enforced via partial unique index).
 * `is_soft_deleted BOOLEAN`: Marks versions hidden from default queries; soft deletes toggle this flag and clear

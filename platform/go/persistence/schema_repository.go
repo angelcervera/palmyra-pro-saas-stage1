@@ -94,6 +94,7 @@ type SchemaRecord struct {
 	SchemaID         uuid.UUID        `db:"schema_id" json:"schemaId"`
 	SchemaVersion    SemanticVersion  `db:"schema_version" json:"schemaVersion"`
 	SchemaDefinition SchemaDefinition `db:"schema_definition" json:"schemaDefinition"`
+	Hash             string           `db:"hash" json:"hash"`
 	TableName        string           `db:"table_name" json:"tableName"`
 	Slug             string           `db:"slug" json:"slug"`
 	CategoryID       uuid.UUID        `db:"category_id" json:"categoryId"`
