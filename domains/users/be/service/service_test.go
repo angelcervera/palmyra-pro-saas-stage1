@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 type mockRepository struct {
@@ -67,8 +68,9 @@ func TestServiceCreateValidation(t *testing.T) {
 	t.Parallel()
 
 	svc := New(&mockRepository{})
+	audit := requesttrace.Anonymous("test")
 
-	_, err := svc.Create(context.Background(), CreateInput{})
+	_, err := svc.Create(context.Background(), audit, CreateInput{})
 	require.Error(t, err)
 
 	var validationErr *ValidationError
@@ -98,8 +100,9 @@ func TestServiceCreateSuccess(t *testing.T) {
 	}
 
 	svc := New(repository)
+	audit := requesttrace.Anonymous("test")
 
-	user, err := svc.Create(context.Background(), CreateInput{
+	user, err := svc.Create(context.Background(), audit, CreateInput{
 		Email:    "  Admin@example.com ",
 		FullName: " Admin ",
 	})
@@ -136,9 +139,10 @@ func TestServiceListSuccess(t *testing.T) {
 	}
 
 	svc := New(repository)
+	audit := requesttrace.Anonymous("test")
 
 	sort := "createdAt"
-	result, err := svc.List(context.Background(), ListOptions{
+	result, err := svc.List(context.Background(), audit, ListOptions{
 		Page:     2,
 		PageSize: 10,
 		Sort:     &sort,
@@ -161,9 +165,10 @@ func TestServiceListInvalidSort(t *testing.T) {
 	svc := New(&mockRepository{listFn: func(ctx context.Context, params persistence.ListUsersParams) (persistence.ListUsersResult, error) {
 		return persistence.ListUsersResult{}, nil
 	}})
+	audit := requesttrace.Anonymous("test")
 
 	sort := "-invalid"
-	_, err := svc.List(context.Background(), ListOptions{Sort: &sort})
+	_, err := svc.List(context.Background(), audit, ListOptions{Sort: &sort})
 	require.Error(t, err)
 
 	var validationErr *ValidationError
@@ -175,7 +180,8 @@ func TestServiceUpdateValidation(t *testing.T) {
 	t.Parallel()
 
 	svc := New(&mockRepository{})
-	_, err := svc.Update(context.Background(), uuid.New(), UpdateInput{})
+	audit := requesttrace.Anonymous("test")
+	_, err := svc.Update(context.Background(), audit, uuid.New(), UpdateInput{})
 	require.Error(t, err)
 
 	var validationErr *ValidationError
@@ -205,8 +211,9 @@ func TestServiceUpdateSuccess(t *testing.T) {
 	}
 
 	svc := New(repository)
+	audit := requesttrace.Anonymous("test")
 
-	updated, err := svc.Update(context.Background(), userID, UpdateInput{
+	updated, err := svc.Update(context.Background(), audit, userID, UpdateInput{
 		FullName: ptrString("Admin"),
 	})
 
@@ -218,7 +225,8 @@ func TestServiceUpdateSelfValidation(t *testing.T) {
 	t.Parallel()
 
 	svc := New(&mockRepository{})
-	_, err := svc.UpdateSelf(context.Background(), uuid.New(), UpdateSelfInput{})
+	audit := requesttrace.Anonymous("test")
+	_, err := svc.UpdateSelf(context.Background(), audit, uuid.New(), UpdateSelfInput{})
 	require.Error(t, err)
 
 	var validationErr *ValidationError
@@ -240,8 +248,9 @@ func TestServiceUpdateSelfSuccess(t *testing.T) {
 	}
 
 	svc := New(repository)
+	audit := requesttrace.Anonymous("test")
 
-	n, err := svc.UpdateSelf(context.Background(), userID, UpdateSelfInput{FullName: ptrString(" Admin ")})
+	n, err := svc.UpdateSelf(context.Background(), audit, userID, UpdateSelfInput{FullName: ptrString(" Admin ")})
 	require.NoError(t, err)
 	require.Equal(t, "Admin", n.FullName)
 }
@@ -250,8 +259,9 @@ func TestServiceDeleteInvalidID(t *testing.T) {
 	t.Parallel()
 
 	svc := New(&mockRepository{})
+	audit := requesttrace.Anonymous("test")
 
-	err := svc.Delete(context.Background(), uuid.Nil)
+	err := svc.Delete(context.Background(), audit, uuid.Nil)
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
@@ -264,8 +274,9 @@ func TestServiceDeleteNotFound(t *testing.T) {
 	}
 
 	svc := New(repository)
+	audit := requesttrace.Anonymous("test")
 
-	err := svc.Delete(context.Background(), uuid.New())
+	err := svc.Delete(context.Background(), audit, uuid.New())
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
@@ -283,8 +294,9 @@ func TestServiceDeleteSuccess(t *testing.T) {
 	}
 
 	svc := New(repository)
+	audit := requesttrace.Anonymous("test")
 
-	err := svc.Delete(context.Background(), userID)
+	err := svc.Delete(context.Background(), audit, userID)
 	require.NoError(t, err)
 	require.True(t, called)
 }

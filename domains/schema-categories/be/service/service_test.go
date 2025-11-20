@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 type mockRepository struct {
@@ -79,7 +80,9 @@ func TestServiceCreateSuccess(t *testing.T) {
 	svc := New(repo).(*service)
 	svc.now = func() time.Time { return now }
 
-	result, err := svc.Create(context.Background(), CreateInput{
+	audit := requesttrace.Anonymous("test")
+
+	result, err := svc.Create(context.Background(), audit, CreateInput{
 		Name: "  Cards ",
 		Slug: "Cards",
 	})
@@ -96,7 +99,9 @@ func TestServiceCreateValidationError(t *testing.T) {
 	repo := &mockRepository{}
 	svc := New(repo)
 
-	_, err := svc.Create(context.Background(), CreateInput{})
+	audit := requesttrace.Anonymous("test")
+
+	_, err := svc.Create(context.Background(), audit, CreateInput{})
 	require.Error(t, err)
 
 	validationErr, ok := err.(*ValidationError)
@@ -114,8 +119,9 @@ func TestServiceCreateConflict(t *testing.T) {
 	}
 
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	_, err := svc.Create(context.Background(), CreateInput{Name: "Cards", Slug: "cards"})
+	_, err := svc.Create(context.Background(), audit, CreateInput{Name: "Cards", Slug: "cards"})
 	require.ErrorIs(t, err, ErrConflict)
 }
 
@@ -130,8 +136,9 @@ func TestServiceCreateInvalidParent(t *testing.T) {
 	}
 
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	_, err := svc.Create(context.Background(), CreateInput{
+	_, err := svc.Create(context.Background(), audit, CreateInput{
 		Name:     "Cards",
 		Slug:     "cards",
 		ParentID: &missingParent,
@@ -168,8 +175,9 @@ func TestServiceUpdateSuccess(t *testing.T) {
 	}
 
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	updated, err := svc.Update(context.Background(), categoryID, UpdateInput{Name: stringPtr(" Renamed ")})
+	updated, err := svc.Update(context.Background(), audit, categoryID, UpdateInput{Name: stringPtr(" Renamed ")})
 	require.NoError(t, err)
 	require.Equal(t, "Renamed", updated.Name)
 }
@@ -204,8 +212,9 @@ func TestServiceUpdateSlug(t *testing.T) {
 	}
 
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	updated, err := svc.Update(context.Background(), categoryID, UpdateInput{Slug: stringPtr("updated-slug")})
+	updated, err := svc.Update(context.Background(), audit, categoryID, UpdateInput{Slug: stringPtr("updated-slug")})
 	require.NoError(t, err)
 	require.Equal(t, "updated-slug", updated.Slug)
 }
@@ -216,8 +225,9 @@ func TestServiceUpdateParentSelfReference(t *testing.T) {
 	repo := &mockRepository{}
 	id := uuid.New()
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	_, err := svc.Update(context.Background(), id, UpdateInput{
+	_, err := svc.Update(context.Background(), audit, id, UpdateInput{
 		ParentID: &id,
 	})
 	require.Error(t, err)
@@ -231,8 +241,9 @@ func TestServiceUpdateValidation(t *testing.T) {
 
 	repo := &mockRepository{}
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	_, err := svc.Update(context.Background(), uuid.New(), UpdateInput{})
+	_, err := svc.Update(context.Background(), audit, uuid.New(), UpdateInput{})
 	require.Error(t, err)
 	_, ok := err.(*ValidationError)
 	require.True(t, ok)
@@ -247,8 +258,9 @@ func TestServiceDeleteNotFound(t *testing.T) {
 	}
 
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	err := svc.Delete(context.Background(), uuid.New())
+	err := svc.Delete(context.Background(), audit, uuid.New())
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
@@ -271,8 +283,9 @@ func TestServiceList(t *testing.T) {
 	}
 
 	svc := New(repo)
+	audit := requesttrace.Anonymous("test")
 
-	list, err := svc.List(context.Background(), true)
+	list, err := svc.List(context.Background(), audit, true)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 	require.Equal(t, "Cards", list[0].Name)

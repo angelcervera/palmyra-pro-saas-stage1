@@ -12,6 +12,7 @@ import (
 	externalPrimitives "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/primitives"
 	externalProblems "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/problemdetails"
 	entitiesapi "github.com/zenGate-Global/palmyra-pro-saas/generated/go/entities"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 const (
@@ -27,6 +28,10 @@ type Handler struct {
 	logger *zap.Logger
 }
 
+func (h *Handler) audit(ctx context.Context) requesttrace.AuditInfo {
+	return requesttrace.FromContextOrAnonymous(ctx)
+}
+
 // New constructs a Handler instance.
 func New(svc service.Service, logger *zap.Logger) *Handler {
 	if svc == nil {
@@ -40,6 +45,7 @@ func New(svc service.Service, logger *zap.Logger) *Handler {
 }
 
 func (h *Handler) ListDocuments(ctx context.Context, request entitiesapi.ListDocumentsRequestObject) (entitiesapi.ListDocumentsResponseObject, error) {
+	audit := h.audit(ctx)
 	page := 1
 	if request.Params.Page != nil {
 		page = int(*request.Params.Page)
@@ -53,7 +59,7 @@ func (h *Handler) ListDocuments(ctx context.Context, request entitiesapi.ListDoc
 		sort = string(*request.Params.Sort)
 	}
 
-	result, err := h.svc.List(ctx, string(request.TableName), service.ListOptions{
+	result, err := h.svc.List(ctx, audit, string(request.TableName), service.ListOptions{
 		Page:     page,
 		PageSize: pageSize,
 		Sort:     sort,
@@ -83,6 +89,7 @@ func (h *Handler) ListDocuments(ctx context.Context, request entitiesapi.ListDoc
 }
 
 func (h *Handler) CreateDocument(ctx context.Context, request entitiesapi.CreateDocumentRequestObject) (entitiesapi.CreateDocumentResponseObject, error) {
+	audit := h.audit(ctx)
 	if request.Body == nil || request.Body.Payload == nil {
 		status, problem := h.validationProblem("payload is required")
 		return entitiesapi.CreateDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -94,7 +101,7 @@ func (h *Handler) CreateDocument(ctx context.Context, request entitiesapi.Create
 		entityID = &id
 	}
 
-	doc, err := h.svc.Create(ctx, string(request.TableName), entityID, request.Body.Payload)
+	doc, err := h.svc.Create(ctx, audit, string(request.TableName), entityID, request.Body.Payload)
 	if err != nil {
 		status, problem := h.problemForError(err)
 		return entitiesapi.CreateDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -117,7 +124,9 @@ func (h *Handler) CreateDocument(ctx context.Context, request entitiesapi.Create
 }
 
 func (h *Handler) GetDocument(ctx context.Context, request entitiesapi.GetDocumentRequestObject) (entitiesapi.GetDocumentResponseObject, error) {
-	doc, err := h.svc.Get(ctx, string(request.TableName), string(request.EntityId))
+	audit := h.audit(ctx)
+
+	doc, err := h.svc.Get(ctx, audit, string(request.TableName), string(request.EntityId))
 	if err != nil {
 		status, problem := h.problemForError(err)
 		return entitiesapi.GetDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -138,7 +147,9 @@ func (h *Handler) UpdateDocument(ctx context.Context, request entitiesapi.Update
 		return entitiesapi.UpdateDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
 	}
 
-	doc, err := h.svc.Update(ctx, string(request.TableName), string(request.EntityId), *request.Body.Payload)
+	audit := h.audit(ctx)
+
+	doc, err := h.svc.Update(ctx, audit, string(request.TableName), string(request.EntityId), *request.Body.Payload)
 	if err != nil {
 		status, problem := h.problemForError(err)
 		return entitiesapi.UpdateDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
@@ -154,7 +165,9 @@ func (h *Handler) UpdateDocument(ctx context.Context, request entitiesapi.Update
 }
 
 func (h *Handler) DeleteDocument(ctx context.Context, request entitiesapi.DeleteDocumentRequestObject) (entitiesapi.DeleteDocumentResponseObject, error) {
-	if err := h.svc.Delete(ctx, string(request.TableName), string(request.EntityId)); err != nil {
+	audit := h.audit(ctx)
+
+	if err := h.svc.Delete(ctx, audit, string(request.TableName), string(request.EntityId)); err != nil {
 		status, problem := h.problemForError(err)
 		return entitiesapi.DeleteDocumentdefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: status}, nil
 	}

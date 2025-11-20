@@ -11,6 +11,7 @@ import (
 
 	"github.com/zenGate-Global/palmyra-pro-saas/domains/users/be/repo"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 // FieldErrors maps request fields to validation issues.
@@ -75,12 +76,12 @@ type UpdateSelfInput struct {
 
 // Service defines the business operations for the users domain.
 type Service interface {
-	Create(ctx context.Context, input CreateInput) (User, error)
-	List(ctx context.Context, opts ListOptions) (ListResult, error)
-	Get(ctx context.Context, id uuid.UUID) (User, error)
-	Update(ctx context.Context, id uuid.UUID, input UpdateInput) (User, error)
-	UpdateSelf(ctx context.Context, id uuid.UUID, input UpdateSelfInput) (User, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+	Create(ctx context.Context, audit requesttrace.AuditInfo, input CreateInput) (User, error)
+	List(ctx context.Context, audit requesttrace.AuditInfo, opts ListOptions) (ListResult, error)
+	Get(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) (User, error)
+	Update(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input UpdateInput) (User, error)
+	UpdateSelf(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input UpdateSelfInput) (User, error)
+	Delete(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) error
 }
 
 type service struct {
@@ -95,7 +96,7 @@ func New(r repo.Repository) Service {
 	return &service{repo: r}
 }
 
-func (s *service) List(ctx context.Context, opts ListOptions) (ListResult, error) {
+func (s *service) List(ctx context.Context, audit requesttrace.AuditInfo, opts ListOptions) (ListResult, error) { //nolint:revive
 	page := opts.Page
 	if page < 1 {
 		page = 1
@@ -148,7 +149,7 @@ func (s *service) List(ctx context.Context, opts ListOptions) (ListResult, error
 	}, nil
 }
 
-func (s *service) Create(ctx context.Context, input CreateInput) (User, error) {
+func (s *service) Create(ctx context.Context, audit requesttrace.AuditInfo, input CreateInput) (User, error) { //nolint:revive
 	fieldErrors := FieldErrors{}
 
 	email := strings.TrimSpace(input.Email)
@@ -179,7 +180,7 @@ func (s *service) Create(ctx context.Context, input CreateInput) (User, error) {
 	return mapUser(record), nil
 }
 
-func (s *service) Get(ctx context.Context, id uuid.UUID) (User, error) {
+func (s *service) Get(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) (User, error) { //nolint:revive
 	if id == uuid.Nil {
 		return User{}, ErrNotFound
 	}
@@ -192,7 +193,7 @@ func (s *service) Get(ctx context.Context, id uuid.UUID) (User, error) {
 	return mapUser(record), nil
 }
 
-func (s *service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (User, error) {
+func (s *service) Update(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input UpdateInput) (User, error) { //nolint:revive
 	if id == uuid.Nil {
 		return User{}, ErrNotFound
 	}
@@ -210,7 +211,7 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 	return mapUser(record), nil
 }
 
-func (s *service) UpdateSelf(ctx context.Context, id uuid.UUID, input UpdateSelfInput) (User, error) {
+func (s *service) UpdateSelf(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input UpdateSelfInput) (User, error) { //nolint:revive
 	if id == uuid.Nil {
 		return User{}, ErrNotFound
 	}
@@ -232,7 +233,7 @@ func (s *service) UpdateSelf(ctx context.Context, id uuid.UUID, input UpdateSelf
 	return mapUser(record), nil
 }
 
-func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
+func (s *service) Delete(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) error { //nolint:revive
 	if id == uuid.Nil {
 		return ErrNotFound
 	}

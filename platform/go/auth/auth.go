@@ -28,6 +28,8 @@ type UserCredentials struct {
 	TenantID      *string
 }
 
+// UserFromContext extracts UserCredentials previously stored in the context (typically by the JWT middleware).
+// It returns the credentials and a boolean indicating presence; callers must check the boolean before use.
 func UserFromContext(ctx context.Context) (*UserCredentials, bool) {
 	v := ctx.Value(ctxUserCredentials)
 	if v == nil {

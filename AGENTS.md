@@ -33,6 +33,7 @@
 - This ensures formatting, linting, and diagnostics stay consistent for the AI agent; backend Go code must continue to use `go fmt`.
 
 ## Coding Style & Contract Conventions
+- Use self-explanatory names for packages, types, functions, variables, and files; avoid ambiguous abbreviations unless they are widely accepted (e.g., HTTP, JSON).
 - Stay contract-first: update OpenAPI first, regenerate, then touch domain code.
 - JSON payloads are camelCase; align struct tags with the schemas and reference shared components via `$ref`.
 - Follow the two-response policy (one success code plus default ProblemDetails) and stage shared middleware in `platform/go`.

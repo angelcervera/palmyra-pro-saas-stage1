@@ -55,6 +55,7 @@ type EntityRecord struct {
 	Slug          string          `json:"slug"`
 	Payload       json.RawMessage `json:"payload"`
 	CreatedAt     time.Time       `json:"createdAt"`
+	CreatedBy     *string         `json:"createdBy"`
 	IsSoftDeleted bool            `json:"isSoftDeleted"`
 	IsActive      bool            `json:"isActive"`
 }
@@ -65,6 +66,7 @@ type CreateEntityParams struct {
 	SchemaVersion *SemanticVersion
 	Slug          string
 	Payload       SchemaDefinition
+	CreatedBy     *string
 }
 
 // UpdateEntityParams defines the payload required to add a new immutable version of an entity.
@@ -73,6 +75,7 @@ type UpdateEntityParams struct {
 	SchemaVersion *SemanticVersion
 	Slug          *string
 	Payload       SchemaDefinition
+	CreatedBy     *string
 }
 
 // CreateOrUpdateEntityParams unifies the payload for upserting immutable entity records.
@@ -82,6 +85,7 @@ type CreateOrUpdateEntityParams struct {
 	SchemaVersion *SemanticVersion
 	Slug          *string
 	Payload       SchemaDefinition
+	CreatedBy     *string
 }
 
 // ListEntitiesParams defines filters when listing entities.
@@ -181,21 +185,21 @@ func (r *EntityRepository) CreateEntity(ctx context.Context, params CreateEntity
 
 	version := SemanticVersion{Major: 1, Minor: 0, Patch: 0}
 	insertStmt := fmt.Sprintf(`
-		INSERT INTO %s (
-			entity_id, entity_version, schema_id, schema_version, slug, payload, is_active, is_soft_deleted, created_at
-		) VALUES (
-			$1, $2, $3, $4, $5, $6, TRUE, FALSE, NOW()
-		)`, r.tableIdent)
+        INSERT INTO %s (
+            entity_id, entity_version, schema_id, schema_version, slug, payload, is_active, is_soft_deleted, created_at, created_by
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, TRUE, FALSE, NOW(), $7
+        )`, r.tableIdent)
 
-	if _, err := tx.Exec(ctx, insertStmt, entityID, version.String(), schemaRecord.SchemaID, schemaRecord.VersionString(), slug, []byte(params.Payload)); err != nil {
+	if _, err := tx.Exec(ctx, insertStmt, entityID, version.String(), schemaRecord.SchemaID, schemaRecord.VersionString(), slug, []byte(params.Payload), params.CreatedBy); err != nil {
 		return EntityRecord{}, fmt.Errorf("insert entity: %w", err)
 	}
 
 	selectStmt := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
-		FROM %s
-		WHERE entity_id = $1 AND entity_version = $2
-	`, r.tableIdent)
+	SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, created_by, is_soft_deleted, is_active
+	FROM %s
+	WHERE entity_id = $1 AND entity_version = $2
+`, r.tableIdent)
 
 	row := tx.QueryRow(ctx, selectStmt, entityID, version.String())
 	record, err := scanEntityRecord(row)
@@ -236,7 +240,7 @@ func (r *EntityRepository) UpdateEntity(ctx context.Context, params UpdateEntity
 	defer tx.Rollback(ctx) // nolint:errcheck
 
 	activeSelect := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
+		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, created_by, is_soft_deleted, is_active
 		FROM %s
 		WHERE entity_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE
 		FOR UPDATE
@@ -270,21 +274,21 @@ func (r *EntityRepository) UpdateEntity(ctx context.Context, params UpdateEntity
 	}
 
 	insertStmt := fmt.Sprintf(`
-		INSERT INTO %s (
-			entity_id, entity_version, schema_id, schema_version, slug, payload, is_active, is_soft_deleted, created_at
-		) VALUES (
-			$1, $2, $3, $4, $5, $6, TRUE, FALSE, NOW()
-		)
-	`, r.tableIdent)
-	if _, err := tx.Exec(ctx, insertStmt, entityID, nextVersion.String(), schemaRecord.SchemaID, schemaRecord.VersionString(), nextSlug, []byte(params.Payload)); err != nil {
+        INSERT INTO %s (
+            entity_id, entity_version, schema_id, schema_version, slug, payload, is_active, is_soft_deleted, created_at, created_by
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, TRUE, FALSE, NOW(), $7
+        )
+    `, r.tableIdent)
+	if _, err := tx.Exec(ctx, insertStmt, entityID, nextVersion.String(), schemaRecord.SchemaID, schemaRecord.VersionString(), nextSlug, []byte(params.Payload), params.CreatedBy); err != nil {
 		return EntityRecord{}, fmt.Errorf("insert entity version: %w", err)
 	}
 
 	selectStmt := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
-		FROM %s
-		WHERE entity_id = $1 AND entity_version = $2
-	`, r.tableIdent)
+        SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, created_by, is_soft_deleted, is_active
+        FROM %s
+        WHERE entity_id = $1 AND entity_version = $2
+    `, r.tableIdent)
 	row := tx.QueryRow(ctx, selectStmt, entityID, nextVersion.String())
 	record, err := scanEntityRecord(row)
 	if err != nil {
@@ -313,6 +317,7 @@ func (r *EntityRepository) CreateOrUpdateEntity(ctx context.Context, params Crea
 			SchemaVersion: params.SchemaVersion,
 			Slug:          *params.Slug,
 			Payload:       params.Payload,
+			CreatedBy:     params.CreatedBy,
 		})
 	}
 
@@ -320,6 +325,7 @@ func (r *EntityRepository) CreateOrUpdateEntity(ctx context.Context, params Crea
 		EntityID:      params.EntityID,
 		SchemaVersion: params.SchemaVersion,
 		Payload:       params.Payload,
+		CreatedBy:     params.CreatedBy,
 	}
 	if params.Slug != nil {
 		updateParams.Slug = params.Slug
@@ -341,6 +347,7 @@ func (r *EntityRepository) CreateOrUpdateEntity(ctx context.Context, params Crea
 		SchemaVersion: params.SchemaVersion,
 		Slug:          *params.Slug,
 		Payload:       params.Payload,
+		CreatedBy:     params.CreatedBy,
 	})
 }
 
@@ -353,7 +360,7 @@ func (r *EntityRepository) GetEntityByID(ctx context.Context, entityID string) (
 	}
 
 	query := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
+		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, created_by, is_soft_deleted, is_active
 		FROM %s
 		WHERE entity_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE
 	`, r.tableIdent)
@@ -378,7 +385,7 @@ func (r *EntityRepository) GetEntityVersion(ctx context.Context, entityID string
 	}
 
 	query := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
+		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, created_by, is_soft_deleted, is_active
 		FROM %s
 		WHERE entity_id = $1 AND entity_version = $2
 	`, r.tableIdent)
@@ -412,7 +419,7 @@ func (r *EntityRepository) ListEntities(ctx context.Context, params ListEntities
 	}
 
 	query := fmt.Sprintf(`
-		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, is_soft_deleted, is_active
+		SELECT entity_id, entity_version, schema_id, schema_version, slug, payload, created_at, created_by, is_soft_deleted, is_active
 		FROM %s
 		WHERE ($1::bool = FALSE OR is_active = TRUE)
 		  AND ($2::bool = TRUE OR is_soft_deleted = FALSE)
@@ -540,6 +547,7 @@ CREATE TABLE IF NOT EXISTS %s (
 	slug TEXT NOT NULL CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
 	payload JSONB NOT NULL,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	created_by TEXT NULL,
 	is_active BOOLEAN NOT NULL DEFAULT TRUE,
 	is_soft_deleted BOOLEAN NOT NULL DEFAULT FALSE,
 	PRIMARY KEY (entity_id, entity_version),
@@ -579,11 +587,12 @@ func scanEntityRecord(scanner rowScanner) (EntityRecord, error) {
 		slug          string
 		payload       []byte
 		createdAt     time.Time
+		createdBy     *string
 		isSoftDeleted bool
 		isActive      bool
 	)
 
-	if err := scanner.Scan(&entityID, &entityVersion, &schemaID, &schemaVersion, &slug, &payload, &createdAt, &isSoftDeleted, &isActive); err != nil {
+	if err := scanner.Scan(&entityID, &entityVersion, &schemaID, &schemaVersion, &slug, &payload, &createdAt, &createdBy, &isSoftDeleted, &isActive); err != nil {
 		return EntityRecord{}, err
 	}
 
@@ -605,6 +614,7 @@ func scanEntityRecord(scanner rowScanner) (EntityRecord, error) {
 		Slug:          slug,
 		Payload:       json.RawMessage(payload),
 		CreatedAt:     createdAt,
+		CreatedBy:     createdBy,
 		IsSoftDeleted: isSoftDeleted,
 		IsActive:      isActive,
 	}, nil

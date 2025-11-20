@@ -14,6 +14,7 @@ import (
 
 	domainrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/repo"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 // FieldErrors maps request fields to validation issues.
@@ -59,13 +60,13 @@ type CreateInput struct {
 
 // Service exposes schema repository operations.
 type Service interface {
-	Create(ctx context.Context, input CreateInput) (Schema, error)
-	ListAll(ctx context.Context, includeInactive bool) ([]Schema, error)
-	List(ctx context.Context, schemaID uuid.UUID, includeDeleted bool) ([]Schema, error)
-	Get(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion) (Schema, error)
-	GetActive(ctx context.Context, schemaID uuid.UUID) (Schema, error)
-	Activate(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion) (Schema, error)
-	Delete(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion) error
+	Create(ctx context.Context, audit requesttrace.AuditInfo, input CreateInput) (Schema, error)
+	ListAll(ctx context.Context, audit requesttrace.AuditInfo, includeInactive bool) ([]Schema, error)
+	List(ctx context.Context, audit requesttrace.AuditInfo, schemaID uuid.UUID, includeDeleted bool) ([]Schema, error)
+	Get(ctx context.Context, audit requesttrace.AuditInfo, schemaID uuid.UUID, version persistence.SemanticVersion) (Schema, error)
+	GetActive(ctx context.Context, audit requesttrace.AuditInfo, schemaID uuid.UUID) (Schema, error)
+	Activate(ctx context.Context, audit requesttrace.AuditInfo, schemaID uuid.UUID, version persistence.SemanticVersion) (Schema, error)
+	Delete(ctx context.Context, audit requesttrace.AuditInfo, schemaID uuid.UUID, version persistence.SemanticVersion) error
 }
 
 type service struct {
@@ -87,7 +88,7 @@ func New(repo domainrepo.Repository) Service {
 	}
 }
 
-func (s *service) Create(ctx context.Context, input CreateInput) (Schema, error) {
+func (s *service) Create(ctx context.Context, audit requesttrace.AuditInfo, input CreateInput) (Schema, error) { //nolint:revive
 	normalized, validationErr := s.validateCreateInput(input)
 	if validationErr != nil {
 		return Schema{}, validationErr
@@ -121,6 +122,7 @@ func (s *service) Create(ctx context.Context, input CreateInput) (Schema, error)
 		Slug:       normalized.slug,
 		CategoryID: input.CategoryID,
 		Activate:   true,
+		CreatedBy:  audit.UserID,
 	}
 
 	record, err := s.repo.Upsert(ctx, params)
@@ -131,7 +133,7 @@ func (s *service) Create(ctx context.Context, input CreateInput) (Schema, error)
 	return mapRecord(record), nil
 }
 
-func (s *service) List(ctx context.Context, schemaID uuid.UUID, includeDeleted bool) ([]Schema, error) {
+func (s *service) List(ctx context.Context, audit requesttrace.AuditInfo, schemaID uuid.UUID, includeDeleted bool) ([]Schema, error) { //nolint:revive
 	if schemaID == uuid.Nil {
 		return nil, ErrNotFound
 	}
@@ -155,7 +157,7 @@ func (s *service) List(ctx context.Context, schemaID uuid.UUID, includeDeleted b
 	return results, nil
 }
 
-func (s *service) ListAll(ctx context.Context, includeInactive bool) ([]Schema, error) {
+func (s *service) ListAll(ctx context.Context, audit requesttrace.AuditInfo, includeInactive bool) ([]Schema, error) { //nolint:revive
 	records, err := s.repo.ListAll(ctx, includeInactive)
 	if err != nil {
 		return nil, err
@@ -172,7 +174,7 @@ func (s *service) ListAll(ctx context.Context, includeInactive bool) ([]Schema, 
 	return results, nil
 }
 
-func (s *service) Get(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion) (Schema, error) {
+func (s *service) Get(ctx context.Context, audit requesttrace.AuditInfo, schemaID uuid.UUID, version persistence.SemanticVersion) (Schema, error) { //nolint:revive
 	if schemaID == uuid.Nil {
 		return Schema{}, ErrNotFound
 	}
@@ -188,7 +190,7 @@ func (s *service) Get(ctx context.Context, schemaID uuid.UUID, version persisten
 	return mapRecord(record), nil
 }
 
-func (s *service) GetActive(ctx context.Context, schemaID uuid.UUID) (Schema, error) {
+func (s *service) GetActive(ctx context.Context, audit requesttrace.AuditInfo, schemaID uuid.UUID) (Schema, error) { //nolint:revive
 	if schemaID == uuid.Nil {
 		return Schema{}, ErrNotFound
 	}
@@ -204,7 +206,7 @@ func (s *service) GetActive(ctx context.Context, schemaID uuid.UUID) (Schema, er
 	return mapRecord(record), nil
 }
 
-func (s *service) Activate(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion) (Schema, error) {
+func (s *service) Activate(ctx context.Context, audit requesttrace.AuditInfo, schemaID uuid.UUID, version persistence.SemanticVersion) (Schema, error) { //nolint:revive
 	if schemaID == uuid.Nil {
 		return Schema{}, ErrNotFound
 	}
@@ -227,7 +229,7 @@ func (s *service) Activate(ctx context.Context, schemaID uuid.UUID, version pers
 	return mapRecord(record), nil
 }
 
-func (s *service) Delete(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion) error {
+func (s *service) Delete(ctx context.Context, audit requesttrace.AuditInfo, schemaID uuid.UUID, version persistence.SemanticVersion) error { //nolint:revive
 	if schemaID == uuid.Nil {
 		return ErrNotFound
 	}

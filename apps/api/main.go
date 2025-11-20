@@ -158,6 +158,7 @@ func main() {
 
 	apiRouter := chi.NewRouter()
 	apiRouter.Use(authMiddleware)
+	apiRouter.Use(platformmiddleware.RequestTrace)
 
 	schemaCategoriesValidator := mustNewSpecValidator(logger, "contracts/schema-categories.yaml")
 	apiRouter.Group(func(r chi.Router) {

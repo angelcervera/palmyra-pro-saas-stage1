@@ -10,6 +10,7 @@ import (
 
 	domainrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-categories/be/repo"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 // FieldErrors maps request fields to validation issues.
@@ -60,11 +61,11 @@ type UpdateInput struct {
 
 // Service exposes the schema categories domain operations.
 type Service interface {
-	List(ctx context.Context, includeDeleted bool) ([]Category, error)
-	Create(ctx context.Context, input CreateInput) (Category, error)
-	Get(ctx context.Context, id uuid.UUID) (Category, error)
-	Update(ctx context.Context, id uuid.UUID, input UpdateInput) (Category, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+	List(ctx context.Context, audit requesttrace.AuditInfo, includeDeleted bool) ([]Category, error)
+	Create(ctx context.Context, audit requesttrace.AuditInfo, input CreateInput) (Category, error)
+	Get(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) (Category, error)
+	Update(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input UpdateInput) (Category, error)
+	Delete(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) error
 }
 
 type service struct {
@@ -80,7 +81,7 @@ func New(repo domainrepo.Repository) Service {
 	}
 }
 
-func (s *service) List(ctx context.Context, includeDeleted bool) ([]Category, error) {
+func (s *service) List(ctx context.Context, audit requesttrace.AuditInfo, includeDeleted bool) ([]Category, error) { //nolint:revive
 	records, err := s.repo.List(ctx, includeDeleted)
 	if err != nil {
 		return nil, err
@@ -94,7 +95,7 @@ func (s *service) List(ctx context.Context, includeDeleted bool) ([]Category, er
 	return categories, nil
 }
 
-func (s *service) Create(ctx context.Context, input CreateInput) (Category, error) {
+func (s *service) Create(ctx context.Context, audit requesttrace.AuditInfo, input CreateInput) (Category, error) { //nolint:revive
 	if err := s.ensureParentExists(ctx, input.ParentID, uuid.Nil); err != nil {
 		return Category{}, err
 	}
@@ -123,7 +124,7 @@ func (s *service) Create(ctx context.Context, input CreateInput) (Category, erro
 	return mapCategory(record), nil
 }
 
-func (s *service) Get(ctx context.Context, id uuid.UUID) (Category, error) {
+func (s *service) Get(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) (Category, error) { //nolint:revive
 	record, err := s.repo.Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, persistence.ErrSchemaNotFound) {
@@ -135,7 +136,7 @@ func (s *service) Get(ctx context.Context, id uuid.UUID) (Category, error) {
 	return mapCategory(record), nil
 }
 
-func (s *service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (Category, error) {
+func (s *service) Update(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID, input UpdateInput) (Category, error) { //nolint:revive
 	if id == uuid.Nil {
 		return Category{}, ErrNotFound
 	}
@@ -171,7 +172,7 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 	return mapCategory(record), nil
 }
 
-func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
+func (s *service) Delete(ctx context.Context, audit requesttrace.AuditInfo, id uuid.UUID) error { //nolint:revive
 	if id == uuid.Nil {
 		return ErrNotFound
 	}

@@ -30,9 +30,9 @@ type ListResult struct {
 // Repository exposes entity persistence operations scoped by table name.
 type Repository interface {
 	List(ctx context.Context, tableName string, params ListParams) (ListResult, error)
-	Create(ctx context.Context, tableName string, entityID string, payload json.RawMessage) (persistence.EntityRecord, error)
+	Create(ctx context.Context, tableName string, entityID string, payload json.RawMessage, createdBy *string) (persistence.EntityRecord, error)
 	Get(ctx context.Context, tableName string, entityID string) (persistence.EntityRecord, error)
-	Update(ctx context.Context, tableName string, entityID string, payload json.RawMessage) (persistence.EntityRecord, error)
+	Update(ctx context.Context, tableName string, entityID string, payload json.RawMessage, createdBy *string) (persistence.EntityRecord, error)
 	Delete(ctx context.Context, tableName string, entityID string) error
 }
 
@@ -94,7 +94,7 @@ func (r *repository) List(ctx context.Context, tableName string, params ListPara
 	return ListResult{Records: records, Total: total}, nil
 }
 
-func (r *repository) Create(ctx context.Context, tableName string, entityID string, payload json.RawMessage) (persistence.EntityRecord, error) {
+func (r *repository) Create(ctx context.Context, tableName string, entityID string, payload json.RawMessage, createdBy *string) (persistence.EntityRecord, error) {
 	repo, err := r.resolveEntityRepo(ctx, tableName)
 	if err != nil {
 		return persistence.EntityRecord{}, err
@@ -106,9 +106,10 @@ func (r *repository) Create(ctx context.Context, tableName string, entityID stri
 	}
 
 	return repo.CreateEntity(ctx, persistence.CreateEntityParams{
-		EntityID: entityID,
-		Slug:     slug,
-		Payload:  payload,
+		EntityID:  entityID,
+		Slug:      slug,
+		Payload:   payload,
+		CreatedBy: createdBy,
 	})
 }
 
@@ -121,15 +122,16 @@ func (r *repository) Get(ctx context.Context, tableName string, entityID string)
 	return repo.GetEntityByID(ctx, entityID)
 }
 
-func (r *repository) Update(ctx context.Context, tableName string, entityID string, payload json.RawMessage) (persistence.EntityRecord, error) {
+func (r *repository) Update(ctx context.Context, tableName string, entityID string, payload json.RawMessage, createdBy *string) (persistence.EntityRecord, error) {
 	repo, err := r.resolveEntityRepo(ctx, tableName)
 	if err != nil {
 		return persistence.EntityRecord{}, err
 	}
 
 	return repo.UpdateEntity(ctx, persistence.UpdateEntityParams{
-		EntityID: entityID,
-		Payload:  payload,
+		EntityID:  entityID,
+		Payload:   payload,
+		CreatedBy: createdBy,
 	})
 }
 

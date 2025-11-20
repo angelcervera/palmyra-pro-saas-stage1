@@ -14,6 +14,7 @@ import (
 	externalRef3 "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/problemdetails"
 	schemacategories "github.com/zenGate-Global/palmyra-pro-saas/generated/go/schema-categories"
 	platformlogging "github.com/zenGate-Global/palmyra-pro-saas/platform/go/logging"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 )
 
 const (
@@ -40,6 +41,10 @@ type Handler struct {
 	logger *zap.Logger
 }
 
+func (h *Handler) audit(ctx context.Context) requesttrace.AuditInfo {
+	return requesttrace.FromContextOrAnonymous(ctx)
+}
+
 // New constructs a Handler instance.
 func New(svc service.Service, logger *zap.Logger) *Handler {
 	if svc == nil {
@@ -53,12 +58,13 @@ func New(svc service.Service, logger *zap.Logger) *Handler {
 }
 
 func (h *Handler) ListSchemaCategories(ctx context.Context, request schemacategories.ListSchemaCategoriesRequestObject) (schemacategories.ListSchemaCategoriesResponseObject, error) {
+	audit := h.audit(ctx)
 	includeDeleted := false
 	if request.Params.IncludeDeleted != nil {
 		includeDeleted = *request.Params.IncludeDeleted
 	}
 
-	categories, err := h.svc.List(ctx, includeDeleted)
+	categories, err := h.svc.List(ctx, audit, includeDeleted)
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, listOperation)
 		return schemacategories.ListSchemaCategoriesdefaultApplicationProblemPlusJSONResponse{
@@ -76,6 +82,7 @@ func (h *Handler) ListSchemaCategories(ctx context.Context, request schemacatego
 }
 
 func (h *Handler) CreateSchemaCategory(ctx context.Context, request schemacategories.CreateSchemaCategoryRequestObject) (schemacategories.CreateSchemaCategoryResponseObject, error) {
+	audit := h.audit(ctx)
 	if request.Body == nil {
 		problem := h.buildProblem("Invalid request body", "request body is required", problemTypeValidation, http.StatusBadRequest, nil)
 		return schemacategories.CreateSchemaCategorydefaultApplicationProblemPlusJSONResponse{
@@ -95,7 +102,7 @@ func (h *Handler) CreateSchemaCategory(ctx context.Context, request schemacatego
 		input.ParentID = &parent
 	}
 
-	category, err := h.svc.Create(ctx, input)
+	category, err := h.svc.Create(ctx, audit, input)
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, createOperation)
 		return schemacategories.CreateSchemaCategorydefaultApplicationProblemPlusJSONResponse{
@@ -113,7 +120,8 @@ func (h *Handler) CreateSchemaCategory(ctx context.Context, request schemacatego
 
 func (h *Handler) DeleteSchemaCategory(ctx context.Context, request schemacategories.DeleteSchemaCategoryRequestObject) (schemacategories.DeleteSchemaCategoryResponseObject, error) {
 	id := uuidFromExternal(request.CategoryId)
-	if err := h.svc.Delete(ctx, id); err != nil {
+	audit := h.audit(ctx)
+	if err := h.svc.Delete(ctx, audit, id); err != nil {
 		status, problem := h.problemForError(ctx, err, deleteOperation)
 		return schemacategories.DeleteSchemaCategorydefaultApplicationProblemPlusJSONResponse{
 			Body:       problem,
@@ -125,7 +133,8 @@ func (h *Handler) DeleteSchemaCategory(ctx context.Context, request schemacatego
 }
 
 func (h *Handler) GetSchemaCategory(ctx context.Context, request schemacategories.GetSchemaCategoryRequestObject) (schemacategories.GetSchemaCategoryResponseObject, error) {
-	category, err := h.svc.Get(ctx, uuidFromExternal(request.CategoryId))
+	audit := h.audit(ctx)
+	category, err := h.svc.Get(ctx, audit, uuidFromExternal(request.CategoryId))
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, getOperation)
 		return schemacategories.GetSchemaCategorydefaultApplicationProblemPlusJSONResponse{
@@ -138,6 +147,7 @@ func (h *Handler) GetSchemaCategory(ctx context.Context, request schemacategorie
 }
 
 func (h *Handler) UpdateSchemaCategory(ctx context.Context, request schemacategories.UpdateSchemaCategoryRequestObject) (schemacategories.UpdateSchemaCategoryResponseObject, error) {
+	audit := requesttrace.FromContextOrAnonymous(ctx)
 	if request.Body == nil {
 		problem := h.buildProblem("Invalid request body", "request body is required", problemTypeValidation, http.StatusBadRequest, nil)
 		return schemacategories.UpdateSchemaCategorydefaultApplicationProblemPlusJSONResponse{
@@ -165,7 +175,7 @@ func (h *Handler) UpdateSchemaCategory(ctx context.Context, request schemacatego
 		input.Slug = &slug
 	}
 
-	category, err := h.svc.Update(ctx, uuidFromExternal(request.CategoryId), input)
+	category, err := h.svc.Update(ctx, audit, uuidFromExternal(request.CategoryId), input)
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, updateOperation)
 		return schemacategories.UpdateSchemaCategorydefaultApplicationProblemPlusJSONResponse{
