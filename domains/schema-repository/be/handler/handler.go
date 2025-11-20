@@ -38,6 +38,10 @@ type Handler struct {
 	logger *zap.Logger
 }
 
+func (h *Handler) audit(ctx context.Context) requesttrace.AuditInfo {
+	return requesttrace.FromContextOrAnonymous(ctx)
+}
+
 // New constructs a Handler instance.
 func New(svc service.Service, logger *zap.Logger) *Handler {
 	if svc == nil {
@@ -51,7 +55,7 @@ func New(svc service.Service, logger *zap.Logger) *Handler {
 }
 
 func (h *Handler) CreateSchemaVersion(ctx context.Context, request schemarepository.CreateSchemaVersionRequestObject) (schemarepository.CreateSchemaVersionResponseObject, error) {
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	if request.Body == nil {
 		problem := h.buildProblem("Invalid request body", "request body is required", problemTypeValidation, http.StatusBadRequest, nil)
 		return schemarepository.CreateSchemaVersiondefaultApplicationProblemPlusJSONResponse{
@@ -87,7 +91,7 @@ func (h *Handler) CreateSchemaVersion(ctx context.Context, request schemareposit
 }
 
 func (h *Handler) ListAllSchemaVersions(ctx context.Context, request schemarepository.ListAllSchemaVersionsRequestObject) (schemarepository.ListAllSchemaVersionsResponseObject, error) {
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	includeInactive := false
 	if request.Params.IncludeInactive != nil {
 		includeInactive = *request.Params.IncludeInactive
@@ -121,7 +125,7 @@ func (h *Handler) ListAllSchemaVersions(ctx context.Context, request schemarepos
 }
 
 func (h *Handler) GetSchemaVersion(ctx context.Context, request schemarepository.GetSchemaVersionRequestObject) (schemarepository.GetSchemaVersionResponseObject, error) {
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	schemaID := uuidFromExternal(request.SchemaId)
 	version, err := persistence.ParseSemanticVersion(string(request.SchemaVersion))
 	if err != nil {

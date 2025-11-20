@@ -41,6 +41,10 @@ type Handler struct {
 	logger *zap.Logger
 }
 
+func (h *Handler) audit(ctx context.Context) requesttrace.AuditInfo {
+	return requesttrace.FromContextOrAnonymous(ctx)
+}
+
 // New constructs a Handler instance.
 func New(svc service.Service, logger *zap.Logger) *Handler {
 	if svc == nil {
@@ -54,7 +58,7 @@ func New(svc service.Service, logger *zap.Logger) *Handler {
 }
 
 func (h *Handler) ListSchemaCategories(ctx context.Context, request schemacategories.ListSchemaCategoriesRequestObject) (schemacategories.ListSchemaCategoriesResponseObject, error) {
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	includeDeleted := false
 	if request.Params.IncludeDeleted != nil {
 		includeDeleted = *request.Params.IncludeDeleted
@@ -78,7 +82,7 @@ func (h *Handler) ListSchemaCategories(ctx context.Context, request schemacatego
 }
 
 func (h *Handler) CreateSchemaCategory(ctx context.Context, request schemacategories.CreateSchemaCategoryRequestObject) (schemacategories.CreateSchemaCategoryResponseObject, error) {
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	if request.Body == nil {
 		problem := h.buildProblem("Invalid request body", "request body is required", problemTypeValidation, http.StatusBadRequest, nil)
 		return schemacategories.CreateSchemaCategorydefaultApplicationProblemPlusJSONResponse{
@@ -116,7 +120,7 @@ func (h *Handler) CreateSchemaCategory(ctx context.Context, request schemacatego
 
 func (h *Handler) DeleteSchemaCategory(ctx context.Context, request schemacategories.DeleteSchemaCategoryRequestObject) (schemacategories.DeleteSchemaCategoryResponseObject, error) {
 	id := uuidFromExternal(request.CategoryId)
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	if err := h.svc.Delete(ctx, audit, id); err != nil {
 		status, problem := h.problemForError(ctx, err, deleteOperation)
 		return schemacategories.DeleteSchemaCategorydefaultApplicationProblemPlusJSONResponse{
@@ -129,7 +133,7 @@ func (h *Handler) DeleteSchemaCategory(ctx context.Context, request schemacatego
 }
 
 func (h *Handler) GetSchemaCategory(ctx context.Context, request schemacategories.GetSchemaCategoryRequestObject) (schemacategories.GetSchemaCategoryResponseObject, error) {
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	category, err := h.svc.Get(ctx, audit, uuidFromExternal(request.CategoryId))
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, getOperation)

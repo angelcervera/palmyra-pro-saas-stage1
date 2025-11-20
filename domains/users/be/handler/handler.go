@@ -44,6 +44,10 @@ type Handler struct {
 	logger *zap.Logger
 }
 
+func (h *Handler) audit(ctx context.Context) requesttrace.AuditInfo {
+	return requesttrace.FromContextOrAnonymous(ctx)
+}
+
 // New constructs a Handler instance.
 func New(svc service.Service, logger *zap.Logger) *Handler {
 	if svc == nil {
@@ -57,7 +61,7 @@ func New(svc service.Service, logger *zap.Logger) *Handler {
 }
 
 func (h *Handler) UsersList(ctx context.Context, request users.UsersListRequestObject) (users.UsersListResponseObject, error) {
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	opts := buildListOptions(request.Params)
 
 	result, err := h.svc.List(ctx, audit, opts)
@@ -81,7 +85,7 @@ func (h *Handler) UsersList(ctx context.Context, request users.UsersListRequestO
 }
 
 func (h *Handler) UsersCreate(ctx context.Context, request users.UsersCreateRequestObject) (users.UsersCreateResponseObject, error) {
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	if request.Body == nil {
 		problem := h.buildProblem("Invalid request body", "request body is required", problemTypeValidation, http.StatusBadRequest, nil)
 		return users.UsersCreatedefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: http.StatusBadRequest}, nil
@@ -104,7 +108,7 @@ func (h *Handler) UsersCreate(ctx context.Context, request users.UsersCreateRequ
 }
 
 func (h *Handler) UsersGet(ctx context.Context, request users.UsersGetRequestObject) (users.UsersGetResponseObject, error) {
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	user, err := h.svc.Get(ctx, audit, uuid.UUID(request.UserId))
 	if err != nil {
 		status, problem := h.problemForError(ctx, err, getOperation)
@@ -115,7 +119,7 @@ func (h *Handler) UsersGet(ctx context.Context, request users.UsersGetRequestObj
 }
 
 func (h *Handler) UsersUpdate(ctx context.Context, request users.UsersUpdateRequestObject) (users.UsersUpdateResponseObject, error) {
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	if request.Body == nil {
 		problem := h.buildProblem("Invalid request body", "request body is required", problemTypeValidation, http.StatusBadRequest, nil)
 		return users.UsersUpdatedefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: http.StatusBadRequest}, nil
@@ -139,7 +143,7 @@ func (h *Handler) UsersMe(ctx context.Context, _ users.UsersMeRequestObject) (us
 		return users.UsersMedefaultApplicationProblemPlusJSONResponse{Body: problem, StatusCode: http.StatusUnauthorized}, nil
 	}
 
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	user, svcErr := h.svc.Get(ctx, audit, userID)
 	if svcErr != nil {
 		status, problem := h.problemForError(ctx, svcErr, meGetOperation)
@@ -163,7 +167,7 @@ func (h *Handler) UsersUpdateMe(ctx context.Context, request users.UsersUpdateMe
 
 	input := service.UpdateSelfInput{FullName: request.Body.FullName}
 
-	audit := requesttrace.FromContextOrAnonymous(ctx)
+	audit := h.audit(ctx)
 	updated, svcErr := h.svc.UpdateSelf(ctx, audit, userID, input)
 	if svcErr != nil {
 		status, problem := h.problemForError(ctx, svcErr, meUpdateOperation)
