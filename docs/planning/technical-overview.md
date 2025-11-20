@@ -179,10 +179,10 @@ Winter Protocol itself is not part of the Palmyra Pro codebase; Palmyra acts as 
     * Maintains full audit trails (who did what, when, and in which context).
     * Orchestrates the publishing of relevant state changes to the blockchain via Winter Protocol.
 
-* **Tenant Databases**
-  Each organisation (tenant) has its own logically isolated data store:
+* **Tenant Spaces**
+  Each organisation (tenant) has its own logically isolated **Tenant Space**:
 
-    * All traceability records, attachments and configuration are stored in a tenant-scoped database.
+    * All traceability records, attachments and configuration for a tenant are stored and processed within that Tenant Space (which, in implementation terms, combines the tenant’s PostgreSQL schema and its tenant-specific namespace in Google Cloud Storage).
     * The persistence layer enforces tenant boundaries; cross-tenant data access is not permitted.
     * This model supports data residency and per-tenant lifecycle management (onboarding, archival, deletion).
 
@@ -201,7 +201,7 @@ At a high level, the current data flow is:
 2. The **persistence layer**:
 
     * Validates the payload against the relevant schemas.
-    * Applies programme rules and updates the tenant’s data in the **tenant database**.
+    * Applies programme rules and updates the tenant’s data in the **Tenant Space**.
 3. For selected events or milestones, the persistence layer:
 
     * Builds a Winter-compliant message.
@@ -261,7 +261,7 @@ This design allows Palmyra Pro to remain **commodity-agnostic in Stage 2**, whil
 
 The interaction with Winter Protocol and the Cardano blockchain for **selected transactions** is **handled entirely within Palmyra Pro**, while **traceability for all transactions is managed internally**:
 
-* Palmyra Pro keeps a complete internal traceability record of all schema-based records and state changes in its tenant databases, regardless of whether they are anchored on-chain.
+* Palmyra Pro keeps a complete internal traceability record of all schema-based records and state changes in its Tenant Spaces, regardless of whether they are anchored on-chain.
 * For selected milestones or critical events, Palmyra Pro maps internal records into Winter Protocol messages using the registered schemas in the SaaS Platform.
 * These messages are sent to the **Winter Protocol API**, which anchors commitments on the **Cardano blockchain**.
 * Palmyra Pro stores the resulting identifiers and references so that:
@@ -274,7 +274,7 @@ Partner systems do not need to integrate directly with Winter Protocol to benefi
 ### 4.4 Typical End-to-End Scenario
 
 1. A producer’s system or a partner-provided UI submits a new traceability record (for example, a production or shipment record) to the **Palmyra Pro SaaS Platform**, using the schemas configured for that programme.
-2. Palmyra Pro validates the payload against the relevant schema, then persists it in the appropriate **tenant database**, where it becomes part of the full internal traceability graph.
+2. Palmyra Pro validates the payload against the relevant schema, then persists it in the appropriate **Tenant Space**, where it becomes part of the full internal traceability graph.
 3. When that record reaches a configured key milestone (for example, a certified shipment or aggregated lot) that should be anchored on-chain, Palmyra Pro:
 
     * Generates a Winter Protocol message representing that state.
@@ -294,7 +294,7 @@ This section describes the **logical security model** and **multi-tenancy approa
 ### 5.1 Tenant Isolation
 
 * **Tenant-scoped data stores**
-  Each organisation is assigned its own logically isolated data space. All traceability records, attachments and configuration for a tenant are stored and processed within that tenant scope.
+  Each organisation is assigned its own logically isolated Tenant Space. All traceability records, attachments and configuration for a tenant are stored and processed within that Tenant Space.
 
 * **Isolation enforced in the platform layer**
   The Palmyra Pro SaaS Platform enforces tenant boundaries at the application and persistence layer:
@@ -315,7 +315,7 @@ This section describes the **logical security model** and **multi-tenancy approa
   When selected events are anchored on the Cardano blockchain via Winter Protocol, the resulting on-chain commitments are **public**, as is typical for a public ledger.
 
     * These commitments are designed to be minimal and do **not** expose raw traceability records.
-    * Full business data remains inside Palmyra Pro’s tenant databases and is only accessible through authenticated Platform access.
+    * Full business data remains inside Palmyra Pro’s Tenant Spaces and is only accessible through authenticated Platform access.
 
 * **Tenant-bound credentials**
   API keys, tokens or other credentials are always bound to a specific tenant. Even if a credential is compromised, it cannot be used to access other tenants’ data.
@@ -330,7 +330,7 @@ This section describes the **logical security model** and **multi-tenancy approa
 ### 5.3 Data Protection
 
 * **Separation of data and control plane**
-  Traceability records and configuration are stored in the tenant data layer, while authentication, authorisation and routing are handled separately in the platform layer. This helps reduce the risk of accidental data exposure across tenants.
+  Traceability records and configuration are stored in the tenant data layer (the Tenant Space), while authentication, authorisation and routing are handled separately in the platform layer. This helps reduce the risk of accidental data exposure across tenants.
 
 * **Encryption in transit**
   Communication between external systems and the Palmyra Pro SaaS Platform is protected using industry-standard transport security (e.g. HTTPS/TLS). All API calls and integration endpoints require secure transport.
@@ -342,7 +342,7 @@ This section describes the **logical security model** and **multi-tenancy approa
   When selected events are anchored on the Cardano blockchain via Winter Protocol:
 
     * Only the minimal required commitments or references are written on-chain.
-    * Raw business data is kept within Palmyra Pro’s tenant databases.
+    * Raw business data is kept within Palmyra Pro’s Tenant Spaces.
     * External verification is possible using references, without exposing full internal records.
 
 ### 5.4 Auditability & Traceability of Actions
@@ -418,7 +418,7 @@ This section describes how Palmyra Pro is operated as a SaaS platform at a conce
 ### 6.3 Backups & Disaster Recovery
 
 * **Data durability**
-  Tenant data (traceability records, configuration and associated metadata) is stored on durable storage with regular backups. The goal is to minimise the risk of data loss due to operational incidents.
+  Tenant data (traceability records, configuration and associated metadata) is stored on durable storage within each Tenant Space, with regular backups. The goal is to minimise the risk of data loss due to operational incidents.
 
 * **Backup and restore**
   Backups are taken on a scheduled basis. In the event of a failure affecting stored data, platform operators can restore from backups to a known-good state, subject to recovery objectives defined at the operational level.
@@ -464,7 +464,7 @@ At the time of writing, two commodities are in scope:
 
 In this context, *headless* means:
 
-* The **core platform** (Palmyra Pro SaaS Platform, persistence layer, tenant databases, Winter Protocol integration) remains **generic and schema-driven**.
+* The **core platform** (Palmyra Pro SaaS Platform, persistence layer, Tenant Spaces, Winter Protocol integration) remains **generic and schema-driven**.
 * For each commodity, ZenGate configures:
 
     * A set of **commodity-specific schemas** and relationships (for example, how production, aggregation, processing, quality checks and shipments are represented).
@@ -490,7 +490,7 @@ From a technical perspective:
 
         * Honey-specific web or mobile interfaces built on top of the Palmyra Pro APIs, and/or
         * Integrations between their existing ERP systems or operational tools and the Palmyra Pro SaaS Platform using the honey schemas.
-    * All data is still persisted in the tenant databases managed by Palmyra Pro.
+    * All data is still persisted inside the Tenant Spaces managed by Palmyra Pro.
 
 * **Headless behaviour**
 
@@ -543,4 +543,3 @@ Using Palmyra Pro as a **single generic platform** with **headless commodity imp
 * **Easier evolution over time**
 
     * As programmes or commodity requirements change, updates are handled primarily through schemas and configuration, while the underlying platform, security model and operational practices remain stable.
-
