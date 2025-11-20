@@ -122,6 +122,7 @@ func (s *service) Create(ctx context.Context, audit requesttrace.AuditInfo, inpu
 		Slug:       normalized.slug,
 		CategoryID: input.CategoryID,
 		Activate:   true,
+		CreatedBy:  audit.UserID,
 	}
 
 	record, err := s.repo.Upsert(ctx, params)

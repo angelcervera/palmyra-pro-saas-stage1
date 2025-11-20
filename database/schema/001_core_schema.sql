@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS schema_repository (
     slug TEXT NOT NULL CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
     category_id UUID NOT NULL REFERENCES schema_categories(category_id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by TEXT,
     is_soft_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (schema_id, schema_version)

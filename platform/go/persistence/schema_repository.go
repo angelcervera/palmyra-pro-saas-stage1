@@ -98,6 +98,7 @@ type SchemaRecord struct {
 	Slug             string           `db:"slug" json:"slug"`
 	CategoryID       uuid.UUID        `db:"category_id" json:"categoryId"`
 	CreatedAt        time.Time        `db:"created_at" json:"createdAt"`
+	CreatedBy        *string          `db:"created_by" json:"createdBy"`
 	IsSoftDeleted    bool             `db:"is_soft_deleted" json:"isSoftDeleted"`
 	IsActive         bool             `db:"is_active" json:"isActive"`
 }
