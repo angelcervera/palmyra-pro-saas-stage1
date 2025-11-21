@@ -61,7 +61,7 @@ Tokens issued by Firebase must align with this structure, including tenant scopi
 Notes:
 
 - `iss`/`aud` must match the Firebase project/tenant.
-- `firebase.tenant` identifies the Identity Platform tenant. Our middleware treats this as the source of truth for multi-tenant routing.
+- `firebase.tenant` identifies the Identity Platform tenant. Our middleware treats this as the source of truth for multi-tenant routing and uses it as the input to resolve the active Tenant Space (see `docs/multitenancy/overview.md`).
 - Custom claims such as `isAdmin` or `otherClaim` may be added when needed and are exposed through `UserCredentials`.
 
 ## Claim Extraction & Tenant Handling
