@@ -33,10 +33,16 @@ can refine contracts, middleware, and operational details.
   underlying authentication provider (for example, Firebase/Identity Platform
   tenant IDs) and acts as the primary key for:
   - locating the Tenant Space (PostgreSQL schema + GCS namespace),
-  - deriving the tenant’s base GCS prefix (`<tenantId>/`), and
+  - deriving the tenant’s base GCS prefix together with the slug
+    (see below), and
   - referencing the tenant from other parts of the platform.  
+  
   Each tenantId is associated with additional metadata such as a human-facing
-  `slug`, display name, contact email, and status in the tenants registry.
+  `slug`, display name, contact email, and status in the tenants registry.  
+  
+  A short, deterministic fragment of `tenantId` (for example, the first 8 hex
+  characters of the UUID without dashes) is always used in GCS prefixes to
+  guarantee uniqueness even if slugs are similar or change over time, and to allow even distribution on sharding.
 
 - **Tenant Space**  
   The unit of isolation for a tenant. It combines:
@@ -46,15 +52,15 @@ can refine contracts, middleware, and operational details.
   - Additional configuration and flags as needed.
 
 - **Admin Scope**  
-  A special, platform-owned Tenant Space identified by a reserved `tenantId`
-  configured via environment variable (for example, `ADMIN_TENANT_ID`,
+  A special, platform-owned Tenant Space configured via environment variable (for example, `ADMIN_TENANT_ID`,
   defaulting to `"admin"`). It uses:
   - A configurable PostgreSQL schema (see `ADMIN_DB_SCHEMA`) that stores
     platform-global data such as the Schema Repository, Schema Categories,
     and the tenants registry.
   - The shared assets bucket for the environment (from `GCS_ASSETS_BUCKET`),
-    using the same `<tenantId>/` prefix pattern as other Tenant Spaces; for
-    the Admin Scope this means a base prefix of `<adminTenantId>/`.
+    using the same `<tenantSlug>-<shortTenantId>/` prefix pattern as other
+    Tenant Spaces; for the Admin Scope this means a base prefix of
+    `<adminSlug>-<shortAdminTenantId>/`.
   - Additional control-plane tables and configuration that apply across all
     tenants.
 
@@ -112,10 +118,11 @@ prefix per tenant**:
     `palmyra-dev-assets`, `palmyra-prod-assets`). Different environments may
     use different GCP projects as needed, but in some cases environments may
     share a project (for example, temporary PR deployments).
-  - Assign a **tenant base prefix** derived from the stable `tenantId`,
-    exactly `<tenantId>/`. Using the immutable `tenantId` ensures
-    collision-free prefixes, supports even distribution/sharding of objects,
-    and remains stable even if tenant slugs or display names change.
+  - Assign a **tenant base prefix** derived from the tenant’s `slug` and
+    stable `tenantId`, in the form `<tenantSlug>-<shortTenantId>/`. Using the
+    immutable `tenantId` fragment alongside the human‑readable slug ensures
+    collision-free prefixes, keeps paths debuggable, and remains stable even
+    if display names change.
 - Inside that tenant base prefix, logical subpaths can group content by purpose,
   for example:
   - `entities/<entityId>/<attachmentId>`
