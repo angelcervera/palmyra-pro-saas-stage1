@@ -148,7 +148,7 @@ Only a logical key (e.g. `entities/<entityId>/<attachmentId>`) should be
 referenced from domain code. The combination of Tenant Space + logical key is
 what determines the actual GCS location `(bucket, tenantBasePrefix + key)`.
 
-## TenantSpace Abstraction
+## Tenant Space Abstraction
 
 Tenant Space is represented conceptually as a small, runtime object resolved
 once per request and reused throughout the stack. It includes:

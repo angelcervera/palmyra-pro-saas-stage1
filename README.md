@@ -7,7 +7,7 @@ This README consolidates the essentials to understand the project, navigate the 
 ## Detailed Documentation
 
 - [Project Requirements](docs/project-requirements-document.md) — product scope, domains, architecture, and tech stack.
-- [Branching & Release Policy](docs/branching-policy.md) — trunk‑based workflow, PR gates, SemVer releases.
+- [Branching & Release Policy](docs/development/branching-policy.md) — trunk‑based workflow, PR gates, SemVer releases.
 - [ADR Index](docs/adr/index.md) — architecture decisions with status and dates.
 - [Agent Docs Index](docs/agent-index.yaml) — canonical index for agent‑readable docs and commands.
 - [API Conventions](docs/api/api.md) — naming, methods, status codes, pagination, ProblemDetails.
@@ -15,6 +15,8 @@ This README consolidates the essentials to understand the project, navigate the 
 - [Persistence Layer](docs/persistence-layer/persistent-layer.md) — document‑oriented persistence on PostgreSQL with schema versioning.
 - [Web App Guide](docs/web-app.md) — React 19 admin shell, build steps, SDK usage.
 - [Auth Testing Playbook](docs/auth-testing.md) — practical steps for exercising dev (unsigned) and Firebase auth flows.
+- [Multitenancy Overview](docs/multitenancy/overview.md) — Tenant Spaces, admin space, Postgres schemas and GCS layout.
+- [Environment Classes & Deployments](docs/multitenancy/environments.md) — per‑environment bucket/prefix structure and identity tenant naming (prod/dev/stg/PRs).
 
 
 ## Table of Contents
