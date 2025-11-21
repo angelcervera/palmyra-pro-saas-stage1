@@ -31,8 +31,10 @@ can refine contracts, middleware, and operational details.
   configuration follow a two-level pattern:
   - one GCS bucket per environment class (for example, `palmyra-prod-assets`,
     `palmyra-dev-assets`), and
-  - a per-deployment prefix within that bucket (for example, `dev/`,
-    `stg/`, `pr-1234/`).
+  - a per-deployment prefix within that bucket, where the leading segment
+    (`envKey`) identifies the specific deployment (for example, `prod`,
+    `stg`, `dev`, `pr-1234`, or future sharded/regional keys such as
+    `prod-001`, `prod-eu-001`).  
   A similar convention applies to identity/tenant naming in the external
   identity provider (see the Environment Classes & Deployments section).
 

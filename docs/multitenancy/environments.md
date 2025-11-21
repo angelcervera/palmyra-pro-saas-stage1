@@ -17,14 +17,23 @@ manageable.
 - Each environment class uses one dedicated bucket, for example:
   - `palmyra-prod-assets` for production,
   - `palmyra-stg-assets` for staging,
-  - `palmyra-dev-assets` for development and PR environments.
+  - `palmyra-dev-assets` for development and PR environments.  
+  In the future, you may introduce **sharded or regional environment
+  classes**, such as `prod-001`, `prod-002`, `prod-eu-001`, `prod-us-001`;
+  these can either reuse the same class bucket or be mapped to distinct
+  buckets as needed.
 - Within a bucket, every deployment environment is given a distinct
-  **environment key** (for example, `prod`, `stg`, `dev`, `pr-1234`), which
-  becomes the leading segment of all tenant prefixes:
+  **environment key** (`envKey`) which becomes the leading segment of all
+  tenant prefixes. Examples of `envKey` include:
+  - `prod`, `stg`, `dev`, `pr-1234`,
+  - sharded/regional variants such as `prod-001`, `prod-002`,
+    `prod-eu-001`, `prod-us-001`.
+  The resulting prefixes look like:
   - `prod/<tenantSlug>-<shortTenantId>/...`
   - `stg/<tenantSlug>-<shortTenantId>/...`
   - `dev/<tenantSlug>-<shortTenantId>/...`
   - `pr-1234/<tenantSlug>-<shortTenantId>/...`
+  - `prod-eu-001/<tenantSlug>-<shortTenantId>/...`
 - Each tenant’s **base prefix** is therefore:
   - `<envKey>/<tenantSlug>-<shortTenantId>/`
   where:
@@ -54,7 +63,8 @@ sync.
   - `prod-acme-corp`,
   - `stg-acme-corp`,
   - `dev-acme-corp`,
-  - `pr-1234-acme-corp`.
+  - `pr-1234-acme-corp`,
+  - `prod-eu-001-acme-corp`.
 - The Palmyra backend:
   - treats this external tenant identifier as an **input key only**,
   - maps it into the internal `tenantId` and `slug` via the Admin Space
@@ -67,4 +77,3 @@ This two-level model (bucket per environment class; prefix per deployment
 environment; consistent environment key in auth tenant IDs) preserves clear
 separation between production, shared non-production, and ephemeral PR
 environments while keeping configuration and operations manageable.
-
