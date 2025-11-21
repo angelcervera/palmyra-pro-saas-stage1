@@ -33,33 +33,41 @@ can refine contracts, middleware, and operational details.
     tenant-specific base prefix.
   - Additional configuration and flags as needed.
 
-- **Admin Schema**  
-  A configurable PostgreSQL schema that stores platform-global data such as:
-  - Schema Repository (versioned JSON Schemas).
-  - Schema Categories.
-  - Tenant registry and configuration.
-  - Other shared/admin tables as the platform evolves.
+- **Admin Scope**  
+  A special, platform-owned Tenant Space identified by a reserved `tenantId`
+  configured via environment variable (for example, `ADMIN_TENANT_ID`,
+  defaulting to `"admin"`). It uses:
+  - A configurable PostgreSQL schema (see `ADMIN_DB_SCHEMA`) that stores
+    platform-global data such as the Schema Repository, Schema Categories,
+    and the tenants registry.
+  - The shared assets bucket for the environment (from `GCS_ASSETS_BUCKET`),
+    using the same `<tenantId>/` prefix pattern as other Tenant Spaces; for
+    the Admin Scope this means a base prefix of `<adminTenantId>/`.
+  - Additional control-plane tables and configuration that apply across all
+    tenants.
 
 ## High-Level Architecture
 
 At a high level, the system distinguishes between:
 
-- **Platform-global data (Admin Schema)**  
+- **Platform-global data (Admin Scope)**  
   - Schema definitions and categories.  
   - Tenant registry and configuration (mapping tenant → DB schema, tenant
-    base prefix in GCS, status, etc.; the physical bucket is typically shared
-    across tenants).  
+    base prefix in GCS, status, etc.; the physical bucket is shared per
+    environment).  
   - Other administrative / cross-tenant metadata.
 
 - **Tenant-local data (Tenant Spaces)**  
   - Tenant-specific entity tables (document storage) in the tenant’s own
     PostgreSQL schema.  
   - Tenant-specific users and other per-tenant tables.  
-  - Tenant-specific binary objects stored in the tenant’s GCS bucket/prefix.
+  - Tenant-specific binary objects stored in the tenant’s GCS namespace
+    (including the Admin Scope, which uses the reserved `"admin"` tenantId).
 
-The Admin Schema name is configurable via the `DB_ADMIN_SCHEMA` environment
-variable (default suggestion: `palmyra_admin`) and loaded via `envconfig`, in
-line with the existing backend configuration approach.
+Within the Admin Scope, the PostgreSQL schema name is configurable via the
+`ADMIN_DB_SCHEMA` environment variable (default suggestion: `palmyra_admin`)
+and loaded via `envconfig`, in line with the existing backend configuration
+approach.
 
 ## Tenant Space – PostgreSQL
 
@@ -86,12 +94,12 @@ Binary assets (pictures, documents, attachments) are stored in Google Cloud
 Storage using a **single shared bucket per environment with one dedicated
 prefix per tenant**:
 
-- For each tenant:
+- For each tenant (including the Admin Scope):
   - Use the environment’s GCS bucket configured via the `GCS_ASSETS_BUCKET`
     environment variable (one bucket per environment, for example
     `palmyra-dev-assets`, `palmyra-prod-assets`). Different environments may
-    use different GCP projects as needed, but sometimes, we will share the same
-    GCP project between different environments (like temporal PRs deployments).
+    use different GCP projects as needed, but in some cases environments may
+    share a project (for example, temporary PR deployments).
   - Assign a **tenant base prefix** derived from the stable `tenantId`,
     exactly `<tenantId>/`. Using the immutable `tenantId` ensures
     collision-free prefixes, supports even distribution/sharding of objects,
@@ -148,8 +156,10 @@ once per request and reused throughout the stack. It includes:
 
 When a new tenant is created, the system:
 
-1. Inserts a tenant record into the Admin Schema’s tenant registry (id/slug,
-   initial status, etc.).
+1. Inserts a tenant record into the Admin Scope’s tenant registry (id/slug,
+   initial status, etc.). The Admin Scope itself is represented by a reserved
+   tenant record whose `tenantId` is provided by configuration (for example,
+   `ADMIN_TENANT_ID`, default `"admin"`).
 2. Creates a dedicated PostgreSQL schema for that tenant and provisions base
    tables/indexes.
 3. Ensures the shared GCS bucket exists and assigns a tenant base prefix
