@@ -19,6 +19,13 @@ can refine contracts, middleware, and operational details.
 - **Tenant**  
   A logical customer / organization using Palmyra Pro.
 
+- **Slug**  
+  A stable, name‑ and URL‑friendly identifier in `kebab-case`, matching the
+  pattern `^[a-z0-9]+(?:-[a-z0-9]+)*$`. Slugs are used for human‑readable
+  identifiers (for example, tenant slugs or schema slugs) and can be
+  transformed into other forms (such as `snake_case`) when needed for
+  infrastructure names (schemas, queues, etc.).
+
 - **Tenant Space**  
   The unit of isolation for a tenant. It combines:
   - One PostgreSQL schema dedicated to that tenant.
@@ -50,17 +57,22 @@ At a high level, the system distinguishes between:
   - Tenant-specific users and other per-tenant tables.  
   - Tenant-specific binary objects stored in the tenant’s GCS bucket/prefix.
 
-The Admin Schema name is configurable via environment variables (e.g.
-`DB_ADMIN_SCHEMA`) and loaded via `envconfig`, in line with the existing
-backend configuration approach.
+The Admin Schema name is configurable via the `DB_ADMIN_SCHEMA` environment
+variable (default suggestion: `palmyra_admin`) and loaded via `envconfig`, in
+line with the existing backend configuration approach.
 
 ## Tenant Space – PostgreSQL
 
 - Each tenant is assigned a dedicated **PostgreSQL schema**.
+- Tenant schema names follow the pattern `tenant_<slug>`, where `<slug>` is
+  derived from the tenant’s canonical slug by normalizing to lowercase
+  `snake_case` (alphanumeric plus underscore only), for example
+  `tenant_acme_corp`.
 - Within that schema the persistent layer provisions:
   - The tenant’s **entity tables**, following the existing document-oriented
     model (immutable versions, JSONB payload, hashes, timestamps, etc.).
-  - A per-tenant **users** table and any additional tenant-local tables.
+  - A per-tenant **users** table.
+  - Any additional tenant-local tables.
 - Entity tables continue to reference the platform-global Schema Repository via
   `schema_id` and `schema_version`, but now live in the tenant’s schema
   instead of a shared schema.
@@ -71,13 +83,19 @@ backend configuration approach.
 ## Tenant Space – Binary Storage (GCS)
 
 Binary assets (pictures, documents, attachments) are stored in Google Cloud
-Storage using a **single shared bucket with one dedicated prefix per tenant**:
+Storage using a **single shared bucket per environment with one dedicated
+prefix per tenant**:
 
 - For each tenant:
-  - Use the shared GCS bucket configured for the environment, e.g.
-    `palmyra-<env>-assets`.
-  - Assign a **tenant base prefix** derived from a stable tenant identifier,
-    e.g. `<tenantSlug>/` or `<tenantId>/`.
+  - Use the environment’s GCS bucket configured via the `GCS_ASSETS_BUCKET`
+    environment variable (one bucket per environment, for example
+    `palmyra-dev-assets`, `palmyra-prod-assets`). Different environments may
+    use different GCP projects as needed, but sometimes, we will share the same
+    GCP project between different environments (like temporal PRs deployments).
+  - Assign a **tenant base prefix** derived from the stable `tenantId`,
+    exactly `<tenantId>/`. Using the immutable `tenantId` ensures
+    collision-free prefixes, supports even distribution/sharding of objects,
+    and remains stable even if tenant slugs or display names change.
 - Inside that tenant base prefix, logical subpaths can group content by purpose,
   for example:
   - `entities/<entityId>/<attachmentId>`
