@@ -16,15 +16,27 @@ can refine contracts, middleware, and operational details.
 
 ## Key Concepts
 
-- **Tenant**  
-  A logical customer / organization using Palmyra Pro.
-
 - **Slug**  
   A stable, name‑ and URL‑friendly identifier in `kebab-case`, matching the
   pattern `^[a-z0-9]+(?:-[a-z0-9]+)*$`. Slugs are used for human‑readable
   identifiers (for example, tenant slugs or schema slugs) and can be
   transformed into other forms (such as `snake_case`) when needed for
   infrastructure names (schemas, queues, etc.).
+
+- **Tenant**  
+  A logical customer / organization using Palmyra Pro.
+
+- **tenantId (Palmyra Tenant ID)**  
+  A platform-generated, stable identifier for a tenant. In the current
+  context, this is a UUID created by the Palmyra Pro Tenant Admin when a
+  tenant is provisioned. It is independent of any identifiers used by the
+  underlying authentication provider (for example, Firebase/Identity Platform
+  tenant IDs) and acts as the primary key for:
+  - locating the Tenant Space (PostgreSQL schema + GCS namespace),
+  - deriving the tenant’s base GCS prefix (`<tenantId>/`), and
+  - referencing the tenant from other parts of the platform.  
+  Each tenantId is associated with additional metadata such as a human-facing
+  `slug`, display name, contact email, and status in the tenants registry.
 
 - **Tenant Space**  
   The unit of isolation for a tenant. It combines:
@@ -121,7 +133,7 @@ what determines the actual GCS location `(bucket, tenantBasePrefix + key)`.
 Tenant Space is represented conceptually as a small, runtime object resolved
 once per request and reused throughout the stack. It includes:
 
-- Tenant identity (id/slug).
+- Tenant identity (internal `tenantId` plus associated `slug`).
 - PostgreSQL schema name for that tenant.
 - GCS bucket name (typically shared across tenants) and the tenant’s base
   prefix within that bucket.
