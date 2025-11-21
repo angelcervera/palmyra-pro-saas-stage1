@@ -23,6 +23,19 @@ can refine contracts, middleware, and operational details.
   transformed into other forms (such as `snake_case`) when needed for
   infrastructure names (schemas, queues, etc.).
 
+- **Environment class & deployment environment**  
+  Palmyra Pro is deployed into long‑lived **environment classes** (for
+  example, `prod`, `stg`, `dev`) and, within those classes, one or more
+  concrete **deployment environments** (for example, the main dev stack plus
+  ephemeral PR environments such as `pr-1234`). Storage and identity
+  configuration follow a two-level pattern:
+  - one GCS bucket per environment class (for example, `palmyra-prod-assets`,
+    `palmyra-dev-assets`), and
+  - a per-deployment prefix within that bucket (for example, `dev/`,
+    `stg/`, `pr-1234/`).
+  A similar convention applies to identity/tenant naming in the external
+  identity provider (see the Environment Classes & Deployments section).
+
 - **Tenant**  
   A logical customer / organization using Palmyra Pro.
 
@@ -110,15 +123,19 @@ prefix per tenant**:
 
 - For each tenant (including the Admin Space):
   - Use the environment’s GCS bucket configured via the `GCS_ASSETS_BUCKET`
-    environment variable (one bucket per environment, for example
-    `palmyra-dev-assets`, `palmyra-prod-assets`). Different environments may
-    use different GCP projects as needed, but in some cases environments may
+    environment variable (one bucket per environment class, for example
+    `palmyra-dev-assets`, `palmyra-prod-assets`). Different environment classes will
+    use different GCP projects, but in some cases environments may
     share a project (for example, temporary PR deployments).
-  - Assign a **tenant base prefix** derived from the tenant’s `slug` and
-    stable `tenantId`, in the form `<tenantSlug>-<shortTenantId>/`. Using the
-    immutable `tenantId` fragment alongside the human‑readable slug ensures
+  - Assign a **tenant base prefix** derived from the deployment environment
+    key (for example, `prod`, `stg`, `dev`, `pr-1234`) plus the tenant’s
+    `slug` and stable `tenantId` fragment, in the form
+    `<envKey>/<tenantSlug>-<shortTenantId>/`. Using the immutable
+    `tenantId` short fragment alongside the human‑readable slug ensures
     collision-free prefixes, keeps paths debuggable, and remains stable even
-    if display names change.
+    if display names change. The `envKey` makes it trivial to locate and
+    clean up all objects for a given deployment (for example, when a PR
+    environment is destroyed).
 - Inside that tenant base prefix, logical subpaths can group content by purpose,
   for example:
   - `entities/<entityId>/<attachmentId>`
@@ -139,7 +156,8 @@ once per request and reused throughout the stack. It includes:
 - Tenant identity (internal `tenantId` plus associated `slug`).
 - PostgreSQL schema name for that tenant.
 - GCS bucket name (typically shared across tenants) and the tenant’s base
-  prefix within that bucket.
+  prefix within that bucket (which always starts with the deployment
+  environment key, for example, `dev/`, `stg/`, or `pr-1234/`).
 - Optional feature flags, limits, and other metadata.
 
 ### Resolution Flow (Conceptual)
@@ -188,7 +206,8 @@ When a new tenant is created, the system:
 - For every tenant-scoped request:
   - Tenant Space is resolved from JWT claims and the tenant registry.
   - Database operations execute in the tenant’s schema.
-  - Blob operations target the shared bucket using the tenant’s base prefix.
+  - Blob operations target the shared bucket using the tenant’s base prefix
+    (which already includes the deployment environment key).
 
 ### Deactivation / Archival (Later Iteration)
 
@@ -200,7 +219,7 @@ When a new tenant is created, the system:
 
 ## Separation of Concerns
 
-- **Admin Schema & Tenant Registry**
+- **Admin Space & Tenant Registry**
   - Owns platform-global concepts: schemas, categories, and tenants.
   - Provides a single source of truth for mapping tenant IDs to Tenant Spaces.
 
@@ -212,6 +231,10 @@ When a new tenant is created, the system:
 - **Persistent Layer & Storage Abstractions**
   - Hide multitenancy plumbing from domain handlers and services.
   - Provide tenant-aware APIs for both PostgreSQL and GCS.
+
+For details about how GCS buckets, prefixes, and external identity tenants are
+structured across environment classes and deployment environments, see
+`docs/multitenancy/environments.md`.
 
 ## Next Steps and Open Questions
 
