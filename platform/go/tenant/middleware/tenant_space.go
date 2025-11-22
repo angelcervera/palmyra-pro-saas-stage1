@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -104,6 +105,7 @@ func WithTenantSpace(resolver Resolver, cfg Config) func(http.Handler) http.Hand
 
 type tenantCache struct {
 	ttl   time.Duration
+	mu    sync.RWMutex
 	items map[uuid.UUID]cacheItem
 }
 
@@ -120,8 +122,15 @@ func cacheGet(c *tenantCache, id uuid.UUID) *tenant.Space {
 	if c == nil {
 		return nil
 	}
+	c.mu.RLock()
 	item, ok := c.items[id]
+	c.mu.RUnlock()
 	if !ok || time.Now().After(item.expiresAt) {
+		if ok {
+			c.mu.Lock()
+			delete(c.items, id)
+			c.mu.Unlock()
+		}
 		return nil
 	}
 	return &item.space
@@ -131,7 +140,9 @@ func cachePut(c *tenantCache, space tenant.Space) {
 	if c == nil {
 		return
 	}
+	c.mu.Lock()
 	c.items[space.TenantID] = cacheItem{space: space, expiresAt: time.Now().Add(c.ttl)}
+	c.mu.Unlock()
 }
 
 const problemTypeAuth = "https://palmyra.pro/problems/auth"
