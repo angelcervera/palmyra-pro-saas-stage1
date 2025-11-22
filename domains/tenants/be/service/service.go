@@ -14,9 +14,10 @@ import (
 
 // Errors returned by the service layer.
 var (
-	ErrNotFound     = errors.New("tenant not found")
-	ErrConflictSlug = errors.New("tenant slug already exists")
-	ErrDisabled     = errors.New("tenant disabled")
+	ErrNotFound       = errors.New("tenant not found")
+	ErrConflictSlug   = errors.New("tenant slug already exists")
+	ErrDisabled       = errors.New("tenant disabled")
+	ErrNotImplemented = errors.New("provisioning not implemented yet")
 )
 
 // Tenant represents the domain model for a tenant registry entry.
@@ -170,32 +171,12 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 
 // Provision performs full provisioning and updates status accordingly.
 func (s *Service) Provision(ctx context.Context, id uuid.UUID) (Tenant, error) {
-	current, err := s.repo.Get(ctx, id)
-	if err != nil {
-		return Tenant{}, err
-	}
-
-	now := time.Now().UTC()
-	current.Provisioning = ProvisioningStatus{DBReady: true, AuthReady: true, LastProvisionedAt: &now}
-	if current.Status == tenantsapi.Pending || current.Status == tenantsapi.Provisioning {
-		current.Status = tenantsapi.Active
-	}
-	current.Version = current.Version.NextPatch()
-	current.CreatedAt = now
-
-	return s.repo.AppendVersion(ctx, current)
+	return Tenant{}, ErrNotImplemented
 }
 
 // ProvisionStatus performs a live check (placeholder) and persists changes if detected.
 func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (ProvisioningStatus, error) {
-	t, err := s.repo.Get(ctx, id)
-	if err != nil {
-		return ProvisioningStatus{}, err
-	}
-
-	// Placeholder: in real impl, re-check external systems. Here just return current and ensure stored.
-	// No-op persistence since we have no change detection in the stub implementation.
-	return t.Provisioning, nil
+	return ProvisioningStatus{}, ErrNotImplemented
 }
 
 // ResolveTenantSpace returns a lightweight tenant Space for middleware consumption.
