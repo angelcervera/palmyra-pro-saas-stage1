@@ -1,6 +1,7 @@
 package tenant
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -29,6 +30,13 @@ func BuildBasePrefix(envKey, slug string, shortID string) string {
 // BuildRoleName returns the tenant runtime role name derived from the schema name.
 func BuildRoleName(schemaName string) string {
 	return schemaName + "_role"
+}
+
+var roleNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*_role$`)
+
+// IsValidRoleName validates role naming (`^[a-z][a-z0-9_]*_role$`).
+func IsValidRoleName(role string) bool {
+	return roleNamePattern.MatchString(role)
 }
 
 // DerivedIdentifiers groups the identifiers derived from slug/env/tenantID.

@@ -296,6 +296,9 @@ func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (Provisioni
 	if strings.TrimSpace(current.RoleName) == "" {
 		return ProvisioningStatus{}, fmt.Errorf("tenant missing role name")
 	}
+	if !tenant.IsValidRoleName(current.RoleName) {
+		return ProvisioningStatus{}, fmt.Errorf("tenant role name invalid: %s", current.RoleName)
+	}
 
 	roleName := current.RoleName
 
