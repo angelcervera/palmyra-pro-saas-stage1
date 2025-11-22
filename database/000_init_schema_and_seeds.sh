@@ -3,7 +3,8 @@ set -euo pipefail
 
 PSQL=(psql -v ON_ERROR_STOP=1 -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-postgres}")
 
-ADMIN_SCHEMA="${PALMYRA_DB_SCHEMA:-admin}"
+ADMIN_TENANT_SLUG="${ADMIN_TENANT_SLUG:-admin}"
+ADMIN_SCHEMA="tenant_${ADMIN_TENANT_SLUG//-/_}"
 
 # Ensure admin schema exists and becomes default search_path for this database.
 "${PSQL[@]}" <<SQL
@@ -39,7 +40,7 @@ run_sql_dir() {
 
 run_sql_dir "$SCHEMA_DIR" "schema"
 
-seed_mode="${PALMYRA_DB_SEED_MODE:-dev}"
+seed_mode="${PLATFORM_DB_SEED_MODE:-dev}"
 if [[ "$seed_mode" == "dev" ]]; then
   run_sql_dir "$DEV_SEED_DIR" "dev seeds"
 else
