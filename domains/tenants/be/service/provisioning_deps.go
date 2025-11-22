@@ -7,6 +7,7 @@ import (
 )
 
 // DBProvisioner encapsulates creation/check of tenant-specific DB artifacts (role, schema, grants, base tables).
+// Ensure is mutating/idempotent, Check is read-only/health verification.
 type DBProvisioner interface {
 	Ensure(ctx context.Context, req DBProvisionRequest) (DBProvisionResult, error)
 	Check(ctx context.Context, req DBProvisionRequest) (DBProvisionResult, error)
@@ -24,6 +25,7 @@ type DBProvisionResult struct {
 }
 
 // AuthProvisioner manages external auth tenant creation/check.
+// Ensure is mutating/idempotent, Check is read-only/health verification.
 type AuthProvisioner interface {
 	Ensure(ctx context.Context, externalTenant string) (AuthProvisionResult, error)
 	Check(ctx context.Context, externalTenant string) (AuthProvisionResult, error)
@@ -34,6 +36,7 @@ type AuthProvisionResult struct {
 }
 
 // StorageProvisioner validates storage reachability.
+// Ensure is mutating/idempotent, Check is read-only/health verification.
 type StorageProvisioner interface {
 	Ensure(ctx context.Context, prefix string) (StorageProvisionResult, error)
 	Check(ctx context.Context, prefix string) (StorageProvisionResult, error)

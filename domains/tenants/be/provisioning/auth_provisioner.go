@@ -18,7 +18,7 @@ func (a *AuthProvisioner) Ensure(ctx context.Context, externalTenant string) (se
 }
 
 func (a *AuthProvisioner) Check(ctx context.Context, externalTenant string) (service.AuthProvisionResult, error) {
-	return a.Ensure(ctx, externalTenant)
+	return service.AuthProvisionResult{Ready: false}, fmt.Errorf("auth provisioner not implemented")
 }
 
 var _ service.AuthProvisioner = (*AuthProvisioner)(nil)
