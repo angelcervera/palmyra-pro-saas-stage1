@@ -1,0 +1,280 @@
+openapi: 3.0.4
+info:
+  title: Palmyra Pro API
+  version: v1
+  description: >-
+    Tenant registry and provisioning (admin-only). Keeps the canonical mapping
+    of tenantId to slug/status plus derived identifiers used for routing
+    (schemaName, basePrefix, shortTenantId) per the multitenancy design.
+servers:
+  - url: "/api/v1"
+# Apply JWT globally for this spec
+security:
+  - bearerAuth: []
+tags:
+  - name: Tenant Admin
+    description: Platform administrators only
+paths:
+  /admin/tenants:
+    get:
+      operationId: tenantsList
+      tags: [Tenant Admin]
+      summary: List tenants (admin only)
+      parameters:
+        - $ref: "./common/pagination.yaml#/components/parameters/page"
+        - $ref: "./common/pagination.yaml#/components/parameters/pageSize"
+        - $ref: "./common/pagination.yaml#/components/parameters/sort"
+        - in: query
+          name: status
+          required: false
+          schema:
+            $ref: "#/components/schemas/TenantStatus"
+          description: Optional filter by tenant status
+      responses:
+        "200":
+          description: Paged list of tenants
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Tenant"
+                    required: [items]
+                  - $ref: "./common/pagination.yaml#/components/schemas/PaginationMeta"
+        default:
+          description: Error (RFC 7807)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "./common/problemdetails.yaml#/components/schemas/ProblemDetails"
+    post:
+      operationId: tenantsCreate
+      tags: [Tenant Admin]
+      summary: Provision a new tenant (admin only)
+      description: >-
+        Creates a tenant record and returns derived routing fields. Derived
+        values are computed server-side: schemaName uses `tenant_<slugSnake>`,
+        basePrefix uses `<envKey>/<tenantSlug>-<shortTenantId>/`, and
+        shortTenantId is the first 8 hex characters of tenantId.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenant"
+      responses:
+        "201":
+          description: Tenant created
+          headers:
+            Location:
+              description: URL of the created tenant resource
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        default:
+          description: Error (RFC 7807)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "./common/problemdetails.yaml#/components/schemas/ProblemDetails"
+  /admin/tenants/{tenantId}:
+    get:
+      operationId: tenantsGet
+      tags: [Tenant Admin]
+      summary: Get tenant by id (admin only)
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            $ref: "./common/primitives.yaml#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Tenant found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        default:
+          description: Error (RFC 7807)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "./common/problemdetails.yaml#/components/schemas/ProblemDetails"
+    patch:
+      operationId: tenantsUpdate
+      tags: [Tenant Admin]
+      summary: Update tenant display or status (admin only)
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            $ref: "./common/primitives.yaml#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTenant"
+      responses:
+        "200":
+          description: Tenant updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        default:
+          description: Error (RFC 7807)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "./common/problemdetails.yaml#/components/schemas/ProblemDetails"
+
+  /admin/tenants/{tenantId}:provision:
+    post:
+      operationId: tenantsProvision
+      tags: [Tenant Admin]
+      summary: Provision or reprovision tenant environment (admin only)
+      description: >-
+        Creates or retries provisioning of tenant environment resources in one step:
+        PostgreSQL schema and base tables, external auth tenant, and any other
+        required infrastructure. Returns the updated provisioning state.
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            $ref: "./common/primitives.yaml#/components/schemas/UUID"
+      responses:
+        "202":
+          description: Provisioning started or completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        default:
+          description: Error (RFC 7807)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "./common/problemdetails.yaml#/components/schemas/ProblemDetails"
+
+  /admin/tenants/{tenantId}:provision-status:
+    get:
+      operationId: tenantsProvisionStatus
+      tags: [Tenant Admin]
+      summary: Check provisioning status (admin only)
+      description: >-
+        Performs a live check against backing systems to verify whether tenant
+        provisioning has succeeded (DB schema exists, auth tenant exists, etc.).
+        Returns current provisioning status without mutating state.
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            $ref: "./common/primitives.yaml#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Provisioning status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantProvisioningStatus"
+        default:
+          description: Error (RFC 7807)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "./common/problemdetails.yaml#/components/schemas/ProblemDetails"
+components:
+  schemas:
+    Tenant:
+      type: object
+      properties:
+        tenantId:
+          $ref: "./common/primitives.yaml#/components/schemas/UUID"
+        slug:
+          $ref: "./common/primitives.yaml#/components/schemas/Slug"
+        displayName:
+          type: string
+          maxLength: 200
+        status:
+          $ref: "#/components/schemas/TenantStatus"
+        provisioning:
+          $ref: "#/components/schemas/TenantProvisioningStatus"
+        schemaName:
+          type: string
+          description: Derived PostgreSQL schema name for the tenant (`tenant_<slugSnake>`).
+          readOnly: true
+        basePrefix:
+          type: string
+          description: >-
+            Derived GCS base prefix `<envKey>/<tenantSlug>-<shortTenantId>/`.
+            envKey comes from deployment config; prefix is computed server-side and immutable.
+          readOnly: true
+        shortTenantId:
+          type: string
+          description: First 8 hexadecimal characters of tenantId, used in prefixes.
+          pattern: "^[0-9a-fA-F]{8}$"
+          readOnly: true
+        createdAt:
+          $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
+        createdBy:
+          $ref: "./common/primitives.yaml#/components/schemas/UUID"
+          description: Identifier of the platform admin who created this tenant record.
+          readOnly: true
+      required: [tenantId, slug, status, provisioning, schemaName, basePrefix, shortTenantId, createdAt, createdBy]
+    CreateTenant:
+      type: object
+      properties:
+        slug:
+          $ref: "./common/primitives.yaml#/components/schemas/Slug"
+        displayName:
+          type: string
+          maxLength: 200
+        status:
+          $ref: "#/components/schemas/TenantStatus"
+      required: [slug]
+    UpdateTenant:
+      type: object
+      properties:
+        displayName:
+          type: string
+          maxLength: 200
+        status:
+          $ref: "#/components/schemas/TenantStatus"
+      description: >-
+        Update mutable tenant fields. Slug and derived fields are immutable after creation.
+    TenantStatus:
+      type: string
+      enum: [active, disabled, pending, provisioning]
+      description: Tenant lifecycle state (admin-only managed).
+    TenantProvisioningStatus:
+      type: object
+      description: Current provisioning state for tenant environment resources (admin-only, read-only).
+      properties:
+        dbReady:
+          type: boolean
+          description: PostgreSQL tenant schema has been created and base tables provisioned.
+          readOnly: true
+        authReady:
+          type: boolean
+          description: External auth tenant (e.g., Firebase/Identity) has been created and linked.
+          readOnly: true
+        lastProvisionedAt:
+          $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
+        lastError:
+          type: string
+          description: Optional last provisioning error, if any.
+          maxLength: 500
+          readOnly: true
+      required: [dbReady, authReady]
