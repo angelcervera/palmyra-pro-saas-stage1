@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	tenantsapi "github.com/zenGate-Global/palmyra-pro-saas/generated/go/tenants"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
@@ -20,6 +21,7 @@ var (
 // Tenant represents the domain model for a tenant registry entry.
 type Tenant struct {
 	ID            uuid.UUID
+	Version       persistence.SemanticVersion
 	Slug          string
 	DisplayName   *string
 	Status        tenantsapi.TenantStatus
@@ -37,6 +39,16 @@ type ProvisioningStatus struct {
 	AuthReady         bool
 	LastProvisionedAt *time.Time
 	LastError         *string
+}
+
+// TenantStatusFromString converts stored string to TenantStatus; defaults to pending on unknown.
+func TenantStatusFromString(s string) tenantsapi.TenantStatus {
+	switch tenantsapi.TenantStatus(s) {
+	case tenantsapi.Active, tenantsapi.Disabled, tenantsapi.Pending, tenantsapi.Provisioning:
+		return tenantsapi.TenantStatus(s)
+	default:
+		return tenantsapi.Pending
+	}
 }
 
 // CreateInput represents the request to create a tenant.
@@ -74,8 +86,7 @@ type Repository interface {
 	List(ctx context.Context, opts ListOptions) (ListResult, error)
 	Create(ctx context.Context, t Tenant) (Tenant, error)
 	Get(ctx context.Context, id uuid.UUID) (Tenant, error)
-	Update(ctx context.Context, id uuid.UUID, update UpdateInput) (Tenant, error)
-	UpdateProvisioning(ctx context.Context, id uuid.UUID, status ProvisioningStatus) (Tenant, error)
+	AppendVersion(ctx context.Context, t Tenant) (Tenant, error)
 	FindBySlug(ctx context.Context, slug string) (Tenant, error)
 }
 
@@ -104,6 +115,7 @@ func (s *Service) List(ctx context.Context, opts ListOptions) (ListResult, error
 // Create a new tenant with derived fields.
 func (s *Service) Create(ctx context.Context, input CreateInput) (Tenant, error) {
 	id := uuid.New()
+	version := persistence.SemanticVersion{Major: 1, Minor: 0, Patch: 0}
 	shortID := tenant.ShortID(id)
 	schemaName := tenant.BuildSchemaName(tenant.ToSnake(input.Slug))
 	basePrefix := tenant.BuildBasePrefix(s.envKey, input.Slug, shortID)
@@ -115,6 +127,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Tenant, error)
 		Slug:          input.Slug,
 		DisplayName:   input.DisplayName,
 		Status:        input.Status,
+		Version:       version,
 		SchemaName:    schemaName,
 		BasePrefix:    basePrefix,
 		ShortTenantID: shortID,
@@ -136,29 +149,40 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Tenant, error) {
 
 // Update modifies mutable fields of a tenant.
 func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (Tenant, error) {
-	return s.repo.Update(ctx, id, input)
-}
-
-// Provision performs full provisioning and updates status accordingly.
-func (s *Service) Provision(ctx context.Context, id uuid.UUID) (Tenant, error) {
-	// For now, simulate provisioning success synchronously.
-	now := time.Now().UTC()
-	status := ProvisioningStatus{DBReady: true, AuthReady: true, LastProvisionedAt: &now}
-	tenant, err := s.repo.UpdateProvisioning(ctx, id, status)
+	current, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return Tenant{}, err
 	}
 
-	// If provisioning succeeds, mark tenant active when pending/provisioning.
-	if tenant.Status == tenantsapi.Pending || tenant.Status == tenantsapi.Provisioning {
-		active := tenantsapi.Active
-		tenant, err = s.repo.Update(ctx, id, UpdateInput{Status: &active})
-		if err != nil {
-			return Tenant{}, err
-		}
+	next := current
+	if input.DisplayName != nil {
+		next.DisplayName = input.DisplayName
+	}
+	if input.Status != nil {
+		next.Status = *input.Status
+	}
+	next.Version = current.Version.NextPatch()
+	next.CreatedAt = time.Now().UTC()
+
+	return s.repo.AppendVersion(ctx, next)
+}
+
+// Provision performs full provisioning and updates status accordingly.
+func (s *Service) Provision(ctx context.Context, id uuid.UUID) (Tenant, error) {
+	current, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return Tenant{}, err
 	}
 
-	return tenant, nil
+	now := time.Now().UTC()
+	current.Provisioning = ProvisioningStatus{DBReady: true, AuthReady: true, LastProvisionedAt: &now}
+	if current.Status == tenantsapi.Pending || current.Status == tenantsapi.Provisioning {
+		current.Status = tenantsapi.Active
+	}
+	current.Version = current.Version.NextPatch()
+	current.CreatedAt = now
+
+	return s.repo.AppendVersion(ctx, current)
 }
 
 // ProvisionStatus performs a live check (placeholder) and persists changes if detected.

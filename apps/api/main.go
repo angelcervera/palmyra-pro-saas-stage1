@@ -136,7 +136,12 @@ func main() {
 	userService := usersservice.New(userRepo)
 	userHTTPHandler := usershandler.New(userService, logger)
 
-	tenantRepo := tenantsrepo.NewMemoryRepository()
+	tenantStore, err := persistence.NewTenantStore(ctx, pool)
+	if err != nil {
+		logger.Fatal("init tenant store", zap.Error(err))
+	}
+
+	tenantRepo := tenantsrepo.NewPostgresRepository(tenantStore)
 	tenantService := tenantsservice.New(tenantRepo, cfg.EnvKey)
 	tenantHTTPHandler := tenantshandler.New(tenantService, logger)
 

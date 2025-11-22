@@ -1,0 +1,145 @@
+package repo
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/google/uuid"
+
+	"github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/service"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+)
+
+// PostgresRepository implements the tenant repository using the shared persistence layer with immutable versions.
+type PostgresRepository struct {
+	store *persistence.TenantStore
+}
+
+// NewPostgresRepository constructs a repository backed by TenantStore.
+func NewPostgresRepository(store *persistence.TenantStore) *PostgresRepository {
+	if store == nil {
+		panic("tenant store is required")
+	}
+	return &PostgresRepository{store: store}
+}
+
+func (r *PostgresRepository) List(ctx context.Context, opts service.ListOptions) (service.ListResult, error) {
+	page := opts.Page
+	if page < 1 {
+		page = 1
+	}
+	size := opts.PageSize
+	if size <= 0 {
+		size = 20
+	}
+	offset := (page - 1) * size
+
+	var statusStr *string
+	if opts.Status != nil {
+		s := string(*opts.Status)
+		statusStr = &s
+	}
+
+	rows, total, err := r.store.ListActive(ctx, statusStr, size, offset)
+	if err != nil {
+		return service.ListResult{}, err
+	}
+
+	tenants := make([]service.Tenant, 0, len(rows))
+	for _, rec := range rows {
+		tenants = append(tenants, toServiceTenant(rec))
+	}
+
+	totalPages := (total + size - 1) / size
+	return service.ListResult{Tenants: tenants, Page: page, PageSize: size, TotalItems: total, TotalPages: totalPages}, nil
+}
+
+func (r *PostgresRepository) Create(ctx context.Context, t service.Tenant) (service.Tenant, error) {
+	rec := toRecord(t)
+	out, err := r.store.Create(ctx, rec)
+	if err != nil {
+		return service.Tenant{}, err
+	}
+	return toServiceTenant(out), nil
+}
+
+func (r *PostgresRepository) Get(ctx context.Context, id uuid.UUID) (service.Tenant, error) {
+	rec, err := r.store.GetActive(ctx, id)
+	if err != nil {
+		return service.Tenant{}, mapNotFound(err)
+	}
+	return toServiceTenant(rec), nil
+}
+
+func (r *PostgresRepository) AppendVersion(ctx context.Context, t service.Tenant) (service.Tenant, error) {
+	rec := toRecord(t)
+	out, err := r.store.AppendVersion(ctx, rec)
+	if err != nil {
+		return service.Tenant{}, err
+	}
+	return toServiceTenant(out), nil
+}
+
+func (r *PostgresRepository) FindBySlug(ctx context.Context, slug string) (service.Tenant, error) {
+	rec, err := r.store.GetBySlug(ctx, slug)
+	if err != nil {
+		return service.Tenant{}, mapNotFound(err)
+	}
+	return toServiceTenant(rec), nil
+}
+
+func toRecord(t service.Tenant) persistence.TenantRecord {
+	return persistence.TenantRecord{
+		TenantID:          t.ID,
+		TenantVersion:     t.Version,
+		Slug:              t.Slug,
+		DisplayName:       t.DisplayName,
+		Status:            string(t.Status),
+		SchemaName:        t.SchemaName,
+		BasePrefix:        t.BasePrefix,
+		ShortTenantID:     t.ShortTenantID,
+		IsActive:          true,
+		IsSoftDeleted:     false,
+		CreatedAt:         t.CreatedAt,
+		CreatedBy:         t.CreatedBy,
+		DBReady:           t.Provisioning.DBReady,
+		AuthReady:         t.Provisioning.AuthReady,
+		LastProvisionedAt: t.Provisioning.LastProvisionedAt,
+		LastError:         t.Provisioning.LastError,
+	}
+}
+
+func toServiceTenant(rec persistence.TenantRecord) service.Tenant {
+	return service.Tenant{
+		ID:            rec.TenantID,
+		Version:       rec.TenantVersion,
+		Slug:          rec.Slug,
+		DisplayName:   rec.DisplayName,
+		Status:        service.TenantStatusFromString(rec.Status),
+		SchemaName:    rec.SchemaName,
+		BasePrefix:    rec.BasePrefix,
+		ShortTenantID: rec.ShortTenantID,
+		CreatedAt:     rec.CreatedAt,
+		CreatedBy:     rec.CreatedBy,
+		Provisioning: service.ProvisioningStatus{
+			DBReady:           rec.DBReady,
+			AuthReady:         rec.AuthReady,
+			LastProvisionedAt: rec.LastProvisionedAt,
+			LastError:         rec.LastError,
+		},
+	}
+}
+
+func mapNotFound(err error) error {
+	if errors.Is(err, persistence.ErrNotFound) {
+		return service.ErrNotFound
+	}
+	return err
+}
+
+// Ensure interface compliance.
+var _ service.Repository = (*PostgresRepository)(nil)
+
+// helper to avoid unused import warning
+var _ = fmt.Sprintf
