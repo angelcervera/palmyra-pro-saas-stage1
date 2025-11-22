@@ -8,6 +8,7 @@ import (
 )
 
 // AuthProvisioner is a placeholder; replace with real Firebase/Identity logic later.
+// TODO: wire Firebase Admin SDK client and perform tenant ensure/check.
 type AuthProvisioner struct{}
 
 func NewAuthProvisioner() *AuthProvisioner { return &AuthProvisioner{} }

@@ -8,6 +8,7 @@ import (
 )
 
 // StorageProvisioner is a placeholder; replace with real GCS checks later.
+// TODO: inject GCS client and verify prefix/bucket access.
 type StorageProvisioner struct{}
 
 func NewStorageProvisioner() *StorageProvisioner { return &StorageProvisioner{} }
