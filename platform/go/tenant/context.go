@@ -15,6 +15,7 @@ type Space struct {
 	ShortTenantID string
 	SchemaName    string
 	BasePrefix    string
+	RoleName      string
 }
 
 type ctxKey string

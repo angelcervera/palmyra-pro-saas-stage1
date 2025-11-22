@@ -25,3 +25,8 @@ func BuildBasePrefix(envKey, slug string, shortID string) string {
 	envKey = strings.TrimSuffix(envKey, "/")
 	return envKey + "/" + slug + "-" + shortID + "/"
 }
+
+// BuildRoleName returns the tenant runtime role name derived from the schema name.
+func BuildRoleName(schemaName string) string {
+	return schemaName + "_role"
+}

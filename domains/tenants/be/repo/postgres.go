@@ -9,6 +9,7 @@ import (
 
 	"github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/service"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
 // PostgresRepository implements the tenant repository using the shared persistence layer with immutable versions.
@@ -118,6 +119,7 @@ func toServiceTenant(rec persistence.TenantRecord) service.Tenant {
 		DisplayName:   rec.DisplayName,
 		Status:        service.TenantStatusFromString(rec.Status),
 		SchemaName:    rec.SchemaName,
+		RoleName:      tenant.BuildRoleName(rec.SchemaName),
 		BasePrefix:    rec.BasePrefix,
 		ShortTenantID: rec.ShortTenantID,
 		CreatedAt:     rec.CreatedAt,

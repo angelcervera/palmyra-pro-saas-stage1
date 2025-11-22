@@ -31,6 +31,7 @@ type Tenant struct {
 	DisplayName   *string
 	Status        tenantsapi.TenantStatus
 	SchemaName    string
+	RoleName      string
 	BasePrefix    string
 	ShortTenantID string
 	CreatedAt     time.Time
@@ -97,8 +98,10 @@ type Repository interface {
 
 // Service provides tenant registry operations.
 type Service struct {
-	repo   Repository
-	envKey string
+	repo         Repository
+	envKey       string
+	adminSchema  string
+	provisioning ProvisioningDeps
 }
 
 // New constructs a Service with required dependencies.
@@ -112,6 +115,28 @@ func New(repo Repository, envKey string) *Service {
 	return &Service{repo: repo, envKey: envKey}
 }
 
+// NewWithProvisioning allows injecting provisioning dependencies; defaults stay zero-value safe for CRUD-only code paths.
+func NewWithProvisioning(repo Repository, envKey string, deps ProvisioningDeps) *Service {
+	if repo == nil {
+		panic("tenants repo is required")
+	}
+	if envKey == "" {
+		panic("envKey is required")
+	}
+	return &Service{repo: repo, envKey: envKey, provisioning: deps}
+}
+
+// NewWithProvisioningAndAdmin allows specifying admin schema for DB grants.
+func NewWithProvisioningAndAdmin(repo Repository, envKey, adminSchema string, deps ProvisioningDeps) *Service {
+	if repo == nil {
+		panic("tenants repo is required")
+	}
+	if envKey == "" {
+		panic("envKey is required")
+	}
+	return &Service{repo: repo, envKey: envKey, adminSchema: adminSchema, provisioning: deps}
+}
+
 // List tenants with optional status filter.
 func (s *Service) List(ctx context.Context, opts ListOptions) (ListResult, error) {
 	return s.repo.List(ctx, opts)
@@ -123,6 +148,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Tenant, error)
 	version := persistence.SemanticVersion{Major: 1, Minor: 0, Patch: 0}
 	shortID := tenant.ShortID(id)
 	schemaName := tenant.BuildSchemaName(tenant.ToSnake(input.Slug))
+	roleName := tenant.BuildRoleName(schemaName)
 	basePrefix := tenant.BuildBasePrefix(s.envKey, input.Slug, shortID)
 
 	now := time.Now().UTC()
@@ -134,6 +160,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Tenant, error)
 		Status:        input.Status,
 		Version:       version,
 		SchemaName:    schemaName,
+		RoleName:      roleName,
 		BasePrefix:    basePrefix,
 		ShortTenantID: shortID,
 		CreatedAt:     now,
@@ -178,30 +205,164 @@ func (s *Service) Provision(ctx context.Context, id uuid.UUID) (Tenant, error) {
 	if err != nil {
 		return Tenant{}, err
 	}
+	if current.Status == tenantsapi.Disabled {
+		return Tenant{}, ErrDisabled
+	}
+
+	deps := s.provisioning.FillNil()
 
 	now := time.Now().UTC()
-	current.Provisioning = ProvisioningStatus{
-		DBReady:           true,
-		AuthReady:         true,
-		LastProvisionedAt: &now,
+	roleName := current.RoleName
+	if strings.TrimSpace(roleName) == "" {
+		roleName = tenant.BuildRoleName(current.SchemaName)
 	}
-	if current.Status == tenantsapi.Pending || current.Status == tenantsapi.Provisioning {
-		current.Status = tenantsapi.Active
-	}
-	current.Version = current.Version.NextPatch()
-	current.CreatedAt = now
 
-	return s.repo.AppendVersion(ctx, current)
+	dbRes, dbErr := deps.DB.Ensure(ctx, DBProvisionRequest{
+		TenantID:    current.ID,
+		SchemaName:  current.SchemaName,
+		RoleName:    roleName,
+		AdminSchema: s.adminSchema,
+	})
+	authRes, authErr := deps.Auth.Ensure(ctx, fmt.Sprintf("%s-%s", s.envKey, current.Slug))
+	_, storageErr := deps.Storage.Check(ctx, current.BasePrefix)
+
+	dbReady := current.Provisioning.DBReady || dbRes.Ready
+	authReady := current.Provisioning.AuthReady || authRes.Ready
+
+	status := current.Status
+	if dbReady && authReady {
+		status = tenantsapi.Active
+	} else {
+		status = tenantsapi.Provisioning
+	}
+
+	var lastErr *string
+	if dbErr != nil {
+		s := dbErr.Error()
+		lastErr = &s
+	}
+	if authErr != nil && lastErr == nil {
+		s := authErr.Error()
+		lastErr = &s
+	}
+	if storageErr != nil && lastErr == nil {
+		s := storageErr.Error()
+		lastErr = &s
+	}
+
+	prov := ProvisioningStatus{
+		DBReady:           dbReady,
+		AuthReady:         authReady,
+		LastProvisionedAt: current.Provisioning.LastProvisionedAt,
+		LastError:         lastErr,
+	}
+	if dbReady && authReady {
+		prov.LastProvisionedAt = &now
+	}
+
+	next := current
+	next.RoleName = roleName
+	next.Status = status
+	next.Provisioning = prov
+	next.Version = current.Version.NextPatch()
+	next.CreatedAt = now
+
+	updated, err := s.repo.AppendVersion(ctx, next)
+	if err != nil {
+		return Tenant{}, err
+	}
+	return updated, nil
 }
 
 // ProvisionStatus performs a live check (placeholder) and persists changes if detected.
 func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (ProvisioningStatus, error) {
-	t, err := s.repo.Get(ctx, id)
+	current, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return ProvisioningStatus{}, err
 	}
-	// Future: re-check external systems; for now, return stored status.
-	return t.Provisioning, nil
+
+	deps := s.provisioning.FillNil()
+	roleName := current.RoleName
+	if strings.TrimSpace(roleName) == "" {
+		roleName = tenant.BuildRoleName(current.SchemaName)
+	}
+
+	dbRes, dbErr := deps.DB.Check(ctx, DBProvisionRequest{TenantID: current.ID, SchemaName: current.SchemaName, RoleName: roleName, AdminSchema: s.adminSchema})
+	authRes, authErr := deps.Auth.Check(ctx, fmt.Sprintf("%s-%s", s.envKey, current.Slug))
+	_, storageErr := deps.Storage.Check(ctx, current.BasePrefix)
+
+	dbReady := current.Provisioning.DBReady || dbRes.Ready
+	authReady := current.Provisioning.AuthReady || authRes.Ready
+
+	var lastErr *string
+	if dbErr != nil {
+		s := dbErr.Error()
+		lastErr = &s
+	}
+	if authErr != nil && lastErr == nil {
+		s := authErr.Error()
+		lastErr = &s
+	}
+	if storageErr != nil && lastErr == nil {
+		s := storageErr.Error()
+		lastErr = &s
+	}
+
+	status := current.Status
+	if dbReady && authReady {
+		status = tenantsapi.Active
+	} else if status == tenantsapi.Active {
+		status = tenantsapi.Provisioning
+	}
+
+	prov := ProvisioningStatus{
+		DBReady:           dbReady,
+		AuthReady:         authReady,
+		LastProvisionedAt: current.Provisioning.LastProvisionedAt,
+		LastError:         lastErr,
+	}
+
+	if dbReady && authReady && prov.LastProvisionedAt == nil {
+		now := time.Now().UTC()
+		prov.LastProvisionedAt = &now
+	}
+
+	// Only append a new version if anything changed.
+	if status == current.Status && provisioningEqual(prov, current.Provisioning) {
+		return current.Provisioning, nil
+	}
+
+	next := current
+	next.RoleName = roleName
+	next.Status = status
+	next.Provisioning = prov
+	next.Version = current.Version.NextPatch()
+	next.CreatedAt = time.Now().UTC()
+
+	updated, err := s.repo.AppendVersion(ctx, next)
+	if err != nil {
+		return ProvisioningStatus{}, err
+	}
+	return updated.Provisioning, nil
+}
+
+func provisioningEqual(a, b ProvisioningStatus) bool {
+	if a.DBReady != b.DBReady || a.AuthReady != b.AuthReady {
+		return false
+	}
+	if (a.LastError == nil) != (b.LastError == nil) {
+		return false
+	}
+	if a.LastError != nil && b.LastError != nil && *a.LastError != *b.LastError {
+		return false
+	}
+	if (a.LastProvisionedAt == nil) != (b.LastProvisionedAt == nil) {
+		return false
+	}
+	if a.LastProvisionedAt != nil && b.LastProvisionedAt != nil && !a.LastProvisionedAt.Equal(*b.LastProvisionedAt) {
+		return false
+	}
+	return true
 }
 
 // ResolveTenantSpace returns a lightweight tenant Space for middleware consumption.
@@ -219,6 +380,7 @@ func (s *Service) ResolveTenantSpace(ctx context.Context, id uuid.UUID) (tenant.
 		ShortTenantID: t.ShortTenantID,
 		SchemaName:    t.SchemaName,
 		BasePrefix:    t.BasePrefix,
+		RoleName:      t.RoleName,
 	}
 	return space, nil
 }
@@ -250,5 +412,6 @@ func (s *Service) ResolveTenantSpaceByExternal(ctx context.Context, external str
 		ShortTenantID: t.ShortTenantID,
 		SchemaName:    t.SchemaName,
 		BasePrefix:    t.BasePrefix,
+		RoleName:      t.RoleName,
 	}, nil
 }

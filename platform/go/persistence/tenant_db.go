@@ -39,6 +39,12 @@ func (db *TenantDB) WithTenant(ctx context.Context, space tenant.Space, fn func(
 	}
 	defer tx.Rollback(ctx) // nolint:errcheck
 
+	if space.RoleName != "" {
+		if _, err = tx.Exec(ctx, fmt.Sprintf("SET LOCAL ROLE %s", pgx.Identifier{space.RoleName}.Sanitize())); err != nil {
+			return fmt.Errorf("set role: %w", err)
+		}
+	}
+
 	searchPath := fmt.Sprintf("%s, %s", space.SchemaName, db.adminSchema)
 	if _, err = tx.Exec(ctx, `SELECT set_config('search_path', $1, false)`, searchPath); err != nil {
 		return fmt.Errorf("set search_path: %w", err)

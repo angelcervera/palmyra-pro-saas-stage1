@@ -57,6 +57,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 
 ## Provisioning flow (planned, with tenant roles)
 - Where we stand: tenant registry and tenant.Space middleware exist; `TenantDB.WithTenant` currently only sets `search_path`; provisioning endpoints are stubbed.
+- Recent changes: tenant Space now carries `roleName`; `TenantDB.WithTenant` sets both `SET LOCAL ROLE roleName` and `search_path`; service wiring uses provisioners (DB roles/schema/grants, auth, storage) plus advisory lock.
 - Target behaviour (`POST /admin/tenants/{id}:provision`): end in `active` with `dbReady && authReady == true`, `lastProvisionedAt` set, `lastError` cleared; idempotent; accepts `pending|provisioning|active` (not `disabled`).
 - Happy-path steps:
   1. Fetch + lock tenant; set status `provisioning`, clear `lastError`, bump version.

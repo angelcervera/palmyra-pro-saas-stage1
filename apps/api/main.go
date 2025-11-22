@@ -30,6 +30,7 @@ import (
 	schemarepositoryrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/repo"
 	schemarepositoryservice "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/service"
 	tenantshandler "github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/handler"
+	tenantsprov "github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/provisioning"
 	tenantsrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/repo"
 	tenantsservice "github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/service"
 	usershandler "github.com/zenGate-Global/palmyra-pro-saas/domains/users/be/handler"
@@ -117,7 +118,19 @@ func main() {
 	}
 
 	tenantRepo := tenantsrepo.NewPostgresRepository(tenantStore)
-	tenantService := tenantsservice.New(tenantRepo, cfg.EnvKey)
+	dbProv := tenantsprov.NewDBProvisioner(pool)
+	authProv := tenantsprov.NewAuthProvisioner()
+	storageProv := tenantsprov.NewStorageProvisioner()
+	tenantService := tenantsservice.NewWithProvisioningAndAdmin(
+		tenantRepo,
+		cfg.EnvKey,
+		cfg.TenantSchema,
+		tenantsservice.ProvisioningDeps{
+			DB:      dbProv,
+			Auth:    authProv,
+			Storage: storageProv,
+		},
+	)
 	tenantHTTPHandler := tenantshandler.New(tenantService, logger)
 
 	authMiddleware := buildAuthMiddleware(ctx, cfg, tenantService, logger)
