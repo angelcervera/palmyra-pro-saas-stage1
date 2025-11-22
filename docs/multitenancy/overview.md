@@ -227,6 +227,7 @@ When a new tenant is created, the system:
 - **Admin Space & Tenant Registry**
   - Owns platform-global concepts: schemas, categories, and tenants.
   - Provides a single source of truth for mapping tenant IDs to Tenant Spaces.
+  - Admin schema name in Postgres is derived from `ADMIN_TENANT_SLUG` (default `admin`) as `tenant_<slugSnake>`; set the env var to change it.
 
 - **Tenant Space (Runtime)**
   - Encapsulates all tenant-specific routing data (DB schema, GCS bucket,
