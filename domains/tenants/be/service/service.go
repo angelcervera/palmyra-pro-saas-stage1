@@ -208,14 +208,20 @@ func (s *Service) Provision(ctx context.Context, id uuid.UUID) (Tenant, error) {
 	if current.Status == tenantsapi.Disabled {
 		return Tenant{}, ErrDisabled
 	}
+	if strings.TrimSpace(current.SchemaName) == "" {
+		return Tenant{}, fmt.Errorf("tenant missing schema name")
+	}
+	if strings.TrimSpace(current.BasePrefix) == "" {
+		return Tenant{}, fmt.Errorf("tenant missing base prefix")
+	}
+	if strings.TrimSpace(current.RoleName) == "" {
+		return Tenant{}, fmt.Errorf("tenant missing role name")
+	}
 
 	deps := s.provisioning.FillNil()
 
 	now := time.Now().UTC()
 	roleName := current.RoleName
-	if strings.TrimSpace(roleName) == "" {
-		roleName = tenant.BuildRoleName(current.SchemaName)
-	}
 
 	dbRes, dbErr := deps.DB.Ensure(ctx, DBProvisionRequest{
 		TenantID:    current.ID,
@@ -280,12 +286,18 @@ func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (Provisioni
 	if err != nil {
 		return ProvisioningStatus{}, err
 	}
+	if strings.TrimSpace(current.SchemaName) == "" {
+		return ProvisioningStatus{}, fmt.Errorf("tenant missing schema name")
+	}
+	if strings.TrimSpace(current.BasePrefix) == "" {
+		return ProvisioningStatus{}, fmt.Errorf("tenant missing base prefix")
+	}
+	if strings.TrimSpace(current.RoleName) == "" {
+		return ProvisioningStatus{}, fmt.Errorf("tenant missing role name")
+	}
 
 	deps := s.provisioning.FillNil()
 	roleName := current.RoleName
-	if strings.TrimSpace(roleName) == "" {
-		roleName = tenant.BuildRoleName(current.SchemaName)
-	}
 
 	dbRes, dbErr := deps.DB.Check(ctx, DBProvisionRequest{TenantID: current.ID, SchemaName: current.SchemaName, RoleName: roleName, AdminSchema: s.adminSchema})
 	authRes, authErr := deps.Auth.Check(ctx, fmt.Sprintf("%s-%s", s.envKey, current.Slug))
