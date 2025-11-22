@@ -97,3 +97,38 @@ func splitStatements(sql string) []string {
 	}
 	return statements
 }
+
+// applyDDLToSchema applies a specific schema SQL file into the given schema using search_path.
+func applyDDLToSchema(ctx context.Context, pool *pgxpool.Pool, schema, filename string) error {
+	if _, err := pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+schema); err != nil {
+		return err
+	}
+
+	root, err := repoRootFromFile()
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(root, "database", "schema", filename)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	stmts := splitStatements(string(content))
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err = tx.Exec(ctx, `SELECT set_config('search_path', $1, false)`, schema); err != nil {
+		return err
+	}
+
+	for _, stmt := range stmts {
+		if _, err := tx.Exec(ctx, stmt); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
