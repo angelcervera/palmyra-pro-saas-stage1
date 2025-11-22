@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +20,7 @@ var (
 	ErrConflictSlug   = errors.New("tenant slug already exists")
 	ErrDisabled       = errors.New("tenant disabled")
 	ErrNotImplemented = errors.New("provisioning not implemented yet")
+	ErrEnvMismatch    = errors.New("tenant environment mismatch")
 )
 
 // Tenant represents the domain model for a tenant registry entry.
@@ -196,4 +199,34 @@ func (s *Service) ResolveTenantSpace(ctx context.Context, id uuid.UUID) (tenant.
 		BasePrefix:    t.BasePrefix,
 	}
 	return space, nil
+}
+
+// ResolveTenantSpaceByExternal maps an external tenant key (envKey-prefixed slug) to a tenant.Space.
+func (s *Service) ResolveTenantSpaceByExternal(ctx context.Context, external string) (tenant.Space, error) {
+	external = strings.TrimSpace(external)
+	if external == "" {
+		return tenant.Space{}, ErrNotFound
+	}
+
+	prefix := s.envKey + "-"
+	if !strings.HasPrefix(external, prefix) {
+		return tenant.Space{}, ErrEnvMismatch
+	}
+	slug := strings.TrimPrefix(external, prefix)
+
+	t, err := s.repo.FindBySlug(ctx, slug)
+	if err != nil {
+		return tenant.Space{}, fmt.Errorf("lookup tenant by slug: %w", err)
+	}
+	if t.Status == tenantsapi.Disabled {
+		return tenant.Space{}, ErrDisabled
+	}
+
+	return tenant.Space{
+		TenantID:      t.ID,
+		Slug:          t.Slug,
+		ShortTenantID: t.ShortTenantID,
+		SchemaName:    t.SchemaName,
+		BasePrefix:    t.BasePrefix,
+	}, nil
 }

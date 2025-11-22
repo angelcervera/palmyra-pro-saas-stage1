@@ -3,12 +3,14 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/service"
 	problems "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/problemdetails"
 	platformauth "github.com/zenGate-Global/palmyra-pro-saas/platform/go/auth"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
@@ -18,6 +20,7 @@ import (
 // Implemented by the tenant registry repository/service.
 type Resolver interface {
 	ResolveTenantSpace(ctx context.Context, tenantID uuid.UUID) (tenant.Space, error)
+	ResolveTenantSpaceByExternal(ctx context.Context, external string) (tenant.Space, error)
 }
 
 // Config controls middleware behavior.
@@ -50,21 +53,38 @@ func WithTenantSpace(resolver Resolver, cfg Config) func(http.Handler) http.Hand
 				return
 			}
 
-			tid, err := uuid.Parse(*creds.TenantID)
-			if err != nil {
-				writeProblem(w, http.StatusUnauthorized, "Unauthorized", "invalid tenant id", problemTypeAuth)
-				return
+			var (
+				space tenant.Space
+				err   error
+			)
+
+			if tid, parseErr := uuid.Parse(*creds.TenantID); parseErr == nil {
+				if cached := cacheGet(cache, tid); cached != nil {
+					ctx := tenant.WithSpace(r.Context(), *cached)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+				space, err = resolver.ResolveTenantSpace(r.Context(), tid)
+			} else {
+				space, err = resolver.ResolveTenantSpaceByExternal(r.Context(), *creds.TenantID)
 			}
 
-			if cached := cacheGet(cache, tid); cached != nil {
+			if err != nil {
+				switch {
+				case errors.Is(err, service.ErrEnvMismatch):
+					writeProblem(w, http.StatusForbidden, "Forbidden", "tenant env mismatch", problemTypeAuth)
+				case errors.Is(err, service.ErrDisabled):
+					writeProblem(w, http.StatusForbidden, "Forbidden", "tenant disabled", problemTypeAuth)
+				case errors.Is(err, service.ErrNotFound):
+					writeProblem(w, http.StatusForbidden, "Forbidden", "tenant unknown", problemTypeAuth)
+				default:
+					writeProblem(w, http.StatusUnauthorized, "Unauthorized", "invalid tenant", problemTypeAuth)
+				}
+				return
+			}
+			if cached := cacheGet(cache, space.TenantID); cached != nil {
 				ctx := tenant.WithSpace(r.Context(), *cached)
 				next.ServeHTTP(w, r.WithContext(ctx))
-				return
-			}
-
-			space, err := resolver.ResolveTenantSpace(r.Context(), tid)
-			if err != nil {
-				writeProblem(w, http.StatusForbidden, "Forbidden", "tenant unavailable", problemTypeAuth)
 				return
 			}
 

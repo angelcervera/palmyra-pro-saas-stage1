@@ -31,7 +31,7 @@ func TestRequestTraceWithAuth(t *testing.T) {
 	r.Get("/test", handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer header.eyJ1aWQiOiAidXNlci0xMjMifQ.signature")
+	req.Header.Set("Authorization", "Bearer header.eyJ1aWQiOiJ1c2VyLTEyMyIsImZpcmViYXNlIjp7InRlbmFudCI6ImRldi1hY21lIn19.signature")
 
 	resp := httptest.NewRecorder()
 	r.ServeHTTP(resp, req)
