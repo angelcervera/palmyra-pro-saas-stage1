@@ -222,6 +222,7 @@ func toAPIProvisioningStatus(p service.ProvisioningStatus) tenantsapi.TenantProv
 	return tenantsapi.TenantProvisioningStatus{
 		DbReady:           &p.DBReady,
 		AuthReady:         &p.AuthReady,
+		StorageReady:      &p.StorageReady,
 		LastProvisionedAt: (*externalPrimitives.Timestamp)(p.LastProvisionedAt),
 		LastError:         p.LastError,
 	}

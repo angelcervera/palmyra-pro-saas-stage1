@@ -43,6 +43,7 @@ type Tenant struct {
 type ProvisioningStatus struct {
 	DBReady           bool
 	AuthReady         bool
+	StorageReady      bool
 	LastProvisionedAt *time.Time
 	LastError         *string
 }
@@ -231,13 +232,14 @@ func (s *Service) Provision(ctx context.Context, id uuid.UUID) (Tenant, error) {
 		AdminSchema: s.adminSchema,
 	})
 	authRes, authErr := s.provisioning.Auth.Ensure(ctx, fmt.Sprintf("%s-%s", s.envKey, current.Slug))
-	_, storageErr := s.provisioning.Storage.Ensure(ctx, current.BasePrefix)
+	storageRes, storageErr := s.provisioning.Storage.Ensure(ctx, current.BasePrefix)
 
 	dbReady := current.Provisioning.DBReady || dbRes.Ready
 	authReady := current.Provisioning.AuthReady || authRes.Ready
+	storageReady := current.Provisioning.StorageReady || storageRes.Ready
 
 	status := current.Status
-	if dbReady && authReady {
+	if dbReady && authReady && storageReady {
 		status = tenantsapi.Active
 	} else {
 		status = tenantsapi.Provisioning
@@ -260,10 +262,11 @@ func (s *Service) Provision(ctx context.Context, id uuid.UUID) (Tenant, error) {
 	prov := ProvisioningStatus{
 		DBReady:           dbReady,
 		AuthReady:         authReady,
+		StorageReady:      storageReady,
 		LastProvisionedAt: current.Provisioning.LastProvisionedAt,
 		LastError:         lastErr,
 	}
-	if dbReady && authReady {
+	if dbReady && authReady && storageReady {
 		prov.LastProvisionedAt = &now
 	}
 
@@ -314,17 +317,19 @@ func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (Provisioni
 	if authErr != nil {
 		return ProvisioningStatus{}, authErr
 	}
-	if _, storageErr := s.provisioning.Storage.Check(ctx, current.BasePrefix); storageErr != nil {
+	storageRes, storageErr := s.provisioning.Storage.Check(ctx, current.BasePrefix)
+	if storageErr != nil {
 		return ProvisioningStatus{}, storageErr
 	}
 
 	dbReady := dbRes.Ready
 	authReady := authRes.Ready
+	storageReady := storageRes.Ready
 
 	var lastErr *string
 
 	status := current.Status
-	if dbReady && authReady {
+	if dbReady && authReady && storageReady {
 		status = tenantsapi.Active
 	} else if status == tenantsapi.Active {
 		status = tenantsapi.Provisioning
@@ -333,11 +338,12 @@ func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (Provisioni
 	prov := ProvisioningStatus{
 		DBReady:           dbReady,
 		AuthReady:         authReady,
+		StorageReady:      storageReady,
 		LastProvisionedAt: current.Provisioning.LastProvisionedAt,
 		LastError:         lastErr,
 	}
 
-	if dbReady && authReady && prov.LastProvisionedAt == nil {
+	if dbReady && authReady && storageReady && prov.LastProvisionedAt == nil {
 		now := time.Now().UTC()
 		prov.LastProvisionedAt = &now
 	}
@@ -363,6 +369,9 @@ func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (Provisioni
 
 func provisioningEqual(a, b ProvisioningStatus) bool {
 	if a.DBReady != b.DBReady || a.AuthReady != b.AuthReady {
+		return false
+	}
+	if a.StorageReady != b.StorageReady {
 		return false
 	}
 	if (a.LastError == nil) != (b.LastError == nil) {

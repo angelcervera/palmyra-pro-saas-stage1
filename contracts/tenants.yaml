@@ -271,6 +271,10 @@ components:
           type: boolean
           description: External auth tenant (e.g., Firebase/Identity) has been created and linked.
           readOnly: true
+        storageReady:
+          type: boolean
+          description: Tenant storage namespace is reachable (e.g., GCS bucket/prefix or local backend).
+          readOnly: true
         lastProvisionedAt:
           $ref: "./common/primitives.yaml#/components/schemas/Timestamp"
         lastError:
@@ -278,4 +282,4 @@ components:
           description: Optional last provisioning error, if any.
           maxLength: 500
           readOnly: true
-      required: [dbReady, authReady]
+      required: [dbReady, authReady, storageReady]
