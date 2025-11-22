@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
 	"github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/service"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
-	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
 // PostgresRepository implements the tenant repository using the shared persistence layer with immutable versions.
@@ -121,7 +121,9 @@ func toServiceTenant(rec persistence.TenantRecord) (service.Tenant, error) {
 	if err != nil {
 		return service.Tenant{}, err
 	}
-	roleName := tenant.BuildRoleName(rec.SchemaName)
+	if strings.TrimSpace(rec.RoleName) == "" {
+		return service.Tenant{}, fmt.Errorf("tenant %s missing role name", rec.TenantID)
+	}
 	return service.Tenant{
 		ID:            rec.TenantID,
 		Version:       rec.TenantVersion,
@@ -129,7 +131,7 @@ func toServiceTenant(rec persistence.TenantRecord) (service.Tenant, error) {
 		DisplayName:   rec.DisplayName,
 		Status:        status,
 		SchemaName:    rec.SchemaName,
-		RoleName:      roleName,
+		RoleName:      rec.RoleName,
 		BasePrefix:    rec.BasePrefix,
 		ShortTenantID: rec.ShortTenantID,
 		CreatedAt:     rec.CreatedAt,
