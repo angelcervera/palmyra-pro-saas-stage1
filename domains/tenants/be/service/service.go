@@ -16,6 +16,7 @@ import (
 var (
 	ErrNotFound     = errors.New("tenant not found")
 	ErrConflictSlug = errors.New("tenant slug already exists")
+	ErrDisabled     = errors.New("tenant disabled")
 )
 
 // Tenant represents the domain model for a tenant registry entry.
@@ -195,4 +196,23 @@ func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (Provisioni
 	// Placeholder: in real impl, re-check external systems. Here just return current and ensure stored.
 	// No-op persistence since we have no change detection in the stub implementation.
 	return t.Provisioning, nil
+}
+
+// ResolveTenantSpace returns a lightweight tenant Space for middleware consumption.
+func (s *Service) ResolveTenantSpace(ctx context.Context, id uuid.UUID) (tenant.Space, error) {
+	t, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return tenant.Space{}, err
+	}
+	if t.Status == tenantsapi.Disabled {
+		return tenant.Space{}, ErrDisabled
+	}
+	space := tenant.Space{
+		TenantID:      t.ID,
+		Slug:          t.Slug,
+		ShortTenantID: t.ShortTenantID,
+		SchemaName:    t.SchemaName,
+		BasePrefix:    t.BasePrefix,
+	}
+	return space, nil
 }

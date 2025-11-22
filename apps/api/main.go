@@ -46,6 +46,7 @@ import (
 	platformlogging "github.com/zenGate-Global/palmyra-pro-saas/platform/go/logging"
 	platformmiddleware "github.com/zenGate-Global/palmyra-pro-saas/platform/go/middleware"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	tenantmiddleware "github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant/middleware"
 )
 
 var swaggerLoaders = map[string]func() (*openapi3.T, error){
@@ -174,6 +175,10 @@ func main() {
 	apiRouter := chi.NewRouter()
 	apiRouter.Use(authMiddleware)
 	apiRouter.Use(platformmiddleware.RequestTrace)
+	apiRouter.Use(tenantmiddleware.WithTenantSpace(tenantService, tenantmiddleware.Config{
+		EnvKey:   cfg.EnvKey,
+		CacheTTL: time.Minute,
+	}))
 
 	schemaCategoriesValidator := mustNewSpecValidator(logger, "contracts/schema-categories.yaml")
 	apiRouter.Group(func(r chi.Router) {

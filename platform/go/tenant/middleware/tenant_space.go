@@ -1,11 +1,15 @@
 package middleware
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	problems "github.com/zenGate-Global/palmyra-pro-saas/generated/go/common/problemdetails"
 	platformauth "github.com/zenGate-Global/palmyra-pro-saas/platform/go/auth"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
@@ -13,7 +17,7 @@ import (
 // Resolver defines the minimal lookup capability required to populate a Tenant Space.
 // Implemented by the tenant registry repository/service.
 type Resolver interface {
-	ResolveTenantSpace(tenantID uuid.UUID) (tenant.Space, error)
+	ResolveTenantSpace(ctx context.Context, tenantID uuid.UUID) (tenant.Space, error)
 }
 
 // Config controls middleware behavior.
@@ -42,14 +46,13 @@ func WithTenantSpace(resolver Resolver, cfg Config) func(http.Handler) http.Hand
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			creds, ok := platformauth.UserFromContext(r.Context())
 			if !ok || creds == nil || creds.TenantID == nil || *creds.TenantID == "" {
-				http.Error(w, "tenant required", http.StatusUnauthorized)
+				writeProblem(w, http.StatusUnauthorized, "Unauthorized", "tenant required", problemTypeAuth)
 				return
 			}
 
-			// Parse tenant claim (expected to be tenant UUID string).
 			tid, err := uuid.Parse(*creds.TenantID)
 			if err != nil {
-				http.Error(w, "invalid tenant id", http.StatusUnauthorized)
+				writeProblem(w, http.StatusUnauthorized, "Unauthorized", "invalid tenant id", problemTypeAuth)
 				return
 			}
 
@@ -59,16 +62,15 @@ func WithTenantSpace(resolver Resolver, cfg Config) func(http.Handler) http.Hand
 				return
 			}
 
-			space, err := resolver.ResolveTenantSpace(tid)
+			space, err := resolver.ResolveTenantSpace(r.Context(), tid)
 			if err != nil {
-				http.Error(w, "tenant not found", http.StatusUnauthorized)
+				writeProblem(w, http.StatusForbidden, "Forbidden", "tenant unavailable", problemTypeAuth)
 				return
 			}
 
-			// EnvKey alignment check: basePrefix must start with envKey + "/".
 			prefix := cfg.EnvKey + "/"
-			if len(space.BasePrefix) < len(prefix) || space.BasePrefix[:len(prefix)] != prefix {
-				http.Error(w, "tenant env mismatch", http.StatusForbidden)
+			if len(space.BasePrefix) < len(prefix) || !strings.HasPrefix(space.BasePrefix, prefix) {
+				writeProblem(w, http.StatusForbidden, "Forbidden", "tenant env mismatch", problemTypeAuth)
 				return
 			}
 
@@ -110,4 +112,18 @@ func cachePut(c *tenantCache, space tenant.Space) {
 		return
 	}
 	c.items[space.TenantID] = cacheItem{space: space, expiresAt: time.Now().Add(c.ttl)}
+}
+
+const problemTypeAuth = "https://palmyra.pro/problems/auth"
+
+func writeProblem(w http.ResponseWriter, status int, title, detail, problemType string) {
+	p := problems.ProblemDetails{
+		Title:  title,
+		Status: status,
+		Type:   &problemType,
+		Detail: &detail,
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(p)
 }
