@@ -55,11 +55,25 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - Integration (Testcontainers) for tenant registry, entities, users; skip when `testing.Short()` or `TEST_DATABASE_URL` unset.
 - Unit tests for middleware cache and tenant helpers unchanged.
 
+## Provisioning flow (planned, with tenant roles)
+- Where we stand: tenant registry and tenant.Space middleware exist; `TenantDB.WithTenant` currently only sets `search_path`; provisioning endpoints are stubbed.
+- Target behaviour (`POST /admin/tenants/{id}:provision`): end in `active` with `dbReady && authReady == true`, `lastProvisionedAt` set, `lastError` cleared; idempotent; accepts `pending|provisioning|active` (not `disabled`).
+- Happy-path steps:
+  1. Fetch + lock tenant; set status `provisioning`, clear `lastError`, bump version.
+  2. Derive names: `schemaName=tenant_<slug_snake>`, `roleName=tenant_<slug_snake>_role`, `basePrefix=<ENV_KEY>/<slug>-<shortId>/`, `externalAuthTenant=<ENV_KEY>-<slug>`.
+  3. Database: ensure NOLOGIN `roleName`, grant it to app DB user; create schema owned by `roleName`; default privileges to `roleName`; read-only grants to admin schema (`USAGE`) and `schema_repository` (`SELECT`); run base DDL (users, entity base objects) under `SET ROLE roleName`; mark `dbReady` when done.
+  4. Auth: ensure external auth tenant exists with envKey guard; mark `authReady`.
+  5. Storage: verify `GCS_ASSETS_BUCKET`, optional sentinel under `basePrefix`.
+  6. Commit: if both ready → `status=active` else `provisioning`; set `lastProvisionedAt`, clear `lastError`, bump `tenant_version`.
+- Failure handling: keep achieved flags, store `lastError`, status `pending` if nothing ready else `provisioning`; retries re-validate resources.
+- Provision status (`GET ...:provision-status`): live-check role/grants/schema/base tables, auth tenant, GCS prefix; persist flag changes; promote to `active` when both ready.
+- Runtime invariant: `TenantDB.WithTenant` must execute `SET LOCAL ROLE roleName` and `SET LOCAL search_path = schemaName,<admin_schema>` for every tenant-scoped txn; lazy ensure paths must run under the tenant role so new tables inherit ownership.
+
 ## Current limitations / open items
-- Provisioning workflow is **not implemented**: `Service.Provision` and `ProvisionStatus` return `ErrNotImplemented`. No schema creation or external auth setup is triggered yet.
-- Entity and user tables are created lazily on first use; decision pending on whether to move DDL to shared SQL and run during provisioning.
-- No explicit test yet to assert FK to admin `schema_repository` under search_path; add if needed.
+- Provisioning workflow remains unimplemented; service returns `ErrNotImplemented` until wired to steps above.
+- Entity/user tables are created lazily; decision pending on moving DDL into provisioning.
+- No explicit test yet to assert FK to admin `schema_repository` under `search_path`.
 - JWT tenant-claim mapping and envKey enforcement rely on existing middleware; keep aligned as auth evolves.
 
 ## Summary
-Data isolation is enforced via per-request `search_path` and tenant-scoped repos for entities and users. Tenant registry is immutable/versioned in the admin schema, and middleware resolves tenant space with envKey guard. Provisioning remains a planned future step; until implemented, provisioning endpoints intentionally return “not implemented” to avoid false readiness.
+Data isolation is enforced via per-request `search_path` and tenant-scoped repos for entities and users. Tenant registry is immutable/versioned in the admin schema, and middleware resolves tenant space with envKey guard. Provisioning is planned as above; endpoints intentionally return “not implemented” until implemented end-to-end.
