@@ -10,8 +10,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/caarlos0/env/v11"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -67,6 +69,9 @@ type config struct {
 	AuthProvider    string        `env:"AUTH_PROVIDER" envDefault:"firebase"`
 	EnvKey          string        `env:"ENV_KEY,required"`
 	TenantSchema    string        `env:"TENANT_SCHEMA" envDefault:"admin"`
+	StorageBackend  string        `env:"STORAGE_BACKEND" envDefault:"gcs"`               // gcs | local
+	StorageBucket   string        `env:"STORAGE_BUCKET"`                                 // required when STORAGE_BACKEND=gcs
+	StorageLocalDir string        `env:"STORAGE_LOCAL_DIR" envDefault:"./.data/storage"` // used when STORAGE_BACKEND=local
 }
 
 func main() {
@@ -120,7 +125,26 @@ func main() {
 	tenantRepo := tenantsrepo.NewPostgresRepository(tenantStore)
 	dbProv := tenantsprov.NewDBProvisioner(pool)
 	authProv := tenantsprov.NewAuthProvisioner()
-	storageProv := tenantsprov.NewStorageProvisioner()
+	var storageProv tenantsservice.StorageProvisioner
+	switch cfg.StorageBackend {
+	case "gcs":
+		if cfg.StorageBucket == "" {
+			logger.Fatal("storage bucket required when STORAGE_BACKEND=gcs")
+		}
+		gcsClient, err := storage.NewClient(ctx)
+		if err != nil {
+			logger.Fatal("init gcs client", zap.Error(err))
+		}
+		defer gcsClient.Close()
+		storageProv = tenantsprov.NewGCSStorageProvisioner(gcsClient, cfg.StorageBucket)
+	case "local":
+		if strings.TrimSpace(cfg.StorageLocalDir) == "" {
+			logger.Fatal("storage local dir required when STORAGE_BACKEND=local")
+		}
+		storageProv = tenantsprov.NewLocalStorageProvisioner(cfg.StorageLocalDir)
+	default:
+		logger.Fatal("invalid STORAGE_BACKEND (use gcs or local)", zap.String("backend", cfg.StorageBackend))
+	}
 	tenantService := tenantsservice.NewWithProvisioningAndAdmin(
 		tenantRepo,
 		cfg.EnvKey,

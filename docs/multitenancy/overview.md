@@ -73,7 +73,7 @@ can refine contracts, middleware, and operational details.
   - The same PostgreSQL schema naming convention as any other tenant
     (`tenant_<slugSnake>`), where the admin schema is derived from the
     configured admin slug.
-  - The shared assets bucket for the environment (from `GCS_ASSETS_BUCKET`),
+  - The shared assets bucket for the environment (from `STORAGE_BUCKET`),
     using the same `<tenantSlug>-<shortTenantId>/` prefix pattern as other
     Tenant Spaces; for the Admin Space this means a base prefix of
     `<adminSlug>-<shortAdminTenantId>/`.
@@ -124,7 +124,7 @@ Storage using a **single shared bucket per environment with one dedicated
 prefix per tenant**:
 
 - For each tenant (including the Admin Space):
-  - Use the environment’s GCS bucket configured via the `GCS_ASSETS_BUCKET`
+  - Use the environment’s GCS bucket configured via the `STORAGE_BUCKET`
     environment variable (one bucket per environment class, for example
     `palmyra-dev-assets`, `palmyra-prod-assets`). Different environment classes will
     use different GCP projects, but in some cases environments may

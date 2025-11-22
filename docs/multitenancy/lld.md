@@ -33,11 +33,22 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - Middleware order: auth → request trace → tenant space. Tenants endpoints remain admin-only.
 
 ## Environment variables (used today)
-- `ADMIN_TENANT_SLUG` (default `admin`): defines admin schema name (`tenant_<slugSnake>`).
-- `TENANT_SCHEMA` (optional override for admin schema in API config; defaults to admin).
-- `ENV_KEY` (required): leading segment for `basePrefix`; enforced by middleware.
-- `GCS_ASSETS_BUCKET` (bucket per environment class); not stored per tenant.
-- `DATABASE_URL`, `TEST_DATABASE_URL` (tests), `PLATFORM_DB_SEED_MODE` (init script seeds).
+- Core routing
+  - `ENV_KEY` (required): leading segment for `basePrefix`; enforced by middleware and provisioning.
+  - `ADMIN_TENANT_SLUG` (default `admin`): seeds the admin schema name `tenant_<slugSnake>`.
+  - `TENANT_SCHEMA` (optional override for admin schema in API config; defaults to `admin`).
+- Database
+  - `DATABASE_URL` (required), `TEST_DATABASE_URL` (for integration tests), `PLATFORM_DB_SEED_MODE` (init script seeds).
+- Storage
+  - `STORAGE_BACKEND` (`gcs`|`local`, default `gcs`).
+  - `STORAGE_BUCKET` (required when backend=`gcs`; one bucket per environment class).
+  - `STORAGE_LOCAL_DIR` (root path when backend=`local`; default `./.data/storage`).
+  - (deprecated) `GCS_ASSETS_BUCKET` was the prior bucket env; use `STORAGE_BUCKET` instead.
+- Auth
+  - `AUTH_PROVIDER` (`firebase`|`dev`, default `firebase`).
+  - `FIREBASE_CONFIG` (optional path to service account JSON; ADC used when absent).
+  - `AUTH_TENANT_PREFIX` (optional override for external auth tenant names; defaults to `ENV_KEY` when empty).
+
 
 ## Auth alignment (current)
 - JWT extractor now requires a tenant claim (`firebase.tenant` in dev/prod tokens). The API config builds a custom extractor that:
@@ -64,7 +75,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
   2. Derive names: `schemaName=tenant_<slug_snake>`, `roleName=tenant_<slug_snake>_role`, `basePrefix=<ENV_KEY>/<slug>-<shortId>/`, `externalAuthTenant=<ENV_KEY>-<slug>`.
   3. Database: ensure NOLOGIN `roleName`, grant it to app DB user; create schema owned by `roleName`; default privileges to `roleName`; read-only grants to admin schema (`USAGE`) and `schema_repository` (`SELECT`); run base DDL for shared tenant tables (e.g., `users`) under `SET ROLE roleName`; **entity tables remain runtime/lazy** because new schemas can be added later—default privileges ensure those tables will be owned by the tenant role when created.
   4. Auth: ensure external auth tenant exists with envKey guard; mark `authReady`.
-  5. Storage: verify `GCS_ASSETS_BUCKET`, optional sentinel under `basePrefix`.
+  5. Storage: verify configured bucket/prefix (GCS or local); for GCS, write/delete a sentinel under `basePrefix`.
   6. Commit: if both ready → `status=active` else `provisioning`; set `lastProvisionedAt`, clear `lastError`, bump `tenant_version`.
 - Failure handling: keep achieved flags, store `lastError`, status `pending` if nothing ready else `provisioning`; retries re-validate resources.
 - Provision status (`GET ...:provision-status`): live-check role/grants/schema/base tables, auth tenant, GCS prefix; persist flag changes; promote to `active` when both ready.
