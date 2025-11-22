@@ -175,7 +175,8 @@ paths:
       description: >-
         Performs a live check against backing systems to verify whether tenant
         provisioning has succeeded (DB schema exists, auth tenant exists, etc.).
-        Returns current provisioning status without mutating state.
+        Updates stored provisioning state if a change is detected, then returns
+        the current status.
       parameters:
         - name: tenantId
           in: path
