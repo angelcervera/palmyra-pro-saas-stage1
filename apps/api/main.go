@@ -127,17 +127,6 @@ func main() {
 	schemaService := schemarepositoryservice.New(schemaRepo)
 	schemaHTTPHandler := schemarepositoryhandler.New(schemaService, logger)
 
-	schemaValidator := persistence.NewSchemaValidator()
-
-	userStore, err := persistence.NewUserStore(ctx, pool)
-	if err != nil {
-		logger.Fatal("init user store", zap.Error(err))
-	}
-
-	userRepo := usersrepo.NewPostgresRepository(userStore)
-	userService := usersservice.New(userRepo)
-	userHTTPHandler := usershandler.New(userService, logger)
-
 	tenantStore, err := persistence.NewTenantStore(ctx, pool, cfg.TenantSchema)
 	if err != nil {
 		logger.Fatal("init tenant store", zap.Error(err))
@@ -151,6 +140,17 @@ func main() {
 		Pool:        pool,
 		AdminSchema: cfg.TenantSchema,
 	})
+
+	schemaValidator := persistence.NewSchemaValidator()
+
+	userStore, err := persistence.NewUserStore(ctx, tenantDB)
+	if err != nil {
+		logger.Fatal("init user store", zap.Error(err))
+	}
+
+	userRepo := usersrepo.NewPostgresRepository(userStore)
+	userService := usersservice.New(userRepo)
+	userHTTPHandler := usershandler.New(userService, logger)
 
 	entitiesRepo := entitiesrepo.New(tenantDB, schemaStore, schemaValidator)
 	entitiesService := entitiesservice.New(entitiesRepo)
