@@ -99,6 +99,9 @@ type stubStorage struct {
 	err error
 }
 
+func (s stubStorage) Ensure(context.Context, string) (StorageProvisionResult, error) {
+	return s.res, s.err
+}
 func (s stubStorage) Check(context.Context, string) (StorageProvisionResult, error) {
 	return s.res, s.err
 }

@@ -46,4 +46,29 @@ func (p *GCSStorageProvisioner) Check(ctx context.Context, prefix string) (servi
 	return service.StorageProvisionResult{Ready: true}, nil
 }
 
+func (p *GCSStorageProvisioner) Ensure(ctx context.Context, prefix string) (service.StorageProvisionResult, error) {
+	if prefix == "" {
+		return service.StorageProvisionResult{Ready: false}, fmt.Errorf("storage prefix is required")
+	}
+	if _, err := p.Check(ctx, prefix); err != nil {
+		return service.StorageProvisionResult{Ready: false}, err
+	}
+
+	bkt := p.Client.Bucket(p.Bucket)
+	obj := bkt.Object(prefix + ".provisioning.sentinel")
+	w := obj.NewWriter(ctx)
+	if _, err := w.Write([]byte{}); err != nil {
+		_ = w.Close()
+		return service.StorageProvisionResult{Ready: false}, fmt.Errorf("write sentinel: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return service.StorageProvisionResult{Ready: false}, fmt.Errorf("close sentinel: %w", err)
+	}
+	if err := obj.Delete(ctx); err != nil {
+		return service.StorageProvisionResult{Ready: false}, fmt.Errorf("delete sentinel: %w", err)
+	}
+
+	return service.StorageProvisionResult{Ready: true}, nil
+}
+
 var _ service.StorageProvisioner = (*GCSStorageProvisioner)(nil)

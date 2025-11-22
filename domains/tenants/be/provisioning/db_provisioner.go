@@ -2,9 +2,11 @@ package provisioning
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/service"
@@ -34,7 +36,51 @@ func (p *DBProvisioner) Ensure(ctx context.Context, req service.DBProvisionReque
 }
 
 func (p *DBProvisioner) Check(ctx context.Context, req service.DBProvisionRequest) (service.DBProvisionResult, error) {
-	return p.Ensure(ctx, req)
+	if req.RoleName == "" || req.SchemaName == "" {
+		return service.DBProvisionResult{Ready: false}, fmt.Errorf("role and schema required")
+	}
+	conn, err := p.pool.Acquire(ctx)
+	if err != nil {
+		return service.DBProvisionResult{}, fmt.Errorf("acquire conn: %w", err)
+	}
+	defer conn.Release()
+
+	var dummy int
+	if err := conn.QueryRow(ctx, "SELECT 1 FROM pg_roles WHERE rolname = $1", req.RoleName).Scan(&dummy); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return service.DBProvisionResult{Ready: false}, nil
+		}
+		return service.DBProvisionResult{}, fmt.Errorf("check role: %w", err)
+	}
+	if _, err := conn.Exec(ctx, fmt.Sprintf("SET LOCAL ROLE %s", pgx.Identifier{req.RoleName}.Sanitize())); err != nil {
+		return service.DBProvisionResult{}, fmt.Errorf("set role: %w", err)
+	}
+	if req.AdminSchema != "" {
+		if _, err := conn.Exec(ctx, fmt.Sprintf("SET LOCAL search_path = %s, %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.AdminSchema}.Sanitize())); err != nil {
+			return service.DBProvisionResult{}, fmt.Errorf("set search_path: %w", err)
+		}
+	} else {
+		if _, err := conn.Exec(ctx, fmt.Sprintf("SET LOCAL search_path = %s", pgx.Identifier{req.SchemaName}.Sanitize())); err != nil {
+			return service.DBProvisionResult{}, fmt.Errorf("set search_path: %w", err)
+		}
+	}
+	if err := conn.QueryRow(ctx, "SELECT 1 FROM information_schema.schemata WHERE schema_name = $1", req.SchemaName).Scan(&dummy); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return service.DBProvisionResult{Ready: false}, nil
+		}
+		return service.DBProvisionResult{}, fmt.Errorf("check schema: %w", err)
+	}
+	if err := conn.QueryRow(ctx, fmt.Sprintf("SELECT 1 FROM %s.users LIMIT 1", pgx.Identifier{req.SchemaName}.Sanitize())).Scan(&dummy); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return service.DBProvisionResult{Ready: false}, nil
+		}
+		if pgErr := new(pgconn.PgError); errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+			return service.DBProvisionResult{Ready: false}, nil
+		}
+		return service.DBProvisionResult{}, fmt.Errorf("check users table: %w", err)
+	}
+
+	return service.DBProvisionResult{Ready: true}, nil
 }
 
 func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req service.DBProvisionRequest) (bool, error) {

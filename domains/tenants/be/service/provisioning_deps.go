@@ -35,6 +35,7 @@ type AuthProvisionResult struct {
 
 // StorageProvisioner validates storage reachability.
 type StorageProvisioner interface {
+	Ensure(ctx context.Context, prefix string) (StorageProvisionResult, error)
 	Check(ctx context.Context, prefix string) (StorageProvisionResult, error)
 }
 

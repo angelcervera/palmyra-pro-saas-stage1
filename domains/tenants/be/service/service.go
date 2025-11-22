@@ -231,7 +231,7 @@ func (s *Service) Provision(ctx context.Context, id uuid.UUID) (Tenant, error) {
 		AdminSchema: s.adminSchema,
 	})
 	authRes, authErr := s.provisioning.Auth.Ensure(ctx, fmt.Sprintf("%s-%s", s.envKey, current.Slug))
-	_, storageErr := s.provisioning.Storage.Check(ctx, current.BasePrefix)
+	_, storageErr := s.provisioning.Storage.Ensure(ctx, current.BasePrefix)
 
 	dbReady := current.Provisioning.DBReady || dbRes.Ready
 	authReady := current.Provisioning.AuthReady || authRes.Ready
