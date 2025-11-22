@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
 // ErrEntityNotFound indicates the requested entity (or version) does not exist.
@@ -38,7 +38,7 @@ type EntityRepositoryConfig struct {
 // EntityRepository persists immutable entity documents with schema validation and versioning.
 // tableName holds the raw schema-owned table (e.g. cards_entities) while tableIdent caches the quoted/sanitized identifier generated via pgx.Identifier to embed safely in SQL strings.
 type EntityRepository struct {
-	pool       *pgxpool.Pool
+	db         *TenantDB
 	schemas    SchemaResolver
 	validator  PayloadValidator
 	tableName  string
@@ -96,9 +96,9 @@ type ListEntitiesParams struct {
 }
 
 // NewEntityRepository ensures the backing table exists and returns a repository instance.
-func NewEntityRepository(ctx context.Context, pool *pgxpool.Pool, schemaStore SchemaResolver, validator PayloadValidator, cfg EntityRepositoryConfig) (*EntityRepository, error) {
-	if pool == nil {
-		return nil, errors.New("pool is required")
+func NewEntityRepository(ctx context.Context, db *TenantDB, schemaStore SchemaResolver, validator PayloadValidator, cfg EntityRepositoryConfig) (*EntityRepository, error) {
+	if db == nil {
+		return nil, errors.New("tenant db is required")
 	}
 	if schemaStore == nil {
 		return nil, errors.New("schema store is required")
@@ -119,7 +119,7 @@ func NewEntityRepository(ctx context.Context, pool *pgxpool.Pool, schemaStore Sc
 	}
 
 	repo := &EntityRepository{
-		pool:       pool,
+		db:         db,
 		schemas:    schemaStore,
 		validator:  validator,
 		tableName:  activeSchema.TableName,
@@ -127,15 +127,11 @@ func NewEntityRepository(ctx context.Context, pool *pgxpool.Pool, schemaStore Sc
 		tableIdent: pgx.Identifier{activeSchema.TableName}.Sanitize(),
 	}
 
-	if err := repo.ensureEntityTable(ctx); err != nil {
-		return nil, err
-	}
-
 	return repo, nil
 }
 
 // CreateEntity persists a new entity (version 1.0.0) after schema validation.
-func (r *EntityRepository) CreateEntity(ctx context.Context, params CreateEntityParams) (EntityRecord, error) {
+func (r *EntityRepository) CreateEntity(ctx context.Context, space tenant.Space, params CreateEntityParams) (EntityRecord, error) {
 	entityID := strings.TrimSpace(params.EntityID)
 	var err error
 	if entityID == "" {
@@ -165,54 +161,55 @@ func (r *EntityRepository) CreateEntity(ctx context.Context, params CreateEntity
 		return EntityRecord{}, fmt.Errorf("compute entity hash: %w", err)
 	}
 
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return EntityRecord{}, fmt.Errorf("begin entity tx: %w", err)
-	}
-	defer tx.Rollback(ctx) // nolint:errcheck
+	var record EntityRecord
+	err = r.db.WithTenant(ctx, space, func(tx pgx.Tx) error {
+		if err := r.ensureEntityTable(ctx, tx); err != nil {
+			return err
+		}
 
-	existsQuery := fmt.Sprintf(`SELECT EXISTS (SELECT 1 FROM %s WHERE entity_id = $1)`, r.tableIdent)
-	var exists bool
-	if err := tx.QueryRow(ctx, existsQuery, entityID).Scan(&exists); err != nil {
-		return EntityRecord{}, fmt.Errorf("check entity existence: %w", err)
-	}
-	if exists {
-		return EntityRecord{}, ErrEntityAlreadyExists
-	}
+		existsQuery := fmt.Sprintf(`SELECT EXISTS (SELECT 1 FROM %s WHERE entity_id = $1)`, r.tableIdent)
+		var exists bool
+		if err := tx.QueryRow(ctx, existsQuery, entityID).Scan(&exists); err != nil {
+			return fmt.Errorf("check entity existence: %w", err)
+		}
+		if exists {
+			return ErrEntityAlreadyExists
+		}
 
-	version := SemanticVersion{Major: 1, Minor: 0, Patch: 0}
-	insertStmt := fmt.Sprintf(`
+		version := SemanticVersion{Major: 1, Minor: 0, Patch: 0}
+		insertStmt := fmt.Sprintf(`
         INSERT INTO %s (
 			entity_id, entity_version, schema_id, schema_version, payload, hash, is_active, is_soft_deleted, created_at, created_by
         ) VALUES (
 			$1, $2, $3, $4, $5, $6, TRUE, FALSE, NOW(), $7
         )`, r.tableIdent)
 
-	if _, err := tx.Exec(ctx, insertStmt, entityID, version.String(), schemaRecord.SchemaID, schemaRecord.VersionString(), []byte(params.Payload), hash, params.CreatedBy); err != nil {
-		return EntityRecord{}, fmt.Errorf("insert entity: %w", err)
-	}
+		if _, err := tx.Exec(ctx, insertStmt, entityID, version.String(), schemaRecord.SchemaID, schemaRecord.VersionString(), []byte(params.Payload), hash, params.CreatedBy); err != nil {
+			return fmt.Errorf("insert entity: %w", err)
+		}
 
-	selectStmt := fmt.Sprintf(`
+		selectStmt := fmt.Sprintf(`
 	SELECT entity_id, entity_version, schema_id, schema_version, payload, hash, created_at, created_by, is_soft_deleted, is_active
 FROM %s
 WHERE entity_id = $1 AND entity_version = $2
 `, r.tableIdent)
 
-	row := tx.QueryRow(ctx, selectStmt, entityID, version.String())
-	record, err := scanEntityRecord(row)
+		row := tx.QueryRow(ctx, selectStmt, entityID, version.String())
+		record, err = scanEntityRecord(row)
+		if err != nil {
+			return fmt.Errorf("fetch entity: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		return EntityRecord{}, fmt.Errorf("fetch entity: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return EntityRecord{}, fmt.Errorf("commit entity tx: %w", err)
+		return EntityRecord{}, err
 	}
 
 	return record, nil
 }
 
 // UpdateEntity creates a new immutable version of an existing entity, bumping the patch segment.
-func (r *EntityRepository) UpdateEntity(ctx context.Context, params UpdateEntityParams) (EntityRecord, error) {
+func (r *EntityRepository) UpdateEntity(ctx context.Context, space tenant.Space, params UpdateEntityParams) (EntityRecord, error) {
 	entityID, err := NormalizeEntityIdentifier(params.EntityID)
 	if err != nil {
 		return EntityRecord{}, err
@@ -235,74 +232,75 @@ func (r *EntityRepository) UpdateEntity(ctx context.Context, params UpdateEntity
 		return EntityRecord{}, fmt.Errorf("compute entity hash: %w", err)
 	}
 
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return EntityRecord{}, fmt.Errorf("begin update tx: %w", err)
-	}
-	defer tx.Rollback(ctx) // nolint:errcheck
+	var record EntityRecord
+	err = r.db.WithTenant(ctx, space, func(tx pgx.Tx) error {
+		if err := r.ensureEntityTable(ctx, tx); err != nil {
+			return err
+		}
 
-	activeSelect := fmt.Sprintf(`
+		activeSelect := fmt.Sprintf(`
 		SELECT entity_id, entity_version, schema_id, schema_version, payload, hash, created_at, created_by, is_soft_deleted, is_active
 		FROM %s
 		WHERE entity_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE
 		FOR UPDATE
 	`, r.tableIdent)
-	currentRow := tx.QueryRow(ctx, activeSelect, entityID)
-	currentRecord, err := scanEntityRecord(currentRow)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return EntityRecord{}, ErrEntityNotFound
+		currentRow := tx.QueryRow(ctx, activeSelect, entityID)
+		currentRecord, err := scanEntityRecord(currentRow)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrEntityNotFound
+			}
+			return fmt.Errorf("fetch active entity: %w", err)
 		}
-		return EntityRecord{}, fmt.Errorf("fetch active entity: %w", err)
-	}
 
-	nextVersion := currentRecord.EntityVersion.NextPatch()
-	deactivateStmt := fmt.Sprintf(`
+		nextVersion := currentRecord.EntityVersion.NextPatch()
+		deactivateStmt := fmt.Sprintf(`
 	UPDATE %s
 	SET is_active = FALSE
 		WHERE entity_id = $1 AND entity_version = $2
 	`, r.tableIdent)
-	if _, err := tx.Exec(ctx, deactivateStmt, entityID, currentRecord.EntityVersion.String()); err != nil {
-		return EntityRecord{}, fmt.Errorf("deactivate entity version: %w", err)
-	}
+		if _, err := tx.Exec(ctx, deactivateStmt, entityID, currentRecord.EntityVersion.String()); err != nil {
+			return fmt.Errorf("deactivate entity version: %w", err)
+		}
 
-	insertStmt := fmt.Sprintf(`
+		insertStmt := fmt.Sprintf(`
         INSERT INTO %s (
 			entity_id, entity_version, schema_id, schema_version, payload, hash, is_active, is_soft_deleted, created_at, created_by
         ) VALUES (
 			$1, $2, $3, $4, $5, $6, TRUE, FALSE, NOW(), $7
         )
     `, r.tableIdent)
-	if _, err := tx.Exec(ctx, insertStmt, entityID, nextVersion.String(), schemaRecord.SchemaID, schemaRecord.VersionString(), []byte(params.Payload), hash, params.CreatedBy); err != nil {
-		return EntityRecord{}, fmt.Errorf("insert entity version: %w", err)
-	}
+		if _, err := tx.Exec(ctx, insertStmt, entityID, nextVersion.String(), schemaRecord.SchemaID, schemaRecord.VersionString(), []byte(params.Payload), hash, params.CreatedBy); err != nil {
+			return fmt.Errorf("insert entity version: %w", err)
+		}
 
-	selectStmt := fmt.Sprintf(`
+		selectStmt := fmt.Sprintf(`
         SELECT entity_id, entity_version, schema_id, schema_version, payload, hash, created_at, created_by, is_soft_deleted, is_active
         FROM %s
         WHERE entity_id = $1 AND entity_version = $2
     `, r.tableIdent)
-	row := tx.QueryRow(ctx, selectStmt, entityID, nextVersion.String())
-	record, err := scanEntityRecord(row)
+		row := tx.QueryRow(ctx, selectStmt, entityID, nextVersion.String())
+		record, err = scanEntityRecord(row)
+		if err != nil {
+			return fmt.Errorf("fetch new entity version: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		return EntityRecord{}, fmt.Errorf("fetch new entity version: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return EntityRecord{}, fmt.Errorf("commit update tx: %w", err)
+		return EntityRecord{}, err
 	}
 
 	return record, nil
 }
 
 // CreateOrUpdateEntity attempts to update an existing entity version; if it does not exist it falls back to creation.
-func (r *EntityRepository) CreateOrUpdateEntity(ctx context.Context, params CreateOrUpdateEntityParams) (EntityRecord, error) {
+func (r *EntityRepository) CreateOrUpdateEntity(ctx context.Context, space tenant.Space, params CreateOrUpdateEntityParams) (EntityRecord, error) {
 	if len(params.Payload) == 0 {
 		return EntityRecord{}, errors.New("payload is required")
 	}
 
 	if strings.TrimSpace(params.EntityID) == "" {
-		return r.CreateEntity(ctx, CreateEntityParams{
+		return r.CreateEntity(ctx, space, CreateEntityParams{
 			SchemaVersion: params.SchemaVersion,
 			Payload:       params.Payload,
 			CreatedBy:     params.CreatedBy,
@@ -315,7 +313,7 @@ func (r *EntityRepository) CreateOrUpdateEntity(ctx context.Context, params Crea
 		Payload:       params.Payload,
 		CreatedBy:     params.CreatedBy,
 	}
-	record, err := r.UpdateEntity(ctx, updateParams)
+	record, err := r.UpdateEntity(ctx, space, updateParams)
 	if err == nil {
 		return record, nil
 	}
@@ -323,7 +321,7 @@ func (r *EntityRepository) CreateOrUpdateEntity(ctx context.Context, params Crea
 		return EntityRecord{}, err
 	}
 
-	return r.CreateEntity(ctx, CreateEntityParams{
+	return r.CreateEntity(ctx, space, CreateEntityParams{
 		EntityID:      params.EntityID,
 		SchemaVersion: params.SchemaVersion,
 		Payload:       params.Payload,
@@ -333,24 +331,36 @@ func (r *EntityRepository) CreateOrUpdateEntity(ctx context.Context, params Crea
 
 // GetEntityByID fetches the latest active entity version.
 
-func (r *EntityRepository) GetEntityByID(ctx context.Context, entityID string) (EntityRecord, error) {
+func (r *EntityRepository) GetEntityByID(ctx context.Context, space tenant.Space, entityID string) (EntityRecord, error) {
 	normalized, err := NormalizeEntityIdentifier(entityID)
 	if err != nil {
 		return EntityRecord{}, err
 	}
 
-	query := fmt.Sprintf(`
+	var record EntityRecord
+	err = r.db.WithTenant(ctx, space, func(tx pgx.Tx) error {
+		if err := r.ensureEntityTable(ctx, tx); err != nil {
+			return err
+		}
+
+		query := fmt.Sprintf(`
 		SELECT entity_id, entity_version, schema_id, schema_version, payload, hash, created_at, created_by, is_soft_deleted, is_active
 		FROM %s
 		WHERE entity_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE
 	`, r.tableIdent)
 
-	row := r.pool.QueryRow(ctx, query, normalized)
-	record, err := scanEntityRecord(row)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return EntityRecord{}, ErrEntityNotFound
+		row := tx.QueryRow(ctx, query, normalized)
+		var scanErr error
+		record, scanErr = scanEntityRecord(row)
+		if scanErr != nil {
+			if errors.Is(scanErr, pgx.ErrNoRows) {
+				return ErrEntityNotFound
+			}
+			return scanErr
 		}
+		return nil
+	})
+	if err != nil {
 		return EntityRecord{}, err
 	}
 
@@ -358,24 +368,36 @@ func (r *EntityRepository) GetEntityByID(ctx context.Context, entityID string) (
 }
 
 // GetEntityVersion fetches a specific entity version.
-func (r *EntityRepository) GetEntityVersion(ctx context.Context, entityID string, version SemanticVersion) (EntityRecord, error) {
+func (r *EntityRepository) GetEntityVersion(ctx context.Context, space tenant.Space, entityID string, version SemanticVersion) (EntityRecord, error) {
 	normalized, err := NormalizeEntityIdentifier(entityID)
 	if err != nil {
 		return EntityRecord{}, err
 	}
 
-	query := fmt.Sprintf(`
+	var record EntityRecord
+	err = r.db.WithTenant(ctx, space, func(tx pgx.Tx) error {
+		if err := r.ensureEntityTable(ctx, tx); err != nil {
+			return err
+		}
+
+		query := fmt.Sprintf(`
 		SELECT entity_id, entity_version, schema_id, schema_version, payload, hash, created_at, created_by, is_soft_deleted, is_active
 		FROM %s
 		WHERE entity_id = $1 AND entity_version = $2
 	`, r.tableIdent)
 
-	row := r.pool.QueryRow(ctx, query, normalized, version.String())
-	record, err := scanEntityRecord(row)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return EntityRecord{}, ErrEntityNotFound
+		row := tx.QueryRow(ctx, query, normalized, version.String())
+		var scanErr error
+		record, scanErr = scanEntityRecord(row)
+		if scanErr != nil {
+			if errors.Is(scanErr, pgx.ErrNoRows) {
+				return ErrEntityNotFound
+			}
+			return scanErr
 		}
+		return nil
+	})
+	if err != nil {
 		return EntityRecord{}, err
 	}
 
@@ -383,7 +405,7 @@ func (r *EntityRepository) GetEntityVersion(ctx context.Context, entityID string
 }
 
 // ListEntities returns entities ordered by creation time.
-func (r *EntityRepository) ListEntities(ctx context.Context, params ListEntitiesParams) ([]EntityRecord, error) {
+func (r *EntityRepository) ListEntities(ctx context.Context, space tenant.Space, params ListEntitiesParams) ([]EntityRecord, error) {
 	limit := params.Limit
 	if limit <= 0 || limit > 200 {
 		limit = 50
@@ -398,7 +420,13 @@ func (r *EntityRepository) ListEntities(ctx context.Context, params ListEntities
 		return nil, err
 	}
 
-	query := fmt.Sprintf(`
+	var records []EntityRecord
+	err = r.db.WithTenant(ctx, space, func(tx pgx.Tx) error {
+		if err := r.ensureEntityTable(ctx, tx); err != nil {
+			return err
+		}
+
+		query := fmt.Sprintf(`
 		SELECT entity_id, entity_version, schema_id, schema_version, payload, hash, created_at, created_by, is_soft_deleted, is_active
 		FROM %s
 		WHERE ($1::bool = FALSE OR is_active = TRUE)
@@ -407,22 +435,23 @@ func (r *EntityRepository) ListEntities(ctx context.Context, params ListEntities
 		LIMIT $3 OFFSET $4
 	`, r.tableIdent, sortField, sortOrder)
 
-	rows, err := r.pool.Query(ctx, query, params.OnlyActive, params.IncludeDeleted, limit, offset)
-	if err != nil {
-		return nil, fmt.Errorf("list entities: %w", err)
-	}
-	defer rows.Close()
-
-	var records []EntityRecord
-	for rows.Next() {
-		record, err := scanEntityRecord(rows)
+		rows, err := tx.Query(ctx, query, params.OnlyActive, params.IncludeDeleted, limit, offset)
 		if err != nil {
-			return nil, err
+			return fmt.Errorf("list entities: %w", err)
 		}
-		records = append(records, record)
-	}
+		defer rows.Close()
 
-	if err := rows.Err(); err != nil {
+		for rows.Next() {
+			record, err := scanEntityRecord(rows)
+			if err != nil {
+				return err
+			}
+			records = append(records, record)
+		}
+
+		return rows.Err()
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -430,7 +459,7 @@ func (r *EntityRepository) ListEntities(ctx context.Context, params ListEntities
 }
 
 // CountEntities returns the total number of entities matching the provided filters.
-func (r *EntityRepository) CountEntities(ctx context.Context, params ListEntitiesParams) (int64, error) {
+func (r *EntityRepository) CountEntities(ctx context.Context, space tenant.Space, params ListEntitiesParams) (int64, error) {
 	query := fmt.Sprintf(`
 		SELECT COUNT(*)
 		FROM %s
@@ -439,8 +468,18 @@ func (r *EntityRepository) CountEntities(ctx context.Context, params ListEntitie
 	`, r.tableIdent)
 
 	var total int64
-	if err := r.pool.QueryRow(ctx, query, params.OnlyActive, params.IncludeDeleted).Scan(&total); err != nil {
-		return 0, fmt.Errorf("count entities: %w", err)
+	err := r.db.WithTenant(ctx, space, func(tx pgx.Tx) error {
+		if err := r.ensureEntityTable(ctx, tx); err != nil {
+			return err
+		}
+
+		if err := tx.QueryRow(ctx, query, params.OnlyActive, params.IncludeDeleted).Scan(&total); err != nil {
+			return fmt.Errorf("count entities: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 
 	return total, nil
@@ -471,7 +510,7 @@ func sanitizeEntitySort(field, order string) (string, string, error) {
 
 // SoftDeleteEntity marks all versions of the entity as deleted and non-active.
 // deletedAt is ignored because entity versions are immutable and only track creation time.
-func (r *EntityRepository) SoftDeleteEntity(ctx context.Context, entityID string, _ time.Time) error {
+func (r *EntityRepository) SoftDeleteEntity(ctx context.Context, space tenant.Space, entityID string, _ time.Time) error {
 	normalized, err := NormalizeEntityIdentifier(entityID)
 	if err != nil {
 		return err
@@ -484,16 +523,23 @@ func (r *EntityRepository) SoftDeleteEntity(ctx context.Context, entityID string
 		WHERE entity_id = $1 AND is_soft_deleted = FALSE
 	`, r.tableIdent)
 
-	tag, err := r.pool.Exec(ctx, stmt, normalized)
-	if err != nil {
-		return fmt.Errorf("soft delete entity: %w", err)
-	}
+	err = r.db.WithTenant(ctx, space, func(tx pgx.Tx) error {
+		if err := r.ensureEntityTable(ctx, tx); err != nil {
+			return err
+		}
 
-	if tag.RowsAffected() == 0 {
-		return ErrEntityNotFound
-	}
+		tag, execErr := tx.Exec(ctx, stmt, normalized)
+		if execErr != nil {
+			return fmt.Errorf("soft delete entity: %w", execErr)
+		}
 
-	return nil
+		if tag.RowsAffected() == 0 {
+			return ErrEntityNotFound
+		}
+		return nil
+	})
+
+	return err
 }
 
 func (r *EntityRepository) resolveSchema(ctx context.Context, version *SemanticVersion) (SchemaRecord, error) {
@@ -517,7 +563,7 @@ func (r *EntityRepository) resolveSchema(ctx context.Context, version *SemanticV
 	return schema, nil
 }
 
-func (r *EntityRepository) ensureEntityTable(ctx context.Context) error {
+func (r *EntityRepository) ensureEntityTable(ctx context.Context, tx pgx.Tx) error {
 	tableDDL := fmt.Sprintf(`
 CREATE TABLE IF NOT EXISTS %s (
 	entity_id TEXT NOT NULL CHECK (char_length(entity_id) >= 1 AND char_length(entity_id) <= 128),
@@ -544,7 +590,7 @@ CREATE INDEX IF NOT EXISTS %s_schema_idx ON %s (schema_id, schema_version);
 
 	statements := []string{tableDDL, activeIndex, schemaIndex}
 	for _, stmt := range statements {
-		if _, err := r.pool.Exec(ctx, stmt); err != nil {
+		if _, err := tx.Exec(ctx, stmt); err != nil {
 			return fmt.Errorf("ensure entity table %s: %w", r.tableName, err)
 		}
 	}

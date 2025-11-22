@@ -10,8 +10,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/caarlos0/env/v11"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -29,6 +31,10 @@ import (
 	schemarepositoryhandler "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/handler"
 	schemarepositoryrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/repo"
 	schemarepositoryservice "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/service"
+	tenantshandler "github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/handler"
+	tenantsprov "github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/provisioning"
+	tenantsrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/repo"
+	tenantsservice "github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/service"
 	usershandler "github.com/zenGate-Global/palmyra-pro-saas/domains/users/be/handler"
 	usersrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/users/be/repo"
 	usersservice "github.com/zenGate-Global/palmyra-pro-saas/domains/users/be/service"
@@ -36,12 +42,13 @@ import (
 	entitiesapi "github.com/zenGate-Global/palmyra-pro-saas/generated/go/entities"
 	schemacategories "github.com/zenGate-Global/palmyra-pro-saas/generated/go/schema-categories"
 	schemarepository "github.com/zenGate-Global/palmyra-pro-saas/generated/go/schema-repository"
+	tenantsapi "github.com/zenGate-Global/palmyra-pro-saas/generated/go/tenants"
 	users "github.com/zenGate-Global/palmyra-pro-saas/generated/go/users"
 	platformauth "github.com/zenGate-Global/palmyra-pro-saas/platform/go/auth"
-	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/gcp"
 	platformlogging "github.com/zenGate-Global/palmyra-pro-saas/platform/go/logging"
 	platformmiddleware "github.com/zenGate-Global/palmyra-pro-saas/platform/go/middleware"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	tenantmiddleware "github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant/middleware"
 )
 
 var swaggerLoaders = map[string]func() (*openapi3.T, error){
@@ -50,6 +57,7 @@ var swaggerLoaders = map[string]func() (*openapi3.T, error){
 	"contracts/schema-categories.yaml": schemacategories.GetSwagger,
 	"contracts/schema-repository.yaml": schemarepository.GetSwagger,
 	"contracts/users.yaml":             users.GetSwagger,
+	"contracts/tenants.yaml":           tenantsapi.GetSwagger,
 }
 
 type config struct {
@@ -59,6 +67,11 @@ type config struct {
 	LogLevel        string        `env:"LOG_LEVEL" envDefault:"info"`
 	DatabaseURL     string        `env:"DATABASE_URL,required"`
 	AuthProvider    string        `env:"AUTH_PROVIDER" envDefault:"firebase"`
+	EnvKey          string        `env:"ENV_KEY,required"`
+	TenantSchema    string        `env:"TENANT_SCHEMA" envDefault:"admin"`
+	StorageBackend  string        `env:"STORAGE_BACKEND" envDefault:"gcs"`               // gcs | local
+	StorageBucket   string        `env:"STORAGE_BUCKET"`                                 // required when STORAGE_BACKEND=gcs
+	StorageLocalDir string        `env:"STORAGE_LOCAL_DIR" envDefault:"./.data/storage"` // used when STORAGE_BACKEND=local
 }
 
 func main() {
@@ -79,21 +92,6 @@ func main() {
 	defer func() {
 		_ = logger.Sync()
 	}()
-
-	var authMiddleware func(http.Handler) http.Handler
-	switch cfg.AuthProvider {
-	case "firebase":
-		_, fbAuth, err := gcp.InitFirebaseAuth(ctx)
-		if err != nil {
-			logger.Fatal("init firebase auth", zap.Error(err))
-		}
-		authMiddleware = platformauth.JWT(platformauth.FirebaseTokenVerifier(fbAuth), nil)
-	case "dev":
-		logger.Warn("using dev auth middleware; do not use in production")
-		authMiddleware = platformauth.JWT(platformauth.UnsignedTokenVerifier(), nil)
-	default:
-		logger.Fatal("unsupported auth provider", zap.String("provider", cfg.AuthProvider))
-	}
 
 	pool, err := persistence.NewPool(ctx, persistence.PoolConfig{ConnString: cfg.DatabaseURL})
 	if err != nil {
@@ -119,9 +117,56 @@ func main() {
 	schemaService := schemarepositoryservice.New(schemaRepo)
 	schemaHTTPHandler := schemarepositoryhandler.New(schemaService, logger)
 
+	tenantStore, err := persistence.NewTenantStore(ctx, pool, cfg.TenantSchema)
+	if err != nil {
+		logger.Fatal("init tenant store", zap.Error(err))
+	}
+
+	tenantRepo := tenantsrepo.NewPostgresRepository(tenantStore)
+	dbProv := tenantsprov.NewDBProvisioner(pool)
+	authProv := tenantsprov.NewAuthProvisioner()
+	var storageProv tenantsservice.StorageProvisioner
+	switch cfg.StorageBackend {
+	case "gcs":
+		if cfg.StorageBucket == "" {
+			logger.Fatal("storage bucket required when STORAGE_BACKEND=gcs")
+		}
+		gcsClient, err := storage.NewClient(ctx)
+		if err != nil {
+			logger.Fatal("init gcs client", zap.Error(err))
+		}
+		defer gcsClient.Close()
+		storageProv = tenantsprov.NewGCSStorageProvisioner(gcsClient, cfg.StorageBucket)
+	case "local":
+		if strings.TrimSpace(cfg.StorageLocalDir) == "" {
+			logger.Fatal("storage local dir required when STORAGE_BACKEND=local")
+		}
+		storageProv = tenantsprov.NewLocalStorageProvisioner(cfg.StorageLocalDir)
+	default:
+		logger.Fatal("invalid STORAGE_BACKEND (use gcs or local)", zap.String("backend", cfg.StorageBackend))
+	}
+	tenantService := tenantsservice.NewWithProvisioningAndAdmin(
+		tenantRepo,
+		cfg.EnvKey,
+		cfg.TenantSchema,
+		tenantsservice.ProvisioningDeps{
+			DB:      dbProv,
+			Auth:    authProv,
+			Storage: storageProv,
+		},
+	)
+	tenantHTTPHandler := tenantshandler.New(tenantService, logger)
+
+	authMiddleware := buildAuthMiddleware(ctx, cfg, tenantService, logger)
+
+	tenantDB := persistence.NewTenantDB(persistence.TenantDBConfig{
+		Pool:        pool,
+		AdminSchema: cfg.TenantSchema,
+	})
+
 	schemaValidator := persistence.NewSchemaValidator()
 
-	userStore, err := persistence.NewUserStore(ctx, pool)
+	userStore, err := persistence.NewUserStore(ctx, tenantDB)
 	if err != nil {
 		logger.Fatal("init user store", zap.Error(err))
 	}
@@ -130,7 +175,7 @@ func main() {
 	userService := usersservice.New(userRepo)
 	userHTTPHandler := usershandler.New(userService, logger)
 
-	entitiesRepo := entitiesrepo.New(pool, schemaStore, schemaValidator)
+	entitiesRepo := entitiesrepo.New(tenantDB, schemaStore, schemaValidator)
 	entitiesService := entitiesservice.New(entitiesRepo)
 	entitiesHTTPHandler := entitieshandler.New(entitiesService, logger)
 
@@ -159,6 +204,10 @@ func main() {
 	apiRouter := chi.NewRouter()
 	apiRouter.Use(authMiddleware)
 	apiRouter.Use(platformmiddleware.RequestTrace)
+	apiRouter.Use(tenantmiddleware.WithTenantSpace(tenantService, tenantmiddleware.Config{
+		EnvKey:   cfg.EnvKey,
+		CacheTTL: time.Minute,
+	}))
 
 	schemaCategoriesValidator := mustNewSpecValidator(logger, "contracts/schema-categories.yaml")
 	apiRouter.Group(func(r chi.Router) {
@@ -193,6 +242,16 @@ func main() {
 		_ = users.HandlerWithOptions(
 			users.NewStrictHandler(userHTTPHandler, nil),
 			users.ChiServerOptions{BaseRouter: r},
+		)
+	})
+
+	tenantsValidator := mustNewSpecValidator(logger, "contracts/tenants.yaml")
+	apiRouter.Group(func(r chi.Router) {
+		r.Use(platformauth.RequireRole("admin"))
+		r.Use(tenantsValidator)
+		_ = tenantsapi.HandlerWithOptions(
+			tenantsapi.NewStrictHandler(tenantHTTPHandler, nil),
+			tenantsapi.ChiServerOptions{BaseRouter: r},
 		)
 	})
 

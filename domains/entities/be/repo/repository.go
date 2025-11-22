@@ -6,9 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
 // ListParams defines pagination and sorting inputs for listing entities.
@@ -35,15 +34,15 @@ type Repository interface {
 }
 
 type repository struct {
-	pool        *pgxpool.Pool
+	tenantDB    *persistence.TenantDB
 	schemaStore *persistence.SchemaRepositoryStore
 	validator   *persistence.SchemaValidator
 }
 
 // New constructs a Repository backed by the shared persistence layer.
-func New(pool *pgxpool.Pool, schemaStore *persistence.SchemaRepositoryStore, validator *persistence.SchemaValidator) Repository {
-	if pool == nil {
-		panic("postgres pool is required")
+func New(tenantDB *persistence.TenantDB, schemaStore *persistence.SchemaRepositoryStore, validator *persistence.SchemaValidator) Repository {
+	if tenantDB == nil {
+		panic("tenant db is required")
 	}
 	if schemaStore == nil {
 		panic("schema repository store is required")
@@ -52,10 +51,15 @@ func New(pool *pgxpool.Pool, schemaStore *persistence.SchemaRepositoryStore, val
 		panic("schema validator is required")
 	}
 
-	return &repository{pool: pool, schemaStore: schemaStore, validator: validator}
+	return &repository{tenantDB: tenantDB, schemaStore: schemaStore, validator: validator}
 }
 
 func (r *repository) List(ctx context.Context, tableName string, params ListParams) (ListResult, error) {
+	space, err := r.requireTenantSpace(ctx)
+	if err != nil {
+		return ListResult{}, err
+	}
+
 	repo, err := r.resolveEntityRepo(ctx, tableName)
 	if err != nil {
 		return ListResult{}, err
@@ -79,12 +83,12 @@ func (r *repository) List(ctx context.Context, tableName string, params ListPara
 		SortOrder:      params.SortOrder,
 	}
 
-	records, err := repo.ListEntities(ctx, listParams)
+	records, err := repo.ListEntities(ctx, space, listParams)
 	if err != nil {
 		return ListResult{}, err
 	}
 
-	total, err := repo.CountEntities(ctx, listParams)
+	total, err := repo.CountEntities(ctx, space, listParams)
 	if err != nil {
 		return ListResult{}, err
 	}
@@ -93,12 +97,17 @@ func (r *repository) List(ctx context.Context, tableName string, params ListPara
 }
 
 func (r *repository) Create(ctx context.Context, tableName string, entityID string, payload json.RawMessage, createdBy *string) (persistence.EntityRecord, error) {
+	space, err := r.requireTenantSpace(ctx)
+	if err != nil {
+		return persistence.EntityRecord{}, err
+	}
+
 	repo, err := r.resolveEntityRepo(ctx, tableName)
 	if err != nil {
 		return persistence.EntityRecord{}, err
 	}
 
-	return repo.CreateEntity(ctx, persistence.CreateEntityParams{
+	return repo.CreateEntity(ctx, space, persistence.CreateEntityParams{
 		EntityID:  entityID,
 		Payload:   payload,
 		CreatedBy: createdBy,
@@ -106,21 +115,31 @@ func (r *repository) Create(ctx context.Context, tableName string, entityID stri
 }
 
 func (r *repository) Get(ctx context.Context, tableName string, entityID string) (persistence.EntityRecord, error) {
+	space, err := r.requireTenantSpace(ctx)
+	if err != nil {
+		return persistence.EntityRecord{}, err
+	}
+
 	repo, err := r.resolveEntityRepo(ctx, tableName)
 	if err != nil {
 		return persistence.EntityRecord{}, err
 	}
 
-	return repo.GetEntityByID(ctx, entityID)
+	return repo.GetEntityByID(ctx, space, entityID)
 }
 
 func (r *repository) Update(ctx context.Context, tableName string, entityID string, payload json.RawMessage, createdBy *string) (persistence.EntityRecord, error) {
+	space, err := r.requireTenantSpace(ctx)
+	if err != nil {
+		return persistence.EntityRecord{}, err
+	}
+
 	repo, err := r.resolveEntityRepo(ctx, tableName)
 	if err != nil {
 		return persistence.EntityRecord{}, err
 	}
 
-	return repo.UpdateEntity(ctx, persistence.UpdateEntityParams{
+	return repo.UpdateEntity(ctx, space, persistence.UpdateEntityParams{
 		EntityID:  entityID,
 		Payload:   payload,
 		CreatedBy: createdBy,
@@ -128,12 +147,17 @@ func (r *repository) Update(ctx context.Context, tableName string, entityID stri
 }
 
 func (r *repository) Delete(ctx context.Context, tableName string, entityID string) error {
+	space, err := r.requireTenantSpace(ctx)
+	if err != nil {
+		return err
+	}
+
 	repo, err := r.resolveEntityRepo(ctx, tableName)
 	if err != nil {
 		return err
 	}
 
-	return repo.SoftDeleteEntity(ctx, entityID, time.Now().UTC())
+	return repo.SoftDeleteEntity(ctx, space, entityID, time.Now().UTC())
 }
 
 func (r *repository) resolveEntityRepo(ctx context.Context, tableName string) (*persistence.EntityRepository, error) {
@@ -146,7 +170,15 @@ func (r *repository) resolveEntityRepo(ctx context.Context, tableName string) (*
 		return nil, err
 	}
 
-	return persistence.NewEntityRepository(ctx, r.pool, r.schemaStore, r.validator, persistence.EntityRepositoryConfig{
+	return persistence.NewEntityRepository(ctx, r.tenantDB, r.schemaStore, r.validator, persistence.EntityRepositoryConfig{
 		SchemaID: schemaRecord.SchemaID,
 	})
+}
+
+func (r *repository) requireTenantSpace(ctx context.Context) (tenant.Space, error) {
+	space, ok := tenant.FromContext(ctx)
+	if !ok {
+		return tenant.Space{}, errors.New("tenant space missing from context")
+	}
+	return space, nil
 }

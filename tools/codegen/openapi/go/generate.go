@@ -21,5 +21,6 @@ package main
 //go:generate go tool oapi-codegen -config ./configs/schema-categories.yaml ../../../../contracts/schema-categories.yaml
 //go:generate go tool oapi-codegen -config ./configs/schema-repository.yaml ../../../../contracts/schema-repository.yaml
 //go:generate go tool oapi-codegen -config ./configs/entities.yaml           ../../../../contracts/entities.yaml
+//go:generate go tool oapi-codegen -config ./configs/tenants.yaml           ../../../../contracts/tenants.yaml
 
 func main() {}

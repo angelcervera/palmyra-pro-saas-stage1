@@ -31,6 +31,9 @@ export type EntityDocument = {
 
 export type CreateEntityDocumentRequest = {
     entityId?: PrimitivesEntityIdentifier;
+    /**
+     * Document body; server computes hash from this content.
+     */
     payload: {
         [key: string]: unknown;
     };

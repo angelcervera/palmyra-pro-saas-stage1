@@ -103,6 +103,10 @@ func DefaultCredentialExtractor(claims map[string]interface{}) (*UserCredentials
 		TenantID:      extractTenantID(claims),
 	}
 
+	if creds.TenantID == nil || *creds.TenantID == "" {
+		return nil, errors.New("tenant claim required")
+	}
+
 	return creds, nil
 }
 

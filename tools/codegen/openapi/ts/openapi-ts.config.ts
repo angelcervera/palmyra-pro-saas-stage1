@@ -49,4 +49,13 @@ export default [
     services: true,
     schemas: true,
   },
+  {
+    input: './contracts/tenants.yaml',
+    output: './packages/api-sdk/src/generated/tenants',
+    client: 'fetch',
+    base: '/api/v1',
+    types: true,
+    services: true,
+    schemas: true,
+  },
 ];

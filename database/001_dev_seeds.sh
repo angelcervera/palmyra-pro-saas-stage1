@@ -3,8 +3,8 @@ set -euo pipefail
 
 PSQL=(psql -v ON_ERROR_STOP=1 -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-postgres}")
 
-declare -r SCHEMA_DIR="/docker-entrypoint-initdb.d/schema"
-declare -r DEV_SEED_DIR="/docker-entrypoint-initdb.d/seeds/dev"
+ADMIN_TENANT_SLUG="${ADMIN_TENANT_SLUG:-admin}"
+ADMIN_SCHEMA="tenant_${ADMIN_TENANT_SLUG//-/_}"
 
 run_sql_dir() {
   local dir="$1"
@@ -12,13 +12,13 @@ run_sql_dir() {
   if [[ ! -d "$dir" ]]; then
     echo "[db-init] Skipping missing directory $dir"
     return
-  fi
+  }
 
   mapfile -t files < <(find "$dir" -maxdepth 1 -type f -name '*.sql' | sort)
   if [[ ${#files[@]} -eq 0 ]]; then
     echo "[db-init] No SQL files found under $dir"
     return
-  fi
+  }
 
   echo "[db-init] Applying ${label} files from $dir"
   for file in "${files[@]}"; do
@@ -27,11 +27,11 @@ run_sql_dir() {
   done
 }
 
-run_sql_dir "$SCHEMA_DIR" "schema"
-
-seed_mode="${PALMYRA_DB_SEED_MODE:-dev}"
+seed_mode="${PLATFORM_DB_SEED_MODE:-dev}"
 if [[ "$seed_mode" == "dev" ]]; then
-  run_sql_dir "$DEV_SEED_DIR" "dev seeds"
+  # search_path already set by 000_init_schema.sh at database level; this is a no-op guard if run standalone.
+  "${PSQL[@]}" -c "SET search_path TO ${ADMIN_SCHEMA};" >/dev/null
+  run_sql_dir "/docker-entrypoint-initdb.d/seeds/dev" "dev seeds"
 else
-  echo "[db-init] Dev seeds skipped (PALMYRA_DB_SEED_MODE=$seed_mode)"
+  echo "[db-init] Dev seeds skipped (PLATFORM_DB_SEED_MODE=$seed_mode)"
 fi
