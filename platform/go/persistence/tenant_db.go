@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -39,10 +40,12 @@ func (db *TenantDB) WithTenant(ctx context.Context, space tenant.Space, fn func(
 	}
 	defer tx.Rollback(ctx) // nolint:errcheck
 
-	if space.RoleName != "" {
-		if _, err = tx.Exec(ctx, fmt.Sprintf("SET LOCAL ROLE %s", pgx.Identifier{space.RoleName}.Sanitize())); err != nil {
-			return fmt.Errorf("set role: %w", err)
-		}
+	if strings.TrimSpace(space.RoleName) == "" {
+		return fmt.Errorf("tenant role is required in tenant.Space")
+	}
+
+	if _, err = tx.Exec(ctx, fmt.Sprintf("SET LOCAL ROLE %s", pgx.Identifier{space.RoleName}.Sanitize())); err != nil {
+		return fmt.Errorf("set role: %w", err)
 	}
 
 	searchPath := fmt.Sprintf("%s, %s", space.SchemaName, db.adminSchema)
