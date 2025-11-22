@@ -299,6 +299,10 @@ func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (Provisioni
 	if !tenant.IsValidRoleName(current.RoleName) {
 		return ProvisioningStatus{}, fmt.Errorf("tenant role name invalid: %s", current.RoleName)
 	}
+	expectedRole := tenant.BuildRoleName(current.SchemaName)
+	if current.RoleName != expectedRole {
+		return ProvisioningStatus{}, fmt.Errorf("tenant role name mismatch: got %s, expected %s", current.RoleName, expectedRole)
+	}
 
 	roleName := current.RoleName
 
