@@ -34,12 +34,8 @@ func mustTestPool(t *testing.T) (*pgxpool.Pool, func()) {
 // testDatabaseURL reads TEST_DATABASE_URL or falls back to a local default.
 // This mirrors other persistence tests' expectation of an external Postgres (e.g., Testcontainers).
 func testDatabaseURL() string {
-	if url, ok := lookupEnv("TEST_DATABASE_URL"); ok && url != "" {
+	if url, ok := os.LookupEnv("TEST_DATABASE_URL"); ok && url != "" {
 		return url
 	}
 	return "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable"
-}
-
-func lookupEnv(key string) (string, bool) {
-	return os.LookupEnv(key)
 }

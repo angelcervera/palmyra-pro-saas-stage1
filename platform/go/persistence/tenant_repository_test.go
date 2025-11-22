@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 )
 
 func TestTenantRepositoryLifecycle(t *testing.T) {
-	if _, ok := lookupEnv("TEST_DATABASE_URL"); !ok {
+	if _, ok := os.LookupEnv("TEST_DATABASE_URL"); !ok {
 		t.Skip("TEST_DATABASE_URL not set; skipping integration test")
 	}
 
@@ -80,7 +81,7 @@ func TestTenantRepositoryLifecycle(t *testing.T) {
 func strPtr(s string) *string { return &s }
 
 func TestTenantRepositoryUsesConfiguredSchema(t *testing.T) {
-	if _, ok := lookupEnv("TEST_DATABASE_URL"); !ok {
+	if _, ok := os.LookupEnv("TEST_DATABASE_URL"); !ok {
 		t.Skip("TEST_DATABASE_URL not set; skipping integration test")
 	}
 
