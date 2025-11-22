@@ -49,11 +49,40 @@ func TestUserStoreIsolationWithTenantDB(t *testing.T) {
 	// Ensure schemas exist.
 	_, err = pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+adminSchema)
 	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS `+adminSchema+`.schema_repository (schema_id UUID, schema_version TEXT, PRIMARY KEY (schema_id, schema_version))`)
+	require.NoError(t, err)
 	tenantSchemaA := tenant.BuildSchemaName("acme_co")
 	tenantSchemaB := tenant.BuildSchemaName("beta_inc")
 	_, err = pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+tenantSchemaA)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+tenantSchemaB)
+	require.NoError(t, err)
+	// Create tenant roles for tests and grant to current user.
+	createRole := func(role string) {
+		_, err = pool.Exec(ctx, `
+DO $$
+BEGIN
+   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '`+role+`') THEN
+      CREATE ROLE `+role+` NOLOGIN;
+   END IF;
+END$$;`)
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, `GRANT `+role+` TO CURRENT_USER`)
+		require.NoError(t, err)
+	}
+	createRole(tenantSchemaA + `_role`)
+	createRole(tenantSchemaB + `_role`)
+	_, err = pool.Exec(ctx, `ALTER SCHEMA `+tenantSchemaA+` OWNER TO `+tenantSchemaA+`_role`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `ALTER SCHEMA `+tenantSchemaB+` OWNER TO `+tenantSchemaB+`_role`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `GRANT USAGE ON SCHEMA `+adminSchema+` TO `+tenantSchemaA+`_role`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `GRANT USAGE ON SCHEMA `+adminSchema+` TO `+tenantSchemaB+`_role`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `GRANT SELECT ON `+adminSchema+`.schema_repository TO `+tenantSchemaA+`_role`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `GRANT SELECT ON `+adminSchema+`.schema_repository TO `+tenantSchemaB+`_role`)
 	require.NoError(t, err)
 
 	tenantDB := NewTenantDB(TenantDBConfig{
@@ -69,6 +98,7 @@ func TestUserStoreIsolationWithTenantDB(t *testing.T) {
 		Slug:          "acme-co",
 		ShortTenantID: "acme0001",
 		SchemaName:    tenantSchemaA,
+		RoleName:      tenantSchemaA + "_role",
 		BasePrefix:    "dev/acme-co-acme0001/",
 	}
 	spaceB := tenant.Space{
@@ -76,6 +106,7 @@ func TestUserStoreIsolationWithTenantDB(t *testing.T) {
 		Slug:          "beta-inc",
 		ShortTenantID: "beta0001",
 		SchemaName:    tenantSchemaB,
+		RoleName:      tenantSchemaB + "_role",
 		BasePrefix:    "dev/beta-inc-beta0001/",
 	}
 
