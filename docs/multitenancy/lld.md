@@ -61,13 +61,14 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - Happy-path steps:
   1. Fetch + lock tenant; set status `provisioning`, clear `lastError`, bump version.
   2. Derive names: `schemaName=tenant_<slug_snake>`, `roleName=tenant_<slug_snake>_role`, `basePrefix=<ENV_KEY>/<slug>-<shortId>/`, `externalAuthTenant=<ENV_KEY>-<slug>`.
-  3. Database: ensure NOLOGIN `roleName`, grant it to app DB user; create schema owned by `roleName`; default privileges to `roleName`; read-only grants to admin schema (`USAGE`) and `schema_repository` (`SELECT`); run base DDL (users, entity base objects) under `SET ROLE roleName`; mark `dbReady` when done.
+  3. Database: ensure NOLOGIN `roleName`, grant it to app DB user; create schema owned by `roleName`; default privileges to `roleName`; read-only grants to admin schema (`USAGE`) and `schema_repository` (`SELECT`); run base DDL for shared tenant tables (e.g., `users`) under `SET ROLE roleName`; **entity tables remain runtime/lazy** because new schemas can be added later—default privileges ensure those tables will be owned by the tenant role when created.
   4. Auth: ensure external auth tenant exists with envKey guard; mark `authReady`.
   5. Storage: verify `GCS_ASSETS_BUCKET`, optional sentinel under `basePrefix`.
   6. Commit: if both ready → `status=active` else `provisioning`; set `lastProvisionedAt`, clear `lastError`, bump `tenant_version`.
 - Failure handling: keep achieved flags, store `lastError`, status `pending` if nothing ready else `provisioning`; retries re-validate resources.
 - Provision status (`GET ...:provision-status`): live-check role/grants/schema/base tables, auth tenant, GCS prefix; persist flag changes; promote to `active` when both ready.
 - Runtime invariant: `TenantDB.WithTenant` must execute `SET LOCAL ROLE roleName` and `SET LOCAL search_path = schemaName,<admin_schema>` for every tenant-scoped txn; lazy ensure paths must run under the tenant role so new tables inherit ownership.
+  - Because schemas can be added over time in the schema repository, entity tables are created on-demand at runtime; default privileges from provisioning ensure those tables land with the tenant role and stay isolated.
 
 ## Current limitations / open items
 - Provisioning workflow remains unimplemented; service returns `ErrNotImplemented` until wired to steps above.
