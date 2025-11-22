@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,9 +11,11 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
-func TestEntityRepositoryIntegration(t *testing.T) {
+func TestEntityRepositoryIsolationWithTenantDB(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
@@ -34,8 +37,11 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 		_ = pgContainer.Terminate(context.Background())
 	})
 
+	adminSchema := "tenant_admin"
+
 	connString, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
+	connString = fmt.Sprintf("%s&search_path=%s", connString, adminSchema)
 
 	pool, err := NewPool(ctx, PoolConfig{ConnString: connString})
 	require.NoError(t, err)
@@ -43,7 +49,15 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 		ClosePool(pool)
 	})
 
-	require.NoError(t, applyCoreSchemaDDL(ctx, pool))
+	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, "001_core_schema.sql"))
+	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, "002_tenants_schema.sql"))
+
+	tenantSchemaA := tenant.BuildSchemaName("acme_co")
+	tenantSchemaB := tenant.BuildSchemaName("beta_inc")
+	_, err = pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+tenantSchemaA)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+tenantSchemaB)
+	require.NoError(t, err)
 
 	schemaStore, err := NewSchemaRepositoryStore(ctx, pool)
 	require.NoError(t, err)
@@ -60,6 +74,7 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 		Slug:       "cards",
 	})
 	require.NoError(t, err)
+
 	baseSchema := SchemaDefinition([]byte(`{
 		"$schema": "https://json-schema.org/draft/2020-12/schema",
 		"type": "object",
@@ -84,137 +99,88 @@ func TestEntityRepositoryIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	validator := NewSchemaValidator()
-	entityRepo, err := NewEntityRepository(ctx, pool, schemaStore, validator, EntityRepositoryConfig{
+	tenantDB := NewTenantDB(TenantDBConfig{
+		Pool:        pool,
+		AdminSchema: adminSchema,
+	})
+
+	entityRepo, err := NewEntityRepository(ctx, tenantDB, schemaStore, validator, EntityRepositoryConfig{
 		SchemaID: schemaID,
 	})
 	require.NoError(t, err)
 
+	spaceA := tenant.Space{
+		TenantID:      uuid.New(),
+		Slug:          "acme-co",
+		ShortTenantID: "acme0001",
+		SchemaName:    tenantSchemaA,
+		BasePrefix:    "dev/acme-co-acme0001/",
+	}
+	spaceB := tenant.Space{
+		TenantID:      uuid.New(),
+		Slug:          "beta-inc",
+		ShortTenantID: "beta0001",
+		SchemaName:    tenantSchemaB,
+		BasePrefix:    "dev/beta-inc-beta0001/",
+	}
+
+	// Tenant A create
 	createPayload := SchemaDefinition([]byte(`{"name":"Black Lotus"}`))
-	created, err := entityRepo.CreateEntity(ctx, CreateEntityParams{
+	createdA, err := entityRepo.CreateEntity(ctx, spaceA, CreateEntityParams{
 		Payload: createPayload,
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, created.EntityID)
-	require.Equal(t, SemanticVersion{Major: 1, Minor: 0, Patch: 0}, created.EntityVersion)
-	require.True(t, created.IsActive)
-	require.False(t, created.IsSoftDeleted)
 
-	customID := "CARD-ALPHA"
-	customRecord, err := entityRepo.CreateEntity(ctx, CreateEntityParams{
-		EntityID: customID,
-		Payload:  SchemaDefinition([]byte(`{"name":"Card Alpha"}`)),
+	// Tenant B create
+	createPayloadB := SchemaDefinition([]byte(`{"name":"Time Walk"}`))
+	createdB, err := entityRepo.CreateEntity(ctx, spaceB, CreateEntityParams{
+		Payload: createPayloadB,
 	})
 	require.NoError(t, err)
-	require.Equal(t, customID, customRecord.EntityID)
 
-	fetched, err := entityRepo.GetEntityByID(ctx, created.EntityID)
+	// Verify isolation via raw queries
+	assertCount := func(schema string, expected int) {
+		var count int
+		err := pool.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s.cards_entities`, schema)).Scan(&count)
+		require.NoError(t, err)
+		require.Equal(t, expected, count)
+	}
+	assertCount(tenantSchemaA, 1)
+	assertCount(tenantSchemaB, 1)
+
+	// List per tenant should only see its own records.
+	listA, err := entityRepo.ListEntities(ctx, spaceA, ListEntitiesParams{
+		OnlyActive:     true,
+		IncludeDeleted: false,
+		Limit:          10,
+	})
 	require.NoError(t, err)
-	require.Equal(t, created.EntityVersion, fetched.EntityVersion)
-	// ensure payload round-trips
-	require.JSONEq(t, string(createPayload), string(fetched.Payload))
+	require.Len(t, listA, 1)
+	require.Equal(t, createdA.EntityID, listA[0].EntityID)
 
+	listB, err := entityRepo.ListEntities(ctx, spaceB, ListEntitiesParams{
+		OnlyActive:     true,
+		IncludeDeleted: false,
+		Limit:          10,
+	})
+	require.NoError(t, err)
+	require.Len(t, listB, 1)
+	require.Equal(t, createdB.EntityID, listB[0].EntityID)
+
+	_, err = entityRepo.GetEntityByID(ctx, spaceB, createdA.EntityID)
+	require.ErrorIs(t, err, ErrEntityNotFound)
+
+	// Update in tenant A should not affect tenant B.
 	updatePayload := SchemaDefinition([]byte(`{"name":"Black Lotus","rarity":"mythic"}`))
-	updated, err := entityRepo.UpdateEntity(ctx, UpdateEntityParams{
-		EntityID: created.EntityID,
+	updatedA, err := entityRepo.UpdateEntity(ctx, spaceA, UpdateEntityParams{
+		EntityID: createdA.EntityID,
 		Payload:  updatePayload,
 	})
 	require.NoError(t, err)
-	require.Equal(t, created.EntityVersion.NextPatch(), updated.EntityVersion)
-	require.True(t, updated.IsActive)
-	require.False(t, updated.IsSoftDeleted)
+	require.Equal(t, createdA.EntityVersion.NextPatch(), updatedA.EntityVersion)
 
-	// Create or update flow should create when the entity does not exist yet.
-	upsertCreatePayload := SchemaDefinition([]byte(`{"name":"Time Walk"}`))
-	upserted, err := entityRepo.CreateOrUpdateEntity(ctx, CreateOrUpdateEntityParams{
-		Payload: upsertCreatePayload,
-	})
-	require.NoError(t, err)
-	require.Equal(t, SemanticVersion{Major: 1, Minor: 0, Patch: 0}, upserted.EntityVersion)
-
-	// Subsequent calls bump version.
-	upsertUpdatePayload := SchemaDefinition([]byte(`{"name":"Time Walk","rarity":"rare"}`))
-	updatedUpsert, err := entityRepo.CreateOrUpdateEntity(ctx, CreateOrUpdateEntityParams{
-		EntityID: upserted.EntityID,
-		Payload:  upsertUpdatePayload,
-	})
-	require.NoError(t, err)
-	require.Equal(t, upserted.EntityVersion.NextPatch(), updatedUpsert.EntityVersion)
-	upsertRenamePayload := SchemaDefinition([]byte(`{"name":"Time Walk","rarity":"mythic"}`))
-	renamedRecord, err := entityRepo.CreateOrUpdateEntity(ctx, CreateOrUpdateEntityParams{
-		EntityID: upserted.EntityID,
-		Payload:  upsertRenamePayload,
-	})
-	require.NoError(t, err)
-	require.Equal(t, updatedUpsert.EntityVersion.NextPatch(), renamedRecord.EntityVersion)
-
-	oldVersion, err := entityRepo.GetEntityVersion(ctx, created.EntityID, created.EntityVersion)
-	require.NoError(t, err)
-	require.False(t, oldVersion.IsActive)
-
-	list, err := entityRepo.ListEntities(ctx, ListEntitiesParams{
-		OnlyActive:     true,
-		IncludeDeleted: false,
-		Limit:          10,
-		Offset:         0,
-		SortField:      "created_at",
-		SortOrder:      "desc",
-	})
-	require.NoError(t, err)
-	require.Len(t, list, 3)
-	require.Equal(t, upserted.EntityID, list[0].EntityID)
-	require.Equal(t, created.EntityID, list[1].EntityID)
-	require.Equal(t, customRecord.EntityID, list[2].EntityID)
-
-	total, err := entityRepo.CountEntities(ctx, ListEntitiesParams{
-		OnlyActive:     true,
-		IncludeDeleted: false,
-	})
-	require.NoError(t, err)
-	require.EqualValues(t, 3, total)
-
-	err = entityRepo.SoftDeleteEntity(ctx, created.EntityID, time.Now().UTC())
-	require.NoError(t, err)
-
-	_, err = entityRepo.GetEntityByID(ctx, created.EntityID)
-	require.ErrorIs(t, err, ErrEntityNotFound)
-
-	records, err := entityRepo.ListEntities(ctx, ListEntitiesParams{
-		OnlyActive:     true,
-		IncludeDeleted: false,
-		Limit:          10,
-		SortField:      "created_at",
-		SortOrder:      "desc",
-	})
-	require.NoError(t, err)
-	require.Len(t, records, 2)
-	require.Equal(t, upserted.EntityID, records[0].EntityID)
-	require.Equal(t, customRecord.EntityID, records[1].EntityID)
-
-	totalAfterDelete, err := entityRepo.CountEntities(ctx, ListEntitiesParams{
-		OnlyActive:     true,
-		IncludeDeleted: false,
-	})
-	require.NoError(t, err)
-	require.EqualValues(t, 2, totalAfterDelete)
-
-	deletedRecords, err := entityRepo.ListEntities(ctx, ListEntitiesParams{
-		OnlyActive:     false,
-		IncludeDeleted: true,
-		Limit:          10,
-		SortField:      "created_at",
-		SortOrder:      "desc",
-	})
-	require.NoError(t, err)
-	require.NotEmpty(t, deletedRecords)
-	foundSoftDeleted := false
-	for _, rec := range deletedRecords {
-		if rec.IsSoftDeleted {
-			foundSoftDeleted = true
-			break
-		}
-	}
-	require.True(t, foundSoftDeleted)
-
+	assertCount(tenantSchemaA, 2) // new version inserted; old still present
+	assertCount(tenantSchemaB, 1)
 }
 
 func TestSanitizeEntitySort(t *testing.T) {

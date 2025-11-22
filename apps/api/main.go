@@ -147,7 +147,12 @@ func main() {
 	tenantService := tenantsservice.New(tenantRepo, cfg.EnvKey)
 	tenantHTTPHandler := tenantshandler.New(tenantService, logger)
 
-	entitiesRepo := entitiesrepo.New(pool, schemaStore, schemaValidator)
+	tenantDB := persistence.NewTenantDB(persistence.TenantDBConfig{
+		Pool:        pool,
+		AdminSchema: cfg.TenantSchema,
+	})
+
+	entitiesRepo := entitiesrepo.New(tenantDB, schemaStore, schemaValidator)
 	entitiesService := entitiesservice.New(entitiesRepo)
 	entitiesHTTPHandler := entitieshandler.New(entitiesService, logger)
 
