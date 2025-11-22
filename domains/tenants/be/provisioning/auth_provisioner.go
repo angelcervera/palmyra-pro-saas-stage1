@@ -2,21 +2,18 @@ package provisioning
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/service"
 )
 
-// AuthProvisioner is a placeholder that marks external auth tenant as ready.
-// Replace with Firebase/Identity Platform ensure/check when available.
+// AuthProvisioner is a placeholder; replace with real Firebase/Identity logic later.
 type AuthProvisioner struct{}
 
 func NewAuthProvisioner() *AuthProvisioner { return &AuthProvisioner{} }
 
 func (a *AuthProvisioner) Ensure(ctx context.Context, externalTenant string) (service.AuthProvisionResult, error) {
-	if externalTenant == "" {
-		return service.AuthProvisionResult{Ready: false}, nil
-	}
-	return service.AuthProvisionResult{Ready: true}, nil
+	return service.AuthProvisionResult{Ready: false}, fmt.Errorf("auth provisioner not implemented")
 }
 
 func (a *AuthProvisioner) Check(ctx context.Context, externalTenant string) (service.AuthProvisionResult, error) {
