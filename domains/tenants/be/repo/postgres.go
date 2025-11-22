@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/service"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
@@ -64,7 +65,7 @@ func (r *PostgresRepository) Create(ctx context.Context, t service.Tenant) (serv
 	rec := toRecord(t)
 	out, err := r.store.Create(ctx, rec)
 	if err != nil {
-		return service.Tenant{}, err
+		return service.Tenant{}, mapConflict(err)
 	}
 	return toServiceTenant(out)
 }
@@ -148,6 +149,16 @@ func toServiceTenant(rec persistence.TenantRecord) (service.Tenant, error) {
 func mapNotFound(err error) error {
 	if errors.Is(err, persistence.ErrNotFound) {
 		return service.ErrNotFound
+	}
+	return err
+}
+
+func mapConflict(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		if pgErr.Code == "23505" && strings.EqualFold(pgErr.ConstraintName, "tenants_slug_unique_active") {
+			return service.ErrConflictSlug
+		}
 	}
 	return err
 }
