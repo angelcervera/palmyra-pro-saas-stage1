@@ -20,6 +20,7 @@ type TenantRecord struct {
 	DisplayName       *string         `db:"display_name"`
 	Status            string          `db:"status"`
 	SchemaName        string          `db:"schema_name"`
+	RoleName          string          `db:"role_name"`
 	BasePrefix        string          `db:"base_prefix"`
 	ShortTenantID     string          `db:"short_tenant_id"`
 	IsActive          bool            `db:"is_active"`
@@ -62,20 +63,20 @@ func (s *TenantStore) Create(ctx context.Context, rec TenantRecord) (TenantRecor
 
 	query := fmt.Sprintf(`
         INSERT INTO %s (
-            tenant_id, tenant_version, slug, display_name, status, schema_name,
+            tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
             base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at,
             created_by, db_ready, auth_ready, last_provisioned_at, last_error
         ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,TRUE,FALSE,$9,$10,$11,$12,$13,$14
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,FALSE,$10,$11,$12,$13,$14,$15
         )
-        RETURNING tenant_id, tenant_version, slug, display_name, status, schema_name,
+        RETURNING tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
             base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at,
             created_by, db_ready, auth_ready, last_provisioned_at, last_error
     `, s.table)
 
 	row := s.pool.QueryRow(ctx, query,
 		rec.TenantID, rec.TenantVersion.String(), rec.Slug, rec.DisplayName, rec.Status,
-		rec.SchemaName, rec.BasePrefix, rec.ShortTenantID, rec.CreatedAt, rec.CreatedBy,
+		rec.SchemaName, rec.RoleName, rec.BasePrefix, rec.ShortTenantID, rec.CreatedAt, rec.CreatedBy,
 		rec.DBReady, rec.AuthReady, rec.LastProvisionedAt, rec.LastError,
 	)
 
@@ -97,20 +98,20 @@ func (s *TenantStore) AppendVersion(ctx context.Context, rec TenantRecord) (Tena
 
 	insert := fmt.Sprintf(`
         INSERT INTO %s (
-            tenant_id, tenant_version, slug, display_name, status, schema_name,
+            tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
             base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at,
             created_by, db_ready, auth_ready, last_provisioned_at, last_error
         ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,TRUE,FALSE,$9,$10,$11,$12,$13,$14
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,FALSE,$10,$11,$12,$13,$14,$15
         )
-        RETURNING tenant_id, tenant_version, slug, display_name, status, schema_name,
+        RETURNING tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
             base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at,
             created_by, db_ready, auth_ready, last_provisioned_at, last_error
     `, s.table)
 
 	row := tx.QueryRow(ctx, insert,
 		rec.TenantID, rec.TenantVersion.String(), rec.Slug, rec.DisplayName, rec.Status,
-		rec.SchemaName, rec.BasePrefix, rec.ShortTenantID, rec.CreatedAt, rec.CreatedBy,
+		rec.SchemaName, rec.RoleName, rec.BasePrefix, rec.ShortTenantID, rec.CreatedAt, rec.CreatedBy,
 		rec.DBReady, rec.AuthReady, rec.LastProvisionedAt, rec.LastError,
 	)
 
@@ -127,7 +128,7 @@ func (s *TenantStore) AppendVersion(ctx context.Context, rec TenantRecord) (Tena
 
 // GetActive fetches the active tenant version.
 func (s *TenantStore) GetActive(ctx context.Context, id uuid.UUID) (TenantRecord, error) {
-	query := fmt.Sprintf(`SELECT tenant_id, tenant_version, slug, display_name, status, schema_name,
+	query := fmt.Sprintf(`SELECT tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
         base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at, created_by,
         db_ready, auth_ready, last_provisioned_at, last_error
         FROM %s WHERE tenant_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE`, s.table)
@@ -136,7 +137,7 @@ func (s *TenantStore) GetActive(ctx context.Context, id uuid.UUID) (TenantRecord
 
 // GetBySlug returns the active tenant by slug.
 func (s *TenantStore) GetBySlug(ctx context.Context, slug string) (TenantRecord, error) {
-	query := fmt.Sprintf(`SELECT tenant_id, tenant_version, slug, display_name, status, schema_name,
+	query := fmt.Sprintf(`SELECT tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
         base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at, created_by,
         db_ready, auth_ready, last_provisioned_at, last_error
         FROM %s WHERE slug = $1 AND is_active = TRUE AND is_soft_deleted = FALSE`, s.table)
@@ -158,7 +159,7 @@ func (s *TenantStore) ListActive(ctx context.Context, status *string, limit, off
 		return nil, 0, err
 	}
 
-	query := fmt.Sprintf(`SELECT tenant_id, tenant_version, slug, display_name, status, schema_name,
+	query := fmt.Sprintf(`SELECT tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
         base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at, created_by,
         db_ready, auth_ready, last_provisioned_at, last_error
         FROM %s %s
@@ -190,7 +191,7 @@ func (s *TenantStore) ListActive(ctx context.Context, status *string, limit, off
 func scanTenantRecord(row pgx.Row) (TenantRecord, error) {
 	var rec TenantRecord
 	var versionStr string
-	if err := row.Scan(&rec.TenantID, &versionStr, &rec.Slug, &rec.DisplayName, &rec.Status, &rec.SchemaName, &rec.BasePrefix, &rec.ShortTenantID, &rec.IsActive, &rec.IsSoftDeleted, &rec.CreatedAt, &rec.CreatedBy, &rec.DBReady, &rec.AuthReady, &rec.LastProvisionedAt, &rec.LastError); err != nil {
+	if err := row.Scan(&rec.TenantID, &versionStr, &rec.Slug, &rec.DisplayName, &rec.Status, &rec.SchemaName, &rec.RoleName, &rec.BasePrefix, &rec.ShortTenantID, &rec.IsActive, &rec.IsSoftDeleted, &rec.CreatedAt, &rec.CreatedBy, &rec.DBReady, &rec.AuthReady, &rec.LastProvisionedAt, &rec.LastError); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return TenantRecord{}, ErrNotFound
 		}

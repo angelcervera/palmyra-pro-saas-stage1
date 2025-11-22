@@ -102,6 +102,7 @@ func toRecord(t service.Tenant) persistence.TenantRecord {
 		DisplayName:       t.DisplayName,
 		Status:            string(t.Status),
 		SchemaName:        t.SchemaName,
+		RoleName:          t.RoleName,
 		BasePrefix:        t.BasePrefix,
 		ShortTenantID:     t.ShortTenantID,
 		IsActive:          true,
@@ -120,6 +121,7 @@ func toServiceTenant(rec persistence.TenantRecord) (service.Tenant, error) {
 	if err != nil {
 		return service.Tenant{}, err
 	}
+	roleName := tenant.BuildRoleName(rec.SchemaName)
 	return service.Tenant{
 		ID:            rec.TenantID,
 		Version:       rec.TenantVersion,
@@ -127,7 +129,7 @@ func toServiceTenant(rec persistence.TenantRecord) (service.Tenant, error) {
 		DisplayName:   rec.DisplayName,
 		Status:        status,
 		SchemaName:    rec.SchemaName,
-		RoleName:      tenant.BuildRoleName(rec.SchemaName),
+		RoleName:      roleName,
 		BasePrefix:    rec.BasePrefix,
 		ShortTenantID: rec.ShortTenantID,
 		CreatedAt:     rec.CreatedAt,

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     display_name TEXT NULL,
     status TEXT NOT NULL,
     schema_name TEXT NOT NULL CHECK (schema_name ~ '^[a-z][a-z0-9_]*$'),
+    role_name TEXT NOT NULL CHECK (role_name ~ '^[a-z][a-z0-9_]*$'),
     base_prefix TEXT NOT NULL,
     short_tenant_id TEXT NOT NULL CHECK (short_tenant_id ~ '^[0-9a-fA-F]{8}$'),
     is_active BOOLEAN NOT NULL DEFAULT FALSE,
@@ -30,4 +31,3 @@ CREATE UNIQUE INDEX IF NOT EXISTS tenants_slug_unique_active
 
 CREATE INDEX IF NOT EXISTS tenants_slug_idx ON tenants (slug);
 CREATE INDEX IF NOT EXISTS tenants_created_at_idx ON tenants (created_at DESC);
-
