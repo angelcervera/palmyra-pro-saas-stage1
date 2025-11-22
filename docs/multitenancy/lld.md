@@ -39,6 +39,13 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - `GCS_ASSETS_BUCKET` (bucket per environment class); not stored per tenant.
 - `DATABASE_URL`, `TEST_DATABASE_URL` (tests), `PLATFORM_DB_SEED_MODE` (init script seeds).
 
+## Auth alignment (current)
+- JWT extractor now requires a tenant claim (`firebase.tenant` in dev/prod tokens). The API config builds a custom extractor that:
+  - Accepts a UUID tenant claim directly, or
+  - Resolves an external tenant key of the form `<envKey>-<slug>` via the tenant service, rejecting env-key mismatches or disabled/unknown tenants.
+  - Writes the internal tenant UUID into `UserCredentials.TenantID`; tokens without a tenant are rejected.
+- Tenant middleware still validates `basePrefix` envKey and returns ProblemDetails: 401 invalid tenant, 403 env mismatch/disabled/unknown.
+
 ## Bootstrapping & DDL
 - Base schemas/tables: `database/schema/001_core_schema.sql`.
 - Tenant registry DDL: `database/schema/002_tenants_schema.sql`.

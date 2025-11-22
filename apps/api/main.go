@@ -17,6 +17,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 	oapimiddleware "github.com/oapi-codegen/nethttp-middleware"
 	"go.uber.org/zap"
 
@@ -88,21 +89,6 @@ func main() {
 		_ = logger.Sync()
 	}()
 
-	var authMiddleware func(http.Handler) http.Handler
-	switch cfg.AuthProvider {
-	case "firebase":
-		_, fbAuth, err := gcp.InitFirebaseAuth(ctx)
-		if err != nil {
-			logger.Fatal("init firebase auth", zap.Error(err))
-		}
-		authMiddleware = platformauth.JWT(platformauth.FirebaseTokenVerifier(fbAuth), nil)
-	case "dev":
-		logger.Warn("using dev auth middleware; do not use in production")
-		authMiddleware = platformauth.JWT(platformauth.UnsignedTokenVerifier(), nil)
-	default:
-		logger.Fatal("unsupported auth provider", zap.String("provider", cfg.AuthProvider))
-	}
-
 	pool, err := persistence.NewPool(ctx, persistence.PoolConfig{ConnString: cfg.DatabaseURL})
 	if err != nil {
 		logger.Fatal("init postgres pool", zap.Error(err))
@@ -135,6 +121,45 @@ func main() {
 	tenantRepo := tenantsrepo.NewPostgresRepository(tenantStore)
 	tenantService := tenantsservice.New(tenantRepo, cfg.EnvKey)
 	tenantHTTPHandler := tenantshandler.New(tenantService, logger)
+
+	var verify platformauth.VerifyFunc
+	switch cfg.AuthProvider {
+	case "firebase":
+		_, fbAuth, err := gcp.InitFirebaseAuth(ctx)
+		if err != nil {
+			logger.Fatal("init firebase auth", zap.Error(err))
+		}
+		verify = platformauth.FirebaseTokenVerifier(fbAuth)
+	case "dev":
+		logger.Warn("using dev auth middleware; do not use in production")
+		verify = platformauth.UnsignedTokenVerifier()
+	default:
+		logger.Fatal("unsupported auth provider", zap.String("provider", cfg.AuthProvider))
+	}
+
+	authExtractor := func(claims map[string]interface{}) (*platformauth.UserCredentials, error) {
+		creds, err := platformauth.DefaultCredentialExtractor(claims)
+		if err != nil {
+			return nil, err
+		}
+		if creds.TenantID == nil || *creds.TenantID == "" {
+			return nil, errors.New("tenant claim required")
+		}
+		if tid, parseErr := uuid.Parse(*creds.TenantID); parseErr == nil {
+			idStr := tid.String()
+			creds.TenantID = &idStr
+			return creds, nil
+		}
+		space, resolveErr := tenantService.ResolveTenantSpaceByExternal(context.Background(), *creds.TenantID)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		idStr := space.TenantID.String()
+		creds.TenantID = &idStr
+		return creds, nil
+	}
+
+	authMiddleware := platformauth.JWT(verify, authExtractor)
 
 	tenantDB := persistence.NewTenantDB(persistence.TenantDBConfig{
 		Pool:        pool,
