@@ -3,6 +3,16 @@ set -euo pipefail
 
 PSQL=(psql -v ON_ERROR_STOP=1 -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-postgres}")
 
+ADMIN_SCHEMA="${PALMYRA_DB_SCHEMA:-admin}"
+
+# Ensure admin schema exists and becomes default search_path for this database.
+"${PSQL[@]}" <<SQL
+DO $$ BEGIN
+  EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', '${ADMIN_SCHEMA}');
+  EXECUTE format('ALTER DATABASE %I SET search_path TO %I', '${POSTGRES_DB:-postgres}', '${ADMIN_SCHEMA}');
+END $$;
+SQL
+
 declare -r SCHEMA_DIR="/docker-entrypoint-initdb.d/schema"
 declare -r DEV_SEED_DIR="/docker-entrypoint-initdb.d/seeds/dev"
 

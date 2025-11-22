@@ -12,9 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// TenantsTable defines the fully-qualified table for tenant registry.
-const TenantsTable = "admin.tenants"
-
 // TenantRecord represents a versioned tenant row.
 type TenantRecord struct {
 	TenantID          uuid.UUID       `db:"tenant_id"`
@@ -37,15 +34,21 @@ type TenantRecord struct {
 
 // TenantStore provides access to the tenants table.
 type TenantStore struct {
-	pool *pgxpool.Pool
+	pool  *pgxpool.Pool
+	table string
 }
 
 // NewTenantStore creates a store; assumes migrations already created the table.
-func NewTenantStore(ctx context.Context, pool *pgxpool.Pool) (*TenantStore, error) {
+// If schema is empty, uses the current search_path and table name "tenants".
+func NewTenantStore(ctx context.Context, pool *pgxpool.Pool, schema string) (*TenantStore, error) {
 	if pool == nil {
 		return nil, errors.New("pool is required")
 	}
-	return &TenantStore{pool: pool}, nil
+	table := "tenants"
+	if schema != "" {
+		table = fmt.Sprintf("%s.tenants", schema)
+	}
+	return &TenantStore{pool: pool, table: table}, nil
 }
 
 // Create inserts the initial tenant version.
@@ -68,7 +71,7 @@ func (s *TenantStore) Create(ctx context.Context, rec TenantRecord) (TenantRecor
         RETURNING tenant_id, tenant_version, slug, display_name, status, schema_name,
             base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at,
             created_by, db_ready, auth_ready, last_provisioned_at, last_error
-    `, TenantsTable)
+    `, s.table)
 
 	row := s.pool.QueryRow(ctx, query,
 		rec.TenantID, rec.TenantVersion.String(), rec.Slug, rec.DisplayName, rec.Status,
@@ -87,7 +90,7 @@ func (s *TenantStore) AppendVersion(ctx context.Context, rec TenantRecord) (Tena
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	deactivate := fmt.Sprintf("UPDATE %s SET is_active = FALSE WHERE tenant_id = $1", TenantsTable)
+	deactivate := fmt.Sprintf("UPDATE %s SET is_active = FALSE WHERE tenant_id = $1", s.table)
 	if _, err = tx.Exec(ctx, deactivate, rec.TenantID); err != nil {
 		return TenantRecord{}, err
 	}
@@ -103,7 +106,7 @@ func (s *TenantStore) AppendVersion(ctx context.Context, rec TenantRecord) (Tena
         RETURNING tenant_id, tenant_version, slug, display_name, status, schema_name,
             base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at,
             created_by, db_ready, auth_ready, last_provisioned_at, last_error
-    `, TenantsTable)
+    `, s.table)
 
 	row := tx.QueryRow(ctx, insert,
 		rec.TenantID, rec.TenantVersion.String(), rec.Slug, rec.DisplayName, rec.Status,
@@ -127,7 +130,7 @@ func (s *TenantStore) GetActive(ctx context.Context, id uuid.UUID) (TenantRecord
 	query := fmt.Sprintf(`SELECT tenant_id, tenant_version, slug, display_name, status, schema_name,
         base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at, created_by,
         db_ready, auth_ready, last_provisioned_at, last_error
-        FROM %s WHERE tenant_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE`, TenantsTable)
+        FROM %s WHERE tenant_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE`, s.table)
 	return scanTenantRecord(s.pool.QueryRow(ctx, query, id))
 }
 
@@ -136,7 +139,7 @@ func (s *TenantStore) GetBySlug(ctx context.Context, slug string) (TenantRecord,
 	query := fmt.Sprintf(`SELECT tenant_id, tenant_version, slug, display_name, status, schema_name,
         base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at, created_by,
         db_ready, auth_ready, last_provisioned_at, last_error
-        FROM %s WHERE slug = $1 AND is_active = TRUE AND is_soft_deleted = FALSE`, TenantsTable)
+        FROM %s WHERE slug = $1 AND is_active = TRUE AND is_soft_deleted = FALSE`, s.table)
 	return scanTenantRecord(s.pool.QueryRow(ctx, query, slug))
 }
 
@@ -149,7 +152,7 @@ func (s *TenantStore) ListActive(ctx context.Context, status *string, limit, off
 		args = append(args, *status)
 	}
 
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s %s", TenantsTable, where)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s %s", s.table, where)
 	var total int
 	if err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
@@ -160,7 +163,7 @@ func (s *TenantStore) ListActive(ctx context.Context, status *string, limit, off
         db_ready, auth_ready, last_provisioned_at, last_error
         FROM %s %s
         ORDER BY created_at DESC
-        LIMIT %d OFFSET %d`, TenantsTable, where, limit, offset)
+        LIMIT %d OFFSET %d`, s.table, where, limit, offset)
 
 	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {

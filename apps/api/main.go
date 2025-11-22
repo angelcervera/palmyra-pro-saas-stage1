@@ -66,6 +66,7 @@ type config struct {
 	DatabaseURL     string        `env:"DATABASE_URL,required"`
 	AuthProvider    string        `env:"AUTH_PROVIDER" envDefault:"firebase"`
 	EnvKey          string        `env:"ENV_KEY,required"`
+	TenantSchema    string        `env:"TENANT_SCHEMA" envDefault:"admin"`
 }
 
 func main() {
@@ -137,7 +138,7 @@ func main() {
 	userService := usersservice.New(userRepo)
 	userHTTPHandler := usershandler.New(userService, logger)
 
-	tenantStore, err := persistence.NewTenantStore(ctx, pool)
+	tenantStore, err := persistence.NewTenantStore(ctx, pool, cfg.TenantSchema)
 	if err != nil {
 		logger.Fatal("init tenant store", zap.Error(err))
 	}
