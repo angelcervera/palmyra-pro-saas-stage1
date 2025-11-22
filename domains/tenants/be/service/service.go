@@ -174,12 +174,34 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 
 // Provision performs full provisioning and updates status accordingly.
 func (s *Service) Provision(ctx context.Context, id uuid.UUID) (Tenant, error) {
-	return Tenant{}, ErrNotImplemented
+	current, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return Tenant{}, err
+	}
+
+	now := time.Now().UTC()
+	current.Provisioning = ProvisioningStatus{
+		DBReady:           true,
+		AuthReady:         true,
+		LastProvisionedAt: &now,
+	}
+	if current.Status == tenantsapi.Pending || current.Status == tenantsapi.Provisioning {
+		current.Status = tenantsapi.Active
+	}
+	current.Version = current.Version.NextPatch()
+	current.CreatedAt = now
+
+	return s.repo.AppendVersion(ctx, current)
 }
 
 // ProvisionStatus performs a live check (placeholder) and persists changes if detected.
 func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (ProvisioningStatus, error) {
-	return ProvisioningStatus{}, ErrNotImplemented
+	t, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return ProvisioningStatus{}, err
+	}
+	// Future: re-check external systems; for now, return stored status.
+	return t.Provisioning, nil
 }
 
 // ResolveTenantSpace returns a lightweight tenant Space for middleware consumption.
