@@ -29,6 +29,9 @@ import (
 	schemarepositoryhandler "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/handler"
 	schemarepositoryrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/repo"
 	schemarepositoryservice "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-repository/be/service"
+	tenantshandler "github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/handler"
+	tenantsrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/repo"
+	tenantsservice "github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/service"
 	usershandler "github.com/zenGate-Global/palmyra-pro-saas/domains/users/be/handler"
 	usersrepo "github.com/zenGate-Global/palmyra-pro-saas/domains/users/be/repo"
 	usersservice "github.com/zenGate-Global/palmyra-pro-saas/domains/users/be/service"
@@ -36,6 +39,7 @@ import (
 	entitiesapi "github.com/zenGate-Global/palmyra-pro-saas/generated/go/entities"
 	schemacategories "github.com/zenGate-Global/palmyra-pro-saas/generated/go/schema-categories"
 	schemarepository "github.com/zenGate-Global/palmyra-pro-saas/generated/go/schema-repository"
+	tenantsapi "github.com/zenGate-Global/palmyra-pro-saas/generated/go/tenants"
 	users "github.com/zenGate-Global/palmyra-pro-saas/generated/go/users"
 	platformauth "github.com/zenGate-Global/palmyra-pro-saas/platform/go/auth"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/gcp"
@@ -50,6 +54,7 @@ var swaggerLoaders = map[string]func() (*openapi3.T, error){
 	"contracts/schema-categories.yaml": schemacategories.GetSwagger,
 	"contracts/schema-repository.yaml": schemarepository.GetSwagger,
 	"contracts/users.yaml":             users.GetSwagger,
+	"contracts/tenants.yaml":           tenantsapi.GetSwagger,
 }
 
 type config struct {
@@ -59,6 +64,7 @@ type config struct {
 	LogLevel        string        `env:"LOG_LEVEL" envDefault:"info"`
 	DatabaseURL     string        `env:"DATABASE_URL,required"`
 	AuthProvider    string        `env:"AUTH_PROVIDER" envDefault:"firebase"`
+	EnvKey          string        `env:"ENV_KEY,required"`
 }
 
 func main() {
@@ -130,6 +136,10 @@ func main() {
 	userService := usersservice.New(userRepo)
 	userHTTPHandler := usershandler.New(userService, logger)
 
+	tenantRepo := tenantsrepo.NewMemoryRepository()
+	tenantService := tenantsservice.New(tenantRepo, cfg.EnvKey)
+	tenantHTTPHandler := tenantshandler.New(tenantService, logger)
+
 	entitiesRepo := entitiesrepo.New(pool, schemaStore, schemaValidator)
 	entitiesService := entitiesservice.New(entitiesRepo)
 	entitiesHTTPHandler := entitieshandler.New(entitiesService, logger)
@@ -193,6 +203,16 @@ func main() {
 		_ = users.HandlerWithOptions(
 			users.NewStrictHandler(userHTTPHandler, nil),
 			users.ChiServerOptions{BaseRouter: r},
+		)
+	})
+
+	tenantsValidator := mustNewSpecValidator(logger, "contracts/tenants.yaml")
+	apiRouter.Group(func(r chi.Router) {
+		r.Use(platformauth.RequireRole("admin"))
+		r.Use(tenantsValidator)
+		_ = tenantsapi.HandlerWithOptions(
+			tenantsapi.NewStrictHandler(tenantHTTPHandler, nil),
+			tenantsapi.ChiServerOptions{BaseRouter: r},
 		)
 	})
 
