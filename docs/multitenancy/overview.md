@@ -143,8 +143,10 @@ prefix per tenant**:
   - `entities/<entityId>/<attachmentId>`
   - `avatars/<userId>`
   - `documents/...`
-- The tenant’s GCS configuration (bucket name and base prefix) is stored in
-  the admin `tenants` table and exposed via the Tenant Space abstraction.
+- The tenant’s GCS configuration is split: the bucket name comes from
+  deployment configuration (`GCS_ASSETS_BUCKET`, one per environment class) and
+  is **not** stored per tenant; the derived base prefix is stored in the admin
+  `tenants` table and exposed via the Tenant Space abstraction.
 
 Only a logical key (e.g. `entities/<entityId>/<attachmentId>`) should be
 referenced from domain code. The combination of Tenant Space + logical key is
@@ -157,9 +159,10 @@ once per request and reused throughout the stack. It includes:
 
 - Tenant identity (internal `tenantId` plus associated `slug`).
 - PostgreSQL schema name for that tenant.
-- GCS bucket name (typically shared across tenants) and the tenant’s base
-  prefix within that bucket (which always starts with the deployment
-  environment key, for example, `dev/`, `stg/`, or `pr-1234/`).
+- GCS base prefix (stored per tenant) within the shared bucket, which always
+  starts with the deployment environment key (for example, `dev/`, `stg/`,
+  or `pr-1234/`). Bucket name is derived from deployment config, not stored
+  per tenant.
 - Optional feature flags, limits, and other metadata.
 
 ### Resolution Flow (Conceptual)
@@ -200,8 +203,8 @@ When a new tenant is created, the system:
    tables/indexes.
 3. Ensures the shared GCS bucket exists and assigns a tenant base prefix
    within that bucket.
-4. Writes the resulting schema name, bucket name, and tenant base prefix into the tenant
-   record.
+4. Writes the resulting schema name and tenant base prefix into the tenant
+   record (bucket is taken from environment configuration, not stored per tenant).
 
 ### Runtime Usage
 
