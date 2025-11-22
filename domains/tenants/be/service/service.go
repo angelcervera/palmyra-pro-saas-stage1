@@ -123,6 +123,9 @@ func NewWithProvisioning(repo Repository, envKey string, deps ProvisioningDeps) 
 	if envKey == "" {
 		panic("envKey is required")
 	}
+	if deps.DB == nil || deps.Auth == nil || deps.Storage == nil {
+		panic("provisioning deps must be non-nil")
+	}
 	return &Service{repo: repo, envKey: envKey, provisioning: deps}
 }
 
@@ -133,6 +136,9 @@ func NewWithProvisioningAndAdmin(repo Repository, envKey, adminSchema string, de
 	}
 	if envKey == "" {
 		panic("envKey is required")
+	}
+	if deps.DB == nil || deps.Auth == nil || deps.Storage == nil {
+		panic("provisioning deps must be non-nil")
 	}
 	return &Service{repo: repo, envKey: envKey, adminSchema: adminSchema, provisioning: deps}
 }
@@ -218,19 +224,17 @@ func (s *Service) Provision(ctx context.Context, id uuid.UUID) (Tenant, error) {
 		return Tenant{}, fmt.Errorf("tenant missing role name")
 	}
 
-	deps := s.provisioning.FillNil()
-
 	now := time.Now().UTC()
 	roleName := current.RoleName
 
-	dbRes, dbErr := deps.DB.Ensure(ctx, DBProvisionRequest{
+	dbRes, dbErr := s.provisioning.DB.Ensure(ctx, DBProvisionRequest{
 		TenantID:    current.ID,
 		SchemaName:  current.SchemaName,
 		RoleName:    roleName,
 		AdminSchema: s.adminSchema,
 	})
-	authRes, authErr := deps.Auth.Ensure(ctx, fmt.Sprintf("%s-%s", s.envKey, current.Slug))
-	_, storageErr := deps.Storage.Check(ctx, current.BasePrefix)
+	authRes, authErr := s.provisioning.Auth.Ensure(ctx, fmt.Sprintf("%s-%s", s.envKey, current.Slug))
+	_, storageErr := s.provisioning.Storage.Check(ctx, current.BasePrefix)
 
 	dbReady := current.Provisioning.DBReady || dbRes.Ready
 	authReady := current.Provisioning.AuthReady || authRes.Ready
@@ -296,12 +300,11 @@ func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (Provisioni
 		return ProvisioningStatus{}, fmt.Errorf("tenant missing role name")
 	}
 
-	deps := s.provisioning.FillNil()
 	roleName := current.RoleName
 
-	dbRes, dbErr := deps.DB.Check(ctx, DBProvisionRequest{TenantID: current.ID, SchemaName: current.SchemaName, RoleName: roleName, AdminSchema: s.adminSchema})
-	authRes, authErr := deps.Auth.Check(ctx, fmt.Sprintf("%s-%s", s.envKey, current.Slug))
-	_, storageErr := deps.Storage.Check(ctx, current.BasePrefix)
+	dbRes, dbErr := s.provisioning.DB.Check(ctx, DBProvisionRequest{TenantID: current.ID, SchemaName: current.SchemaName, RoleName: roleName, AdminSchema: s.adminSchema})
+	authRes, authErr := s.provisioning.Auth.Check(ctx, fmt.Sprintf("%s-%s", s.envKey, current.Slug))
+	_, storageErr := s.provisioning.Storage.Check(ctx, current.BasePrefix)
 
 	dbReady := current.Provisioning.DBReady || dbRes.Ready
 	authReady := current.Provisioning.AuthReady || authRes.Ready
