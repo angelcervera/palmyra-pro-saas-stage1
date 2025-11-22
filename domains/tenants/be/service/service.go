@@ -47,13 +47,13 @@ type ProvisioningStatus struct {
 	LastError         *string
 }
 
-// TenantStatusFromString converts stored string to TenantStatus; defaults to pending on unknown.
-func TenantStatusFromString(s string) tenantsapi.TenantStatus {
+// TenantStatusFromString converts stored string to TenantStatus; returns error on unknown.
+func TenantStatusFromString(s string) (tenantsapi.TenantStatus, error) {
 	switch tenantsapi.TenantStatus(s) {
 	case tenantsapi.Active, tenantsapi.Disabled, tenantsapi.Pending, tenantsapi.Provisioning:
-		return tenantsapi.TenantStatus(s)
+		return tenantsapi.TenantStatus(s), nil
 	default:
-		return tenantsapi.Pending
+		return tenantsapi.Pending, fmt.Errorf("unknown tenant status: %s", s)
 	}
 }
 
@@ -303,25 +303,21 @@ func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (Provisioni
 	roleName := current.RoleName
 
 	dbRes, dbErr := s.provisioning.DB.Check(ctx, DBProvisionRequest{TenantID: current.ID, SchemaName: current.SchemaName, RoleName: roleName, AdminSchema: s.adminSchema})
+	if dbErr != nil {
+		return ProvisioningStatus{}, dbErr
+	}
 	authRes, authErr := s.provisioning.Auth.Check(ctx, fmt.Sprintf("%s-%s", s.envKey, current.Slug))
-	_, storageErr := s.provisioning.Storage.Check(ctx, current.BasePrefix)
+	if authErr != nil {
+		return ProvisioningStatus{}, authErr
+	}
+	if _, storageErr := s.provisioning.Storage.Check(ctx, current.BasePrefix); storageErr != nil {
+		return ProvisioningStatus{}, storageErr
+	}
 
-	dbReady := current.Provisioning.DBReady || dbRes.Ready
-	authReady := current.Provisioning.AuthReady || authRes.Ready
+	dbReady := dbRes.Ready
+	authReady := authRes.Ready
 
 	var lastErr *string
-	if dbErr != nil {
-		s := dbErr.Error()
-		lastErr = &s
-	}
-	if authErr != nil && lastErr == nil {
-		s := authErr.Error()
-		lastErr = &s
-	}
-	if storageErr != nil && lastErr == nil {
-		s := storageErr.Error()
-		lastErr = &s
-	}
 
 	status := current.Status
 	if dbReady && authReady {

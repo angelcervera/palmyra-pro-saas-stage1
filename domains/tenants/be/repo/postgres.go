@@ -49,7 +49,11 @@ func (r *PostgresRepository) List(ctx context.Context, opts service.ListOptions)
 
 	tenants := make([]service.Tenant, 0, len(rows))
 	for _, rec := range rows {
-		tenants = append(tenants, toServiceTenant(rec))
+		t, err := toServiceTenant(rec)
+		if err != nil {
+			return service.ListResult{}, err
+		}
+		tenants = append(tenants, t)
 	}
 
 	totalPages := (total + size - 1) / size
@@ -62,7 +66,7 @@ func (r *PostgresRepository) Create(ctx context.Context, t service.Tenant) (serv
 	if err != nil {
 		return service.Tenant{}, err
 	}
-	return toServiceTenant(out), nil
+	return toServiceTenant(out)
 }
 
 func (r *PostgresRepository) Get(ctx context.Context, id uuid.UUID) (service.Tenant, error) {
@@ -70,7 +74,7 @@ func (r *PostgresRepository) Get(ctx context.Context, id uuid.UUID) (service.Ten
 	if err != nil {
 		return service.Tenant{}, mapNotFound(err)
 	}
-	return toServiceTenant(rec), nil
+	return toServiceTenant(rec)
 }
 
 func (r *PostgresRepository) AppendVersion(ctx context.Context, t service.Tenant) (service.Tenant, error) {
@@ -79,7 +83,7 @@ func (r *PostgresRepository) AppendVersion(ctx context.Context, t service.Tenant
 	if err != nil {
 		return service.Tenant{}, err
 	}
-	return toServiceTenant(out), nil
+	return toServiceTenant(out)
 }
 
 func (r *PostgresRepository) FindBySlug(ctx context.Context, slug string) (service.Tenant, error) {
@@ -87,7 +91,7 @@ func (r *PostgresRepository) FindBySlug(ctx context.Context, slug string) (servi
 	if err != nil {
 		return service.Tenant{}, mapNotFound(err)
 	}
-	return toServiceTenant(rec), nil
+	return toServiceTenant(rec)
 }
 
 func toRecord(t service.Tenant) persistence.TenantRecord {
@@ -111,13 +115,17 @@ func toRecord(t service.Tenant) persistence.TenantRecord {
 	}
 }
 
-func toServiceTenant(rec persistence.TenantRecord) service.Tenant {
+func toServiceTenant(rec persistence.TenantRecord) (service.Tenant, error) {
+	status, err := service.TenantStatusFromString(rec.Status)
+	if err != nil {
+		return service.Tenant{}, err
+	}
 	return service.Tenant{
 		ID:            rec.TenantID,
 		Version:       rec.TenantVersion,
 		Slug:          rec.Slug,
 		DisplayName:   rec.DisplayName,
-		Status:        service.TenantStatusFromString(rec.Status),
+		Status:        status,
 		SchemaName:    rec.SchemaName,
 		RoleName:      tenant.BuildRoleName(rec.SchemaName),
 		BasePrefix:    rec.BasePrefix,
@@ -130,7 +138,7 @@ func toServiceTenant(rec persistence.TenantRecord) service.Tenant {
 			LastProvisionedAt: rec.LastProvisionedAt,
 			LastError:         rec.LastError,
 		},
-	}
+	}, nil
 }
 
 func mapNotFound(err error) error {
