@@ -69,7 +69,8 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - Failure handling: keep achieved flags, store `lastError`, status `pending` if nothing ready else `provisioning`; retries re-validate resources.
 - Provision status (`GET ...:provision-status`): live-check role/grants/schema/base tables, auth tenant, GCS prefix; persist flag changes; promote to `active` when both ready.
 - Runtime invariant: `TenantDB.WithTenant` must execute `SET LOCAL ROLE roleName` and `SET LOCAL search_path = schemaName,<admin_schema>` for every tenant-scoped txn; lazy ensure paths must run under the tenant role so new tables inherit ownership.
-  - Because schemas can be added over time in the schema repository, entity tables are created on-demand at runtime; default privileges from provisioning ensure those tables land with the tenant role and stay isolated.
+- Because schemas can be added over time in the schema repository, entity tables are created on-demand at runtime; default privileges from provisioning ensure those tables land with the tenant role and stay isolated.
+- The tenant registry now stores `role_name`; runtime uses the stored value (no derivation). Keep DB and `tenant.Space` in sync; missing/empty `role_name` is an error.
 
 ## Current limitations / open items
 - Provisioning workflow remains unimplemented; service returns `ErrNotImplemented` until wired to steps above.

@@ -30,3 +30,24 @@ func BuildBasePrefix(envKey, slug string, shortID string) string {
 func BuildRoleName(schemaName string) string {
 	return schemaName + "_role"
 }
+
+// DerivedIdentifiers groups the identifiers derived from slug/env/tenantID.
+type DerivedIdentifiers struct {
+	SchemaName    string
+	RoleName      string
+	BasePrefix    string
+	ShortTenantID string
+}
+
+// DeriveIdentifiers returns schema name, role name, base prefix, and short ID for a tenant.
+func DeriveIdentifiers(envKey, slug string, tenantID uuid.UUID) DerivedIdentifiers {
+	slugSnake := ToSnake(slug)
+	schema := BuildSchemaName(slugSnake)
+	shortID := ShortID(tenantID)
+	return DerivedIdentifiers{
+		SchemaName:    schema,
+		RoleName:      BuildRoleName(schema),
+		BasePrefix:    BuildBasePrefix(envKey, slug, shortID),
+		ShortTenantID: shortID,
+	}
+}

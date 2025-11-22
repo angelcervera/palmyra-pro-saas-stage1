@@ -152,10 +152,7 @@ func (s *Service) List(ctx context.Context, opts ListOptions) (ListResult, error
 func (s *Service) Create(ctx context.Context, input CreateInput) (Tenant, error) {
 	id := uuid.New()
 	version := persistence.SemanticVersion{Major: 1, Minor: 0, Patch: 0}
-	shortID := tenant.ShortID(id)
-	schemaName := tenant.BuildSchemaName(tenant.ToSnake(input.Slug))
-	roleName := tenant.BuildRoleName(schemaName)
-	basePrefix := tenant.BuildBasePrefix(s.envKey, input.Slug, shortID)
+	derived := tenant.DeriveIdentifiers(s.envKey, input.Slug, id)
 
 	now := time.Now().UTC()
 
@@ -165,10 +162,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Tenant, error)
 		DisplayName:   input.DisplayName,
 		Status:        input.Status,
 		Version:       version,
-		SchemaName:    schemaName,
-		RoleName:      roleName,
-		BasePrefix:    basePrefix,
-		ShortTenantID: shortID,
+		SchemaName:    derived.SchemaName,
+		RoleName:      derived.RoleName,
+		BasePrefix:    derived.BasePrefix,
+		ShortTenantID: derived.ShortTenantID,
 		CreatedAt:     now,
 		CreatedBy:     input.CreatedBy,
 		Provisioning: ProvisioningStatus{
