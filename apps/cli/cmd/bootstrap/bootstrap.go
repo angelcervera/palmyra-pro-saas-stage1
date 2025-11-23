@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/cobra"
 
 	"github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/provisioning"
@@ -19,6 +20,12 @@ import (
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
+
+// Notes/constraints:
+// - Bootstrap assumes admin DDL has already run (admin schema + tenants table). It does NOT create admin tables.
+// - Tenant creation (TenantStore) always writes to the admin schema via admin-scoped connections.
+// - Provisioning (DB/Auth/Storage) runs after the tenant record exists so derived identifiers stay consistent.
+// - Auth/Storage provisioners are no-op placeholders in this CLI; wire real implementations when available.
 
 // Command groups bootstrap helpers (platform init, future seed steps).
 func Command() *cobra.Command {
@@ -55,6 +62,10 @@ func platformCommand() *cobra.Command {
 				return fmt.Errorf("init pool: %w", err)
 			}
 			defer persistence.ClosePool(pool)
+
+			if err := ensureAdminSchemaReady(ctx, pool, adminSchema); err != nil {
+				return err
+			}
 
 			tenantStore, err := persistence.NewTenantStore(ctx, pool, adminSchema)
 			if err != nil {
@@ -241,4 +252,35 @@ func ensureAdminUser(ctx context.Context, userSvc usersservice.Service, audit re
 		return usersservice.User{}, fmt.Errorf("create admin user: %w", err)
 	}
 	return user, nil
+}
+
+// ensureAdminSchemaReady verifies the admin schema and tenants table exist. It does not create them.
+func ensureAdminSchemaReady(ctx context.Context, pool *pgxpool.Pool, adminSchema string) error {
+	adminSchema = strings.TrimSpace(adminSchema)
+	if adminSchema == "" {
+		return fmt.Errorf("admin schema is required")
+	}
+
+	var exists bool
+	if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = $1)`, adminSchema).Scan(&exists); err != nil {
+		return fmt.Errorf("check admin schema: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("admin schema %q not found (apply migrations first)", adminSchema)
+	}
+
+	if err := pool.QueryRow(ctx, `
+        SELECT EXISTS (
+            SELECT 1
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = $1 AND c.relname = 'tenants' AND c.relkind = 'r'
+        )`, adminSchema).Scan(&exists); err != nil {
+		return fmt.Errorf("check tenants table: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("tenants table not found in admin schema %q (apply migrations first)", adminSchema)
+	}
+
+	return nil
 }
