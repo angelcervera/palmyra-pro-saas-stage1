@@ -32,15 +32,15 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}
       ENV_KEY: ${ENV_KEY:-dev}
       ADMIN_TENANT_SLUG: ${ADMIN_TENANT_SLUG:-admin}
-      TENANT_NAME: ${TENANT_NAME:-Admin}
+      ADMIN_TENANT_NAME: ${ADMIN_TENANT_NAME:-Admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Palmyra Admin}
     entrypoint: ["/usr/local/bin/wait-for-postgres.sh", "postgres", "5432",
       "/usr/local/bin/platform-cli", "bootstrap", "platform",
       "--database-url", "${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}",
       "--env-key", "${ENV_KEY:-dev}",
-      "--tenant-slug", "${ADMIN_TENANT_SLUG:-admin}",
-      "--tenant-name", "${TENANT_NAME:-Admin}",
+      "--admin-tenant-slug", "${ADMIN_TENANT_SLUG:-admin}",
+      "--admin-tenant-name", "${ADMIN_TENANT_NAME:-Admin}",
       "--admin-email", "${ADMIN_EMAIL:-admin@example.com}",
       "--admin-full-name", "${ADMIN_FULL_NAME:-Palmyra Admin}" ]
     restart: "no"

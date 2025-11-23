@@ -33,13 +33,13 @@ func Command() *cobra.Command {
 
 func platformCommand() *cobra.Command {
 	var (
-		databaseURL   string
-		envKey        string
-		tenantSlug    string
-		tenantName    string
-		adminEmail    string
-		adminFullName string
-		createdBy     string
+		databaseURL     string
+		envKey          string
+		adminTenantSlug string
+		adminTenantName string
+		adminEmail      string
+		adminFullName   string
+		createdBy       string
 	)
 
 	c := &cobra.Command{
@@ -55,7 +55,7 @@ func platformCommand() *cobra.Command {
 			defer persistence.ClosePool(pool)
 
 			// Derive admin schema from slug.
-			slugSnake := tenant.ToSnake(tenantSlug)
+			slugSnake := tenant.ToSnake(adminTenantSlug)
 			adminSchema := tenant.BuildSchemaName(slugSnake)
 
 			// Phase 1: platform bootstrap (admin schema + base tables)
@@ -78,26 +78,28 @@ func platformCommand() *cobra.Command {
 			}
 
 			// Seed admin tenant if missing.
-			tenantRec, err := tenantStore.GetBySlug(ctx, tenantSlug)
+			tenantRec, err := tenantStore.GetBySlug(ctx, adminTenantSlug)
 			if err != nil {
 				// Create initial admin tenant version 1.0.0
 				adminID := uuid.New()
-				der := tenant.DeriveIdentifiers(envKey, tenantSlug, adminID)
+				der := tenant.DeriveIdentifiers(envKey, adminTenantSlug, adminID)
+				now := time.Now().UTC()
 				rec := persistence.TenantRecord{
-					TenantID:      adminID,
-					TenantVersion: persistence.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
-					Slug:          tenantSlug,
-					DisplayName:   strPtrOrNil(defaultName(tenantSlug, tenantName)),
-					Status:        "active",
-					SchemaName:    adminSchema,
-					RoleName:      der.RoleName, // role may be provisioned later
-					BasePrefix:    der.BasePrefix,
-					ShortTenantID: der.ShortTenantID,
-					IsActive:      true,
-					CreatedAt:     time.Now().UTC(),
-					CreatedBy:     createdByID,
-					DBReady:       true,
-					AuthReady:     true,
+					TenantID:          adminID,
+					TenantVersion:     persistence.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
+					Slug:              adminTenantSlug,
+					DisplayName:       strPtrOrNil(defaultName(adminTenantSlug, adminTenantName)),
+					Status:            "active",
+					SchemaName:        adminSchema,
+					RoleName:          der.RoleName, // role may be provisioned later
+					BasePrefix:        der.BasePrefix,
+					ShortTenantID:     der.ShortTenantID,
+					IsActive:          true,
+					CreatedAt:         now,
+					CreatedBy:         createdByID,
+					DBReady:           true,
+					AuthReady:         true,
+					LastProvisionedAt: &now,
 				}
 				tenantRec, err = tenantStore.Create(ctx, rec)
 				if err != nil {
@@ -120,8 +122,8 @@ func platformCommand() *cobra.Command {
 
 	c.Flags().StringVar(&databaseURL, "database-url", "", "PostgreSQL connection string")
 	c.Flags().StringVar(&envKey, "env-key", "dev", "Environment key prefix (e.g. dev, stg, prod)")
-	c.Flags().StringVar(&tenantSlug, "tenant-slug", "admin", "Slug for admin tenant")
-	c.Flags().StringVar(&tenantName, "tenant-name", "", "Display name for admin tenant (defaults to slug)")
+	c.Flags().StringVar(&adminTenantSlug, "admin-tenant-slug", "admin", "Slug for admin tenant")
+	c.Flags().StringVar(&adminTenantName, "admin-tenant-name", "", "Display name for admin tenant (defaults to slug)")
 	c.Flags().StringVar(&adminEmail, "admin-email", "", "Initial admin user email")
 	c.Flags().StringVar(&adminFullName, "admin-full-name", "", "Initial admin user full name")
 	c.Flags().StringVar(&createdBy, "created-by", "", "UUID for createdBy (optional; defaults to random)")
