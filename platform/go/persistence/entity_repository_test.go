@@ -49,8 +49,8 @@ func TestEntityRepositoryIsolationWithTenantDB(t *testing.T) {
 		ClosePool(pool)
 	})
 
-	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, "001_core_schema.sql"))
-	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, "002_tenants_schema.sql"))
+	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, "users.sql"))
+	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, "tenants.sql"))
 
 	tenantSchemaA := tenant.BuildSchemaName("acme_co")
 	tenantSchemaB := tenant.BuildSchemaName("beta_inc")

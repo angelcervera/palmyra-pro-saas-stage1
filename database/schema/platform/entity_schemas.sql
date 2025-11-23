@@ -1,5 +1,3 @@
--- Base schema initialization for Palmyra Pro persistence layer.
--- This file is executed automatically by the Postgres container on first startup.
 
 -- Schema Categories capture the taxonomy for schemas.
 CREATE TABLE IF NOT EXISTS schema_categories (
@@ -52,14 +50,3 @@ CREATE UNIQUE INDEX IF NOT EXISTS schema_repository_slug_idx
 CREATE INDEX IF NOT EXISTS schema_repository_category_idx
     ON schema_repository(category_id)
     WHERE NOT is_soft_deleted;
-
--- Users table for admin/approval workflows.
-CREATE TABLE IF NOT EXISTS users (
-    user_id UUID PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
-    full_name TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS users_created_at_idx ON users(created_at DESC);

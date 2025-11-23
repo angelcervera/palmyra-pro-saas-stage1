@@ -8,7 +8,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
   - `schemaName = "tenant_" + snake_case(slug)`.  
   - `basePrefix = <envKey>/<slug>-<shortTenantId>/` (bucket comes from env, not stored per tenant).  
 - **Admin schema**: derived from `ADMIN_TENANT_SLUG` (default `admin`) as `tenant_<slugSnake>`. `database/000_init_schema_and_seeds.sh` sets DB `search_path` to this schema at bootstrap.
-- **Tenant registry**: immutable, versioned rows in `tenants` table (admin schema) defined in `database/schema/002_tenants_schema.sql`. Active version enforced by partial index; slug uniqueness enforced across non-deleted rows.
+- **Tenant registry**: immutable, versioned rows in `tenants` table (admin schema) defined in `database/schema/tenants.sql`. Active version enforced by partial index; slug uniqueness enforced across non-deleted rows.
 - **Tenant middleware** (`platform/go/tenant/middleware/tenant_space.go`): after auth, extracts tenant claim, resolves via tenant service, enforces `basePrefix` envKey prefix, caches (TTL optional), and attaches `tenant.Space` to context; on failure emits ProblemDetails (401/403).
 
 ## Persistence routing
@@ -58,8 +58,8 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - Tenant middleware still validates `basePrefix` envKey and returns ProblemDetails: 401 invalid tenant, 403 env mismatch/disabled/unknown.
 
 ## Bootstrapping & DDL
-- Base schemas/tables: `database/schema/001_core_schema.sql`.
-- Tenant registry DDL: `database/schema/002_tenants_schema.sql`.
+- Base schemas/tables: `database/schema/users.sql`.
+- Tenant registry DDL: `database/schema/tenants.sql`.
 - Init script: `database/000_init_schema_and_seeds.sh` creates admin schema from `ADMIN_TENANT_SLUG`, sets database search_path, applies ordered schema SQL, optional dev seeds.
 
 ## Testing

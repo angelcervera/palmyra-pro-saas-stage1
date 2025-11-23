@@ -89,7 +89,7 @@ func TestTenantRepositoryUsesConfiguredSchema(t *testing.T) {
 	defer cleanup()
 
 	schema := "tenant_test_schema"
-	require.NoError(t, applyDDLToSchema(ctx, pool, schema, "002_tenants_schema.sql"))
+	require.NoError(t, applyDDLToSchema(ctx, pool, schema, "tenants.sql"))
 
 	store, err := NewTenantStore(ctx, pool, schema)
 	require.NoError(t, err)
