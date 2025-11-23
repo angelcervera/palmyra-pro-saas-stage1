@@ -15,10 +15,9 @@ import (
 )
 
 // Notes/constraints:
-// - Bootstrap assumes admin DDL has already run (admin schema + tenants table). It does NOT create admin tables.
+// - This command performs platform bootstrap only (admin schema + base tables + admin tenant/user seed).
+// - It does NOT perform tenant-space provisioning (roles/schemas/grants); that remains in domains/tenants provisioning.
 // - Tenant creation (TenantStore) always writes to the admin schema via admin-scoped connections.
-// - Provisioning (DB/Auth/Storage) runs after the tenant record exists so derived identifiers stay consistent.
-// - Auth/Storage provisioners are no-op placeholders in this CLI; wire real implementations when available.
 
 // Command groups bootstrap helpers (platform init, future seed steps).
 func Command() *cobra.Command {
