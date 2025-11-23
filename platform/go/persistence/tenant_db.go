@@ -31,10 +31,12 @@ func NewTenantDB(cfg TenantDBConfig) *TenantDB {
 	if cfg.Pool == nil {
 		panic("TenantDB requires pool")
 	}
-	if cfg.AdminSchema == "" {
+
+	adminSchema := strings.TrimSpace(cfg.AdminSchema)
+	if adminSchema == "" {
 		panic("TenantDB requires admin schema")
 	}
-	return &TenantDB{pool: cfg.Pool, adminSchema: cfg.AdminSchema}
+	return &TenantDB{pool: cfg.Pool, adminSchema: adminSchema}
 }
 
 // WithAdmin executes fn inside a transaction scoped to the admin schema only.
