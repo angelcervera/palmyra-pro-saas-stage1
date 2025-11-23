@@ -48,7 +48,7 @@ func (db *TenantDB) WithAdmin(ctx context.Context, fn func(tx pgx.Tx) error) err
 	}
 	defer tx.Rollback(ctx) // nolint:errcheck
 
-	if _, err := tx.Exec(ctx, `SELECT set_config('search_path', $1, false)`, db.adminSchema); err != nil {
+	if _, err := tx.Exec(ctx, `SELECT set_config('search_path', $1, true)`, db.adminSchema); err != nil {
 		return fmt.Errorf("set search_path: %w", err)
 	}
 
@@ -76,7 +76,7 @@ func (db *TenantDB) WithTenant(ctx context.Context, space tenant.Space, fn func(
 	}
 
 	searchPath := fmt.Sprintf("%s, %s", space.SchemaName, db.adminSchema)
-	if _, err = tx.Exec(ctx, `SELECT set_config('search_path', $1, false)`, searchPath); err != nil {
+	if _, err = tx.Exec(ctx, `SELECT set_config('search_path', $1, true)`, searchPath); err != nil {
 		return fmt.Errorf("set search_path: %w", err)
 	}
 
