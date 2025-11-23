@@ -32,6 +32,26 @@ func NewTenantDB(cfg TenantDBConfig) *TenantDB {
 	return &TenantDB{pool: cfg.Pool, adminSchema: cfg.AdminSchema}
 }
 
+// WithAdmin executes fn inside a transaction scoped to the admin schema only.
+// No role switching is performed; caller must rely on the connection's identity.
+func (db *TenantDB) WithAdmin(ctx context.Context, fn func(tx pgx.Tx) error) error {
+	tx, err := db.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) // nolint:errcheck
+
+	if _, err := tx.Exec(ctx, `SELECT set_config('search_path', $1, false)`, db.adminSchema); err != nil {
+		return fmt.Errorf("set search_path: %w", err)
+	}
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 // WithTenant executes fn inside a transaction with search_path set to tenant + admin schema.
 func (db *TenantDB) WithTenant(ctx context.Context, space tenant.Space, fn func(tx pgx.Tx) error) error {
 	tx, err := db.pool.BeginTx(ctx, pgx.TxOptions{})

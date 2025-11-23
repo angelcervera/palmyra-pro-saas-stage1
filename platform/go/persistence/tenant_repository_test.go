@@ -19,11 +19,9 @@ func TestTenantRepositoryLifecycle(t *testing.T) {
 	pool, cleanup := mustTestPool(t)
 	defer cleanup()
 
-	// Ensure search_path uses admin schema derived from slug.
 	store, err := NewTenantStore(ctx, pool, "")
 	require.NoError(t, err)
-
-	repo := &TenantStore{pool: pool, table: store.table}
+	repo := store
 
 	tenantID := uuid.New()
 	createdBy := uuid.New()
@@ -96,7 +94,7 @@ func TestTenantRepositoryUsesConfiguredSchema(t *testing.T) {
 	store, err := NewTenantStore(ctx, pool, schema)
 	require.NoError(t, err)
 
-	repo := &TenantStore{pool: pool, table: store.table}
+	repo := store
 
 	tenantID := uuid.New()
 	rec := TenantRecord{
