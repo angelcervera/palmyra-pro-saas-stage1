@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"sync"
 
@@ -20,61 +19,10 @@ var (
 	schemaDirParts       = []string{"database", "schema"}
 )
 
-// applyCoreSchemaDDL loads and executes the base SQL schema files used across environments.
-// Tests call this helper so they can bootstrap a clean database without relying on embedded DDL.
+// applyCoreSchemaDDL bootstraps the admin schema for tests using the shared helper.
+// It remains unexported for backward compatibility in persistence tests.
 func applyCoreSchemaDDL(ctx context.Context, pool *pgxpool.Pool) error {
-	coreSchemaOnce.Do(func() {
-		root, err := repoRootFromFile()
-		if err != nil {
-			coreSchemaInitErr = err
-			return
-		}
-
-		dirPath := filepath.Join(append([]string{root}, schemaDirParts...)...)
-		entries, err := os.ReadDir(dirPath)
-		if err != nil {
-			coreSchemaInitErr = fmt.Errorf("read schema dir (%s): %w", dirPath, err)
-			return
-		}
-
-		sort.Slice(entries, func(i, j int) bool {
-			return entries[i].Name() < entries[j].Name()
-		})
-
-		var statements []string
-		for _, entry := range entries {
-			if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" {
-				continue
-			}
-
-			content, readErr := os.ReadFile(filepath.Join(dirPath, entry.Name()))
-			if readErr != nil {
-				coreSchemaInitErr = fmt.Errorf("read schema file %s: %w", entry.Name(), readErr)
-				return
-			}
-
-			statements = append(statements, splitStatements(string(content))...)
-		}
-
-		if len(statements) == 0 {
-			coreSchemaInitErr = fmt.Errorf("schema directory %s contained no SQL statements", dirPath)
-			return
-		}
-
-		coreSchemaStatements = statements
-	})
-
-	if coreSchemaInitErr != nil {
-		return coreSchemaInitErr
-	}
-
-	for _, stmt := range coreSchemaStatements {
-		if _, err := pool.Exec(ctx, stmt); err != nil {
-			return fmt.Errorf("apply core schema ddl: %w", err)
-		}
-	}
-
-	return nil
+	return BootstrapAdminSchema(ctx, pool, "tenant_admin")
 }
 
 func repoRootFromFile() (string, error) {
