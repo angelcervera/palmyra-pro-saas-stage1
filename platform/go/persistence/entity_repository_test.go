@@ -11,6 +11,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+	sqlassets "github.com/zenGate-Global/palmyra-pro-saas/database"
 
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
@@ -49,8 +50,9 @@ func TestEntityRepositoryIsolationWithTenantDB(t *testing.T) {
 		ClosePool(pool)
 	})
 
-	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, "users.sql"))
-	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, "tenants.sql"))
+	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.UsersSQL))
+	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.EntitySchemasSQL))
+	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.TenantsSQL))
 
 	tenantSchemaA := tenant.BuildSchemaName("acme_co")
 	tenantSchemaB := tenant.BuildSchemaName("beta_inc")

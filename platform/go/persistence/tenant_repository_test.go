@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	sqlassets "github.com/zenGate-Global/palmyra-pro-saas/database"
 )
 
 func TestTenantRepositoryLifecycle(t *testing.T) {
@@ -89,7 +90,7 @@ func TestTenantRepositoryUsesConfiguredSchema(t *testing.T) {
 	defer cleanup()
 
 	schema := "tenant_test_schema"
-	require.NoError(t, applyDDLToSchema(ctx, pool, schema, "tenants.sql"))
+	require.NoError(t, applyDDLToSchema(ctx, pool, schema, sqlassets.TenantsSQL))
 
 	store, err := NewTenantStore(ctx, pool, schema)
 	require.NoError(t, err)
