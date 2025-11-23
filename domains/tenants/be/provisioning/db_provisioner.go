@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	sqlassets "github.com/zenGate-Global/palmyra-pro-saas/database"
 	"github.com/zenGate-Global/palmyra-pro-saas/domains/tenants/be/service"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
@@ -15,17 +17,36 @@ import (
 
 // DBProvisioner creates per-tenant roles/schemas/grants and base shared tables.
 type DBProvisioner struct {
-	pool *pgxpool.Pool
+	pool        *pgxpool.Pool
+	tenantDB    *persistence.TenantDB
+	adminSchema string
 }
 
-func NewDBProvisioner(pool *pgxpool.Pool) *DBProvisioner {
+func NewDBProvisioner(pool *pgxpool.Pool, adminSchema string) *DBProvisioner {
 	if pool == nil {
 		panic("db provisioner requires pool")
 	}
-	return &DBProvisioner{pool: pool}
+
+	adminSchema = strings.TrimSpace(adminSchema)
+	if adminSchema == "" {
+		panic("db provisioner requires admin schema")
+	}
+
+	return &DBProvisioner{
+		pool:        pool,
+		adminSchema: adminSchema,
+		tenantDB: persistence.NewTenantDB(persistence.TenantDBConfig{
+			Pool:        pool,
+			AdminSchema: adminSchema,
+		}),
+	}
 }
 
 func (p *DBProvisioner) Ensure(ctx context.Context, req service.DBProvisionRequest) (service.DBProvisionResult, error) {
+	if req.AdminSchema != "" && req.AdminSchema != p.adminSchema {
+		return service.DBProvisionResult{}, fmt.Errorf("admin schema mismatch: provisioner=%s request=%s", p.adminSchema, req.AdminSchema)
+	}
+
 	ready, err := p.ensureRoleSchemaAndGrants(ctx, req)
 	if err != nil {
 		return service.DBProvisionResult{}, err
@@ -42,6 +63,9 @@ func (p *DBProvisioner) Check(ctx context.Context, req service.DBProvisionReques
 	}
 	if req.AdminSchema == "" {
 		return service.DBProvisionResult{Ready: false}, fmt.Errorf("admin schema required")
+	}
+	if req.AdminSchema != p.adminSchema {
+		return service.DBProvisionResult{}, fmt.Errorf("admin schema mismatch: provisioner=%s request=%s", p.adminSchema, req.AdminSchema)
 	}
 
 	conn, err := p.pool.Acquire(ctx)
@@ -65,21 +89,26 @@ func (p *DBProvisioner) Check(ctx context.Context, req service.DBProvisionReques
 		return service.DBProvisionResult{}, fmt.Errorf("check role: %w", err)
 	}
 
+	// Ensure current user can assume the tenant role; otherwise SET ROLE will fail later.
+	if err := tx.QueryRow(ctx, "SELECT pg_has_role(current_user, $1, 'MEMBER')::int", req.RoleName).Scan(&dummy); err != nil {
+		return service.DBProvisionResult{}, fmt.Errorf("check role membership: %w", err)
+	}
+	if dummy == 0 {
+		return service.DBProvisionResult{Ready: false}, nil
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return service.DBProvisionResult{}, fmt.Errorf("commit role check: %w", err)
 	}
 
 	ready := true
-	tenantDB := persistence.NewTenantDB(persistence.TenantDBConfig{
-		Pool:        p.pool,
-		AdminSchema: req.AdminSchema,
-	})
 
-	if err := tenantDB.WithTenant(ctx, tenant.Space{
+	if err := p.tenantDB.WithTenant(ctx, tenant.Space{
 		SchemaName: req.SchemaName,
 		RoleName:   req.RoleName,
 	}, func(txx pgx.Tx) error {
 		// Check schema visibility under tenant role.
+		var dummy int
 		if err := txx.QueryRow(ctx, "SELECT 1 FROM information_schema.schemata WHERE schema_name = $1", req.SchemaName).Scan(&dummy); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				ready = false
@@ -98,6 +127,13 @@ func (p *DBProvisioner) Check(ctx context.Context, req service.DBProvisionReques
 		// Basic read probe to ensure SELECT privilege.
 		if err := txx.QueryRow(ctx, "SELECT 1 FROM users LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("read users table: %w", err)
+		}
+		// Ensure read access to shared catalog tables in admin schema via search_path.
+		if err := txx.QueryRow(ctx, "SELECT 1 FROM schema_repository LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("read schema_repository: %w", err)
+		}
+		if err := txx.QueryRow(ctx, "SELECT 1 FROM schema_categories LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("read schema_categories: %w", err)
 		}
 		return nil
 	}); err != nil {
@@ -144,69 +180,57 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 		if _, err := tx.Exec(ctx, grantUsageAdmin); err != nil {
 			return false, fmt.Errorf("grant usage admin schema: %w", err)
 		}
-		grantSchemaRepo := fmt.Sprintf("GRANT SELECT ON %s.schema_repository TO %s", pgx.Identifier{req.AdminSchema}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
-		if _, err := tx.Exec(ctx, grantSchemaRepo); err != nil {
-			return false, fmt.Errorf("grant select schema_repository: %w", err)
+		for _, table := range []string{"schema_repository", "schema_categories"} {
+			grant := fmt.Sprintf("GRANT SELECT ON %s.%s TO %s", pgx.Identifier{req.AdminSchema}.Sanitize(), pgx.Identifier{table}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
+			if _, err := tx.Exec(ctx, grant); err != nil {
+				return false, fmt.Errorf("grant select %s: %w", table, err)
+			}
 		}
-	}
-
-	alterDefault := fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL ON TABLES TO %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
-	if _, err := tx.Exec(ctx, alterDefault); err != nil {
-		return false, fmt.Errorf("default privs tables: %w", err)
-	}
-	alterDefaultSeq := fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL ON SEQUENCES TO %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
-	if _, err := tx.Exec(ctx, alterDefaultSeq); err != nil {
-		return false, fmt.Errorf("default privs sequences: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return false, fmt.Errorf("commit: %w", err)
 	}
+
+	// Default privileges must be applied while acting as the tenant role to avoid leaking role changes on pooled conns.
+	if err := p.tenantDB.WithTenant(ctx, tenant.Space{
+		SchemaName: req.SchemaName,
+		RoleName:   req.RoleName,
+	}, func(tx pgx.Tx) error {
+		alterDefault := fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL ON TABLES TO %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
+		if _, err := tx.Exec(ctx, alterDefault); err != nil {
+			return fmt.Errorf("default privs tables: %w", err)
+		}
+		alterDefaultSeq := fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL ON SEQUENCES TO %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
+		if _, err := tx.Exec(ctx, alterDefaultSeq); err != nil {
+			return fmt.Errorf("default privs sequences: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return false, err
+	}
+
 	return true, nil
 }
 
 func (p *DBProvisioner) ensureBaseTables(ctx context.Context, req service.DBProvisionRequest) error {
-	conn, err := p.pool.Acquire(ctx)
-	if err != nil {
-		return fmt.Errorf("acquire conn: %w", err)
-	}
-	defer conn.Release()
-
-	if _, err := conn.Exec(ctx, fmt.Sprintf("SET ROLE %s", pgx.Identifier{req.RoleName}.Sanitize())); err != nil {
-		return fmt.Errorf("set role: %w", err)
-	}
-	if req.AdminSchema != "" {
-		if _, err := conn.Exec(ctx, fmt.Sprintf("SET search_path = %s, %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.AdminSchema}.Sanitize())); err != nil {
-			return fmt.Errorf("set search_path: %w", err)
+	return p.tenantDB.WithTenant(ctx, tenant.Space{
+		SchemaName: req.SchemaName,
+		RoleName:   req.RoleName,
+	}, func(tx pgx.Tx) error {
+		// If the users table already exists (e.g., created by init SQL), skip creation.
+		var exists bool
+		if err := tx.QueryRow(ctx, "SELECT to_regclass('users') IS NOT NULL").Scan(&exists); err != nil {
+			return fmt.Errorf("check users table: %w", err)
 		}
-	} else {
-		if _, err := conn.Exec(ctx, fmt.Sprintf("SET search_path = %s", pgx.Identifier{req.SchemaName}.Sanitize())); err != nil {
-			return fmt.Errorf("set search_path: %w", err)
+		if exists {
+			return nil
 		}
-	}
-
-	// If the users table already exists (e.g., created by init SQL), skip creation.
-	var exists bool
-	if err := conn.QueryRow(ctx, "SELECT to_regclass('users') IS NOT NULL").Scan(&exists); err != nil {
-		return fmt.Errorf("check users table: %w", err)
-	}
-	if !exists {
-		stmt := `
-CREATE TABLE users (
-    user_id UUID PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
-    full_name TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX users_created_at_idx ON users(created_at DESC);
-`
-		if _, err := conn.Exec(ctx, stmt); err != nil {
+		if _, err := tx.Exec(ctx, sqlassets.UsersSQL); err != nil {
 			return fmt.Errorf("ensure base users table: %w", err)
 		}
-	}
-
-	return nil
+		return nil
+	})
 }
 
 var _ service.DBProvisioner = (*DBProvisioner)(nil)

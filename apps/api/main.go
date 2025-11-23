@@ -126,7 +126,7 @@ func main() {
 	}
 
 	tenantRepo := tenantsrepo.NewPostgresRepository(tenantStore)
-	dbProv := tenantsprov.NewDBProvisioner(pool)
+	dbProv := tenantsprov.NewDBProvisioner(pool, adminSchema)
 	authProv := tenantsprov.NewAuthProvisioner()
 	var storageProv tenantsservice.StorageProvisioner
 	switch cfg.StorageBackend {
