@@ -39,7 +39,6 @@ func platformCommand() *cobra.Command {
 		adminTenantName string
 		adminEmail      string
 		adminFullName   string
-		createdBy       string
 	)
 
 	c := &cobra.Command{
@@ -68,13 +67,11 @@ func platformCommand() *cobra.Command {
 				return fmt.Errorf("init tenant store: %w", err)
 			}
 
-			createdByID := uuid.New()
-			if createdBy != "" {
-				parsed, parseErr := uuid.Parse(createdBy)
-				if parseErr != nil {
-					return fmt.Errorf("invalid created-by uuid: %w", parseErr)
-				}
-				createdByID = parsed
+			// Seed admin user first; its ID is used as created_by for the admin tenant.
+			tenantDB := persistence.NewTenantDB(persistence.TenantDBConfig{Pool: pool, AdminSchema: adminSchema})
+			adminUserID, err := seedAdminUser(ctx, tenantDB, adminEmail, adminFullName)
+			if err != nil {
+				return fmt.Errorf("seed admin user: %w", err)
 			}
 
 			// Seed admin tenant if missing.
@@ -96,7 +93,7 @@ func platformCommand() *cobra.Command {
 					ShortTenantID:     der.ShortTenantID,
 					IsActive:          true,
 					CreatedAt:         now,
-					CreatedBy:         createdByID,
+					CreatedBy:         adminUserID,
 					DBReady:           true,
 					AuthReady:         true,
 					LastProvisionedAt: &now,
@@ -104,14 +101,6 @@ func platformCommand() *cobra.Command {
 				tenantRec, err = tenantStore.Create(ctx, rec)
 				if err != nil {
 					return fmt.Errorf("create admin tenant: %w", err)
-				}
-			}
-
-			// Optionally seed admin user inside admin schema without role switching.
-			if strings.TrimSpace(adminEmail) != "" && strings.TrimSpace(adminFullName) != "" {
-				tenantDB := persistence.NewTenantDB(persistence.TenantDBConfig{Pool: pool, AdminSchema: adminSchema})
-				if err := seedAdminUser(ctx, tenantDB, adminEmail, adminFullName); err != nil {
-					return fmt.Errorf("seed admin user: %w", err)
 				}
 			}
 
@@ -126,12 +115,12 @@ func platformCommand() *cobra.Command {
 	c.Flags().StringVar(&adminTenantName, "admin-tenant-name", "", "Display name for admin tenant (defaults to slug)")
 	c.Flags().StringVar(&adminEmail, "admin-email", "", "Initial admin user email")
 	c.Flags().StringVar(&adminFullName, "admin-full-name", "", "Initial admin user full name")
-	c.Flags().StringVar(&createdBy, "created-by", "", "UUID for createdBy (optional; defaults to random)")
 
 	_ = c.MarkFlagRequired("database-url")
 	_ = c.MarkFlagRequired("env-key")
-	_ = c.MarkFlagRequired("tenant-slug")
-	// Admin email/full-name optional; when set we will seed admin user in admin schema.
+	_ = c.MarkFlagRequired("admin-tenant-slug")
+	_ = c.MarkFlagRequired("admin-email")
+	_ = c.MarkFlagRequired("admin-full-name")
 
 	return c
 }
@@ -153,21 +142,23 @@ func defaultName(slug, name string) string {
 
 // seedAdminUser inserts an admin user row inside the admin schema using WithAdmin.
 // It is safe to run multiple times (unique email constraint).
-func seedAdminUser(ctx context.Context, tenantDB *persistence.TenantDB, email, fullName string) error {
+func seedAdminUser(ctx context.Context, tenantDB *persistence.TenantDB, email, fullName string) (uuid.UUID, error) {
 	email = strings.TrimSpace(email)
 	fullName = strings.TrimSpace(fullName)
 	if email == "" || fullName == "" {
-		return fmt.Errorf("admin email and full name are required to seed user")
+		return uuid.Nil, fmt.Errorf("admin email and full name are required to seed user")
 	}
 
-	return tenantDB.WithAdmin(ctx, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `
+	var userID uuid.UUID
+	if err := tenantDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
             INSERT INTO users (user_id, email, full_name)
             VALUES ($1, $2, $3)
-            ON CONFLICT (email) DO NOTHING
-        `, uuid.New(), email, fullName); err != nil {
-			return err
-		}
-		return nil
-	})
+            ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
+            RETURNING user_id
+        `, uuid.New(), email, fullName).Scan(&userID)
+	}); err != nil {
+		return uuid.Nil, err
+	}
+	return userID, nil
 }
