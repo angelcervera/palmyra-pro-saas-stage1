@@ -83,7 +83,7 @@ func main() {
 		log.Fatalf("load config: %v", err)
 	}
 
-	adminSchema := tenant.BuildSchemaName(tenant.ToSnake(cfg.AdminTenantSlug))
+	adminSchema := tenant.BuildSchemaName(cfg.EnvKey, tenant.ToSnake(cfg.AdminTenantSlug))
 
 	logger, err := platformlogging.NewLogger(platformlogging.Config{
 		Component: "api-server",

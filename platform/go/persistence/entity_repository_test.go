@@ -54,8 +54,8 @@ func TestEntityRepositoryIsolationWithTenantDB(t *testing.T) {
 	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.EntitySchemasSQL))
 	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.TenantsSQL))
 
-	tenantSchemaA := tenant.BuildSchemaName("acme_co")
-	tenantSchemaB := tenant.BuildSchemaName("beta_inc")
+	tenantSchemaA := tenant.BuildSchemaName("dev", "acme_co")
+	tenantSchemaB := tenant.BuildSchemaName("dev", "beta_inc")
 	_, err = pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+tenantSchemaA)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+tenantSchemaB)

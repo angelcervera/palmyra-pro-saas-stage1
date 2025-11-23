@@ -55,7 +55,7 @@ func platformCommand() *cobra.Command {
 
 			// Derive admin schema from slug.
 			slugSnake := tenant.ToSnake(adminTenantSlug)
-			adminSchema := tenant.BuildSchemaName(slugSnake)
+			adminSchema := tenant.BuildSchemaName(envKey, slugSnake)
 
 			// Phase 1: platform bootstrap (admin schema + base tables)
 			if err := persistence.BootstrapAdminSchema(ctx, pool, adminSchema); err != nil {

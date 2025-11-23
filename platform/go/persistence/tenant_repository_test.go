@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	sqlassets "github.com/zenGate-Global/palmyra-pro-saas/database"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
 func TestTenantRepositoryLifecycle(t *testing.T) {
@@ -32,8 +33,8 @@ func TestTenantRepositoryLifecycle(t *testing.T) {
 		Slug:          "acme-co",
 		DisplayName:   strPtr("Acme Co"),
 		Status:        "pending",
-		SchemaName:    "tenant_acme_co",
-		RoleName:      "tenant_acme_co_role",
+		SchemaName:    tenant.BuildSchemaName("dev", "acme_co"),
+		RoleName:      tenant.BuildRoleName(tenant.BuildSchemaName("dev", "acme_co")),
 		BasePrefix:    "dev/acme-co-12345678/",
 		ShortTenantID: "12345678",
 		IsActive:      true,
