@@ -185,18 +185,25 @@ func (p *DBProvisioner) ensureBaseTables(ctx context.Context, req service.DBProv
 		}
 	}
 
-	stmt := `
-CREATE TABLE IF NOT EXISTS users (
+	// If the users table already exists (e.g., created by init SQL), skip creation.
+	var exists bool
+	if err := conn.QueryRow(ctx, "SELECT to_regclass('users') IS NOT NULL").Scan(&exists); err != nil {
+		return fmt.Errorf("check users table: %w", err)
+	}
+	if !exists {
+		stmt := `
+CREATE TABLE users (
     user_id UUID PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
     full_name TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS users_created_at_idx ON users(created_at DESC);
+CREATE INDEX users_created_at_idx ON users(created_at DESC);
 `
-	if _, err := conn.Exec(ctx, stmt); err != nil {
-		return fmt.Errorf("ensure base users table: %w", err)
+		if _, err := conn.Exec(ctx, stmt); err != nil {
+			return fmt.Errorf("ensure base users table: %w", err)
+		}
 	}
 
 	return nil

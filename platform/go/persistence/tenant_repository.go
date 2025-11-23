@@ -35,21 +35,15 @@ type TenantRecord struct {
 
 // TenantStore provides access to the tenants table.
 type TenantStore struct {
-	pool  *pgxpool.Pool
-	table string
+	adminDB *TenantDB
+	table   string
 }
 
 // NewTenantStore creates a store; assumes migrations already created the table.
-// If schema is empty, uses the current search_path and table name "tenants".
+// Panics if pool is nil. AdminSchema is required by TenantDB, so pass the admin schema explicitly.
 func NewTenantStore(ctx context.Context, pool *pgxpool.Pool, schema string) (*TenantStore, error) {
-	if pool == nil {
-		return nil, errors.New("pool is required")
-	}
 	table := "tenants"
-	if schema != "" {
-		table = fmt.Sprintf("%s.tenants", schema)
-	}
-	return &TenantStore{pool: pool, table: table}, nil
+	return &TenantStore{adminDB: NewTenantDB(TenantDBConfig{Pool: pool, AdminSchema: schema}), table: table}, nil
 }
 
 const tenantSelectColumns = `tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
@@ -76,29 +70,34 @@ func (s *TenantStore) Create(ctx context.Context, rec TenantRecord) (TenantRecor
 	        RETURNING `+tenantSelectColumns+`
 	    `, s.table)
 
-	row := s.pool.QueryRow(ctx, query,
-		rec.TenantID, rec.TenantVersion.String(), rec.Slug, rec.DisplayName, rec.Status,
-		rec.SchemaName, rec.RoleName, rec.BasePrefix, rec.ShortTenantID, rec.CreatedAt, rec.CreatedBy,
-		rec.DBReady, rec.AuthReady, rec.LastProvisionedAt, rec.LastError,
-	)
+	var out TenantRecord
+	err := s.adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		row := tx.QueryRow(ctx, query,
+			rec.TenantID, rec.TenantVersion.String(), rec.Slug, rec.DisplayName, rec.Status,
+			rec.SchemaName, rec.RoleName, rec.BasePrefix, rec.ShortTenantID, rec.CreatedAt, rec.CreatedBy,
+			rec.DBReady, rec.AuthReady, rec.LastProvisionedAt, rec.LastError,
+		)
 
-	return scanTenantRecord(row)
+		var scanErr error
+		out, scanErr = scanTenantRecord(row)
+		return scanErr
+	})
+	if err != nil {
+		return TenantRecord{}, err
+	}
+	return out, nil
 }
 
 // AppendVersion inserts a new version and deactivates previous active version.
 func (s *TenantStore) AppendVersion(ctx context.Context, rec TenantRecord) (TenantRecord, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return TenantRecord{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	var out TenantRecord
+	err := s.adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		deactivate := fmt.Sprintf("UPDATE %s SET is_active = FALSE WHERE tenant_id = $1", s.table)
+		if _, err := tx.Exec(ctx, deactivate, rec.TenantID); err != nil {
+			return err
+		}
 
-	deactivate := fmt.Sprintf("UPDATE %s SET is_active = FALSE WHERE tenant_id = $1", s.table)
-	if _, err = tx.Exec(ctx, deactivate, rec.TenantID); err != nil {
-		return TenantRecord{}, err
-	}
-
-	insert := fmt.Sprintf(`
+		insert := fmt.Sprintf(`
 	        INSERT INTO %s (
 	            tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
 	            base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at,
@@ -109,18 +108,17 @@ func (s *TenantStore) AppendVersion(ctx context.Context, rec TenantRecord) (Tena
 	        RETURNING `+tenantSelectColumns+`
 	    `, s.table)
 
-	row := tx.QueryRow(ctx, insert,
-		rec.TenantID, rec.TenantVersion.String(), rec.Slug, rec.DisplayName, rec.Status,
-		rec.SchemaName, rec.RoleName, rec.BasePrefix, rec.ShortTenantID, rec.CreatedAt, rec.CreatedBy,
-		rec.DBReady, rec.AuthReady, rec.LastProvisionedAt, rec.LastError,
-	)
+		row := tx.QueryRow(ctx, insert,
+			rec.TenantID, rec.TenantVersion.String(), rec.Slug, rec.DisplayName, rec.Status,
+			rec.SchemaName, rec.RoleName, rec.BasePrefix, rec.ShortTenantID, rec.CreatedAt, rec.CreatedBy,
+			rec.DBReady, rec.AuthReady, rec.LastProvisionedAt, rec.LastError,
+		)
 
-	out, err := scanTenantRecord(row)
+		var scanErr error
+		out, scanErr = scanTenantRecord(row)
+		return scanErr
+	})
 	if err != nil {
-		return TenantRecord{}, err
-	}
-
-	if err = tx.Commit(ctx); err != nil {
 		return TenantRecord{}, err
 	}
 	return out, nil
@@ -129,13 +127,31 @@ func (s *TenantStore) AppendVersion(ctx context.Context, rec TenantRecord) (Tena
 // GetActive fetches the active tenant version.
 func (s *TenantStore) GetActive(ctx context.Context, id uuid.UUID) (TenantRecord, error) {
 	query := fmt.Sprintf(`SELECT %s FROM %s WHERE tenant_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE`, tenantSelectColumns, s.table)
-	return scanTenantRecord(s.pool.QueryRow(ctx, query, id))
+	var out TenantRecord
+	err := s.adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		var scanErr error
+		out, scanErr = scanTenantRecord(tx.QueryRow(ctx, query, id))
+		return scanErr
+	})
+	if err != nil {
+		return TenantRecord{}, err
+	}
+	return out, nil
 }
 
 // GetBySlug returns the active tenant by slug.
 func (s *TenantStore) GetBySlug(ctx context.Context, slug string) (TenantRecord, error) {
 	query := fmt.Sprintf(`SELECT %s FROM %s WHERE slug = $1 AND is_active = TRUE AND is_soft_deleted = FALSE`, tenantSelectColumns, s.table)
-	return scanTenantRecord(s.pool.QueryRow(ctx, query, slug))
+	var out TenantRecord
+	err := s.adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		var scanErr error
+		out, scanErr = scanTenantRecord(tx.QueryRow(ctx, query, slug))
+		return scanErr
+	})
+	if err != nil {
+		return TenantRecord{}, err
+	}
+	return out, nil
 }
 
 // ListActive returns paginated active tenants with optional status filter.
@@ -148,31 +164,37 @@ func (s *TenantStore) ListActive(ctx context.Context, status *string, limit, off
 	}
 
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s %s", s.table, where)
-	var total int
-	if err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-
 	query := fmt.Sprintf(`SELECT %s FROM %s %s
 	        ORDER BY created_at DESC
 	        LIMIT %d OFFSET %d`, tenantSelectColumns, s.table, where, limit, offset)
 
-	rows, err := s.pool.Query(ctx, query, args...)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
+	var (
+		total   int
+		records []TenantRecord
+	)
 
-	var records []TenantRecord
-	for rows.Next() {
-		rec, err := scanTenantRecord(rows)
-		if err != nil {
-			return nil, 0, err
+	err := s.adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+			return err
 		}
-		records = append(records, rec)
-	}
 
-	if err = rows.Err(); err != nil {
+		rows, err := tx.Query(ctx, query, args...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			rec, err := scanTenantRecord(rows)
+			if err != nil {
+				return err
+			}
+			records = append(records, rec)
+		}
+
+		return rows.Err()
+	})
+	if err != nil {
 		return nil, 0, err
 	}
 

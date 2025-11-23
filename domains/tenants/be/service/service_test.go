@@ -108,7 +108,8 @@ func (s stubStorage) Check(context.Context, string) (StorageProvisionResult, err
 
 func newTenantRecord(slug string) Tenant {
 	id := uuid.New()
-	schema := tenant.BuildSchemaName(tenant.ToSnake(slug))
+	envKey := "dev"
+	schema := tenant.BuildSchemaName(envKey, tenant.ToSnake(slug))
 	return Tenant{
 		ID:            id,
 		Version:       persistence.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
@@ -116,7 +117,7 @@ func newTenantRecord(slug string) Tenant {
 		Status:        tenantsapi.Pending,
 		SchemaName:    schema,
 		RoleName:      tenant.BuildRoleName(schema),
-		BasePrefix:    tenant.BuildBasePrefix("dev", slug, tenant.ShortID(id)),
+		BasePrefix:    tenant.BuildBasePrefix(envKey, slug, tenant.ShortID(id)),
 		ShortTenantID: tenant.ShortID(id),
 		CreatedAt:     time.Now().UTC(),
 		CreatedBy:     uuid.New(),

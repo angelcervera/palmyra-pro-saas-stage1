@@ -50,7 +50,7 @@ type DerivedIdentifiers struct {
 // DeriveIdentifiers returns schema name, role name, base prefix, and short ID for a tenant.
 func DeriveIdentifiers(envKey, slug string, tenantID uuid.UUID) DerivedIdentifiers {
 	slugSnake := ToSnake(slug)
-	schema := BuildSchemaName(slugSnake)
+	schema := BuildSchemaName(envKey, slugSnake)
 	shortID := ShortID(tenantID)
 	return DerivedIdentifiers{
 		SchemaName:    schema,

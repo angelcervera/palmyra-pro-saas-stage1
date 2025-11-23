@@ -7,8 +7,8 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - **Tenant Space** (`platform/go/tenant.Space`): `{tenantId, slug, shortTenantId, schemaName, basePrefix}`.  
   - `schemaName = "tenant_" + snake_case(slug)`.  
   - `basePrefix = <envKey>/<slug>-<shortTenantId>/` (bucket comes from env, not stored per tenant).  
-- **Admin schema**: derived from `ADMIN_TENANT_SLUG` (default `admin`) as `tenant_<slugSnake>`. `database/000_init_schema_and_seeds.sh` sets DB `search_path` to this schema at bootstrap.
-- **Tenant registry**: immutable, versioned rows in `tenants` table (admin schema) defined in `database/schema/002_tenants_schema.sql`. Active version enforced by partial index; slug uniqueness enforced across non-deleted rows.
+- **Admin schema**: derived from `ADMIN_TENANT_SLUG` (default `admin`) as `tenant_<slugSnake>`. The bootstrap CLI command initializes this schema and the base tables (see `apps/cli/cmd/bootstrap`).
+- **Tenant registry**: immutable, versioned rows in `tenants` table (admin schema) defined in `database/schema/tenants.sql`. Active version enforced by partial index; slug uniqueness enforced across non-deleted rows.
 - **Tenant middleware** (`platform/go/tenant/middleware/tenant_space.go`): after auth, extracts tenant claim, resolves via tenant service, enforces `basePrefix` envKey prefix, caches (TTL optional), and attaches `tenant.Space` to context; on failure emits ProblemDetails (401/403).
 
 ## Persistence routing
@@ -29,16 +29,15 @@ This document captures the backend LLD for multi‑tenant routing and storage as
   - Isolation test (`platform/go/persistence/user_repository_test.go`): two schemas, verifies separation and cross-tenant not-found.
 
 ## API wiring
-- `apps/api/main.go` builds one `TenantDB` with `AdminSchema` from env (`TENANT_SCHEMA` / derived admin schema) and injects into entity and user repos.
+- `apps/api/main.go` builds one `TenantDB` with `AdminSchema` derived from `ADMIN_TENANT_SLUG` and injects into entity and user repos.
 - Middleware order: auth → request trace → tenant space. Tenants endpoints remain admin-only.
 
 ## Environment variables (used today)
 - Core routing
   - `ENV_KEY` (required): leading segment for `basePrefix`; enforced by middleware and provisioning.
-  - `ADMIN_TENANT_SLUG` (default `admin`): seeds the admin schema name `tenant_<slugSnake>`.
-  - `TENANT_SCHEMA` (optional override for admin schema in API config; defaults to `admin`).
+  - `ADMIN_TENANT_SLUG` (default `admin`): seeds the admin schema name `tenant_<slugSnake>`; the API derives the admin schema from this value.
 - Database
-  - `DATABASE_URL` (required), `TEST_DATABASE_URL` (for integration tests), `PLATFORM_DB_SEED_MODE` (init script seeds).
+  - `DATABASE_URL` (required), `TEST_DATABASE_URL` (for integration tests).
 - Storage
   - `STORAGE_BACKEND` (`gcs`|`local`, default `gcs`).
   - `STORAGE_BUCKET` (required when backend=`gcs`; one bucket per environment class).
@@ -58,9 +57,9 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - Tenant middleware still validates `basePrefix` envKey and returns ProblemDetails: 401 invalid tenant, 403 env mismatch/disabled/unknown.
 
 ## Bootstrapping & DDL
-- Base schemas/tables: `database/schema/001_core_schema.sql`.
-- Tenant registry DDL: `database/schema/002_tenants_schema.sql`.
-- Init script: `database/000_init_schema_and_seeds.sh` creates admin schema from `ADMIN_TENANT_SLUG`, sets database search_path, applies ordered schema SQL, optional dev seeds.
+- Base schemas/tables: `database/schema/users.sql`.
+- Tenant registry DDL: `database/schema/tenants.sql`.
+- Bootstrap: run `platform-cli bootstrap platform --database-url <url> --admin-schema <schema> ...` to create the admin schema, apply base DDL (admin + tenant-space users), and seed the admin tenant/user. No SQL is auto-applied at container start.
 
 ## Testing
 - Integration (Testcontainers) for tenant registry, entities, users; skip when `testing.Short()` or `TEST_DATABASE_URL` unset.

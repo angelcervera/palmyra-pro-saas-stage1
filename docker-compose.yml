@@ -13,12 +13,37 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./database:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-palmyra}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  bootstrap:
+    build:
+      context: .
+      dockerfile: apps/cli/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env.dockercompose
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}
+      ENV_KEY: ${ENV_KEY:-dev}
+      ADMIN_TENANT_SLUG: ${ADMIN_TENANT_SLUG:-admin}
+      ADMIN_TENANT_NAME: ${ADMIN_TENANT_NAME:-Admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Palmyra Admin}
+    entrypoint: ["/usr/local/bin/wait-for-postgres.sh", "postgres", "5432",
+      "/usr/local/bin/platform-cli", "bootstrap", "platform",
+      "--database-url", "${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}",
+      "--env-key", "${ENV_KEY:-dev}",
+      "--admin-tenant-slug", "${ADMIN_TENANT_SLUG:-admin}",
+      "--admin-tenant-name", "${ADMIN_TENANT_NAME:-Admin}",
+      "--admin-email", "${ADMIN_EMAIL:-admin@example.com}",
+      "--admin-full-name", "${ADMIN_FULL_NAME:-Palmyra Admin}" ]
+    restart: "no"
 
   api:
     build:
@@ -33,11 +58,14 @@ services:
       REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-15s}
       SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      ADMIN_TENANT_SLUG: ${ADMIN_TENANT_SLUG:-admin}
       AUTH_PROVIDER: ${AUTH_PROVIDER:-dev}
       # FIREBASE_CONFIG and GCLOUD_PROJECT can be provided via the env file if needed
     depends_on:
       postgres:
         condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
     ports:
       - "3000:3000"
     # volumes:

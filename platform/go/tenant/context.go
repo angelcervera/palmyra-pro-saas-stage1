@@ -2,6 +2,7 @@ package tenant
 
 import (
 	"context"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -39,7 +40,10 @@ func FromContext(ctx context.Context) (Space, bool) {
 }
 
 // BuildSchemaName returns the canonical PostgreSQL schema name for a tenant
-// given its slug transformed to snake_case.
-func BuildSchemaName(slugSnake string) string {
-	return "tenant_" + slugSnake
+// given envKey and the tenant slug transformed to snake_case.
+// Format: <envKey>__tenant_<slugSnake> — double underscore keeps the env prefix visually separated
+// from the fixed segment and reduces accidental collisions across shared DBs.
+func BuildSchemaName(envKey, slugSnake string) string {
+	envKey = strings.TrimSpace(envKey)
+	return envKey + "__tenant_" + slugSnake
 }

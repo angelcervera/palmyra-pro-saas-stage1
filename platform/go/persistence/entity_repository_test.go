@@ -11,6 +11,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+	sqlassets "github.com/zenGate-Global/palmyra-pro-saas/database"
 
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
@@ -49,11 +50,12 @@ func TestEntityRepositoryIsolationWithTenantDB(t *testing.T) {
 		ClosePool(pool)
 	})
 
-	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, "001_core_schema.sql"))
-	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, "002_tenants_schema.sql"))
+	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.UsersSQL))
+	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.EntitySchemasSQL))
+	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.TenantsSQL))
 
-	tenantSchemaA := tenant.BuildSchemaName("acme_co")
-	tenantSchemaB := tenant.BuildSchemaName("beta_inc")
+	tenantSchemaA := tenant.BuildSchemaName("dev", "acme_co")
+	tenantSchemaB := tenant.BuildSchemaName("dev", "beta_inc")
 	_, err = pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+tenantSchemaA)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+tenantSchemaB)

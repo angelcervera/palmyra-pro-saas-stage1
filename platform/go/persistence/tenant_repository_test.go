@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	sqlassets "github.com/zenGate-Global/palmyra-pro-saas/database"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
 func TestTenantRepositoryLifecycle(t *testing.T) {
@@ -19,11 +21,9 @@ func TestTenantRepositoryLifecycle(t *testing.T) {
 	pool, cleanup := mustTestPool(t)
 	defer cleanup()
 
-	// Ensure search_path uses admin schema derived from slug.
-	store, err := NewTenantStore(ctx, pool, "")
+	store, err := NewTenantStore(ctx, pool, "tenant_admin")
 	require.NoError(t, err)
-
-	repo := &TenantStore{pool: pool, table: store.table}
+	repo := store
 
 	tenantID := uuid.New()
 	createdBy := uuid.New()
@@ -33,8 +33,8 @@ func TestTenantRepositoryLifecycle(t *testing.T) {
 		Slug:          "acme-co",
 		DisplayName:   strPtr("Acme Co"),
 		Status:        "pending",
-		SchemaName:    "tenant_acme_co",
-		RoleName:      "tenant_acme_co_role",
+		SchemaName:    tenant.BuildSchemaName("dev", "acme_co"),
+		RoleName:      tenant.BuildRoleName(tenant.BuildSchemaName("dev", "acme_co")),
 		BasePrefix:    "dev/acme-co-12345678/",
 		ShortTenantID: "12345678",
 		IsActive:      true,
@@ -91,12 +91,12 @@ func TestTenantRepositoryUsesConfiguredSchema(t *testing.T) {
 	defer cleanup()
 
 	schema := "tenant_test_schema"
-	require.NoError(t, applyDDLToSchema(ctx, pool, schema, "002_tenants_schema.sql"))
+	require.NoError(t, applyDDLToSchema(ctx, pool, schema, sqlassets.TenantsSQL))
 
 	store, err := NewTenantStore(ctx, pool, schema)
 	require.NoError(t, err)
 
-	repo := &TenantStore{pool: pool, table: store.table}
+	repo := store
 
 	tenantID := uuid.New()
 	rec := TenantRecord{

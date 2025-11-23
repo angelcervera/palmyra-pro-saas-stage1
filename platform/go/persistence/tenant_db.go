@@ -12,8 +12,13 @@ import (
 )
 
 // TenantDB wraps a pgx pool to execute queries within a tenant-specific search_path.
+type txBeginner interface {
+	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
+}
+
+// TenantDB wraps a pgx pool to execute queries within a tenant-specific search_path.
 type TenantDB struct {
-	pool        *pgxpool.Pool
+	pool        txBeginner
 	adminSchema string
 }
 
@@ -26,10 +31,32 @@ func NewTenantDB(cfg TenantDBConfig) *TenantDB {
 	if cfg.Pool == nil {
 		panic("TenantDB requires pool")
 	}
-	if cfg.AdminSchema == "" {
+
+	adminSchema := strings.TrimSpace(cfg.AdminSchema)
+	if adminSchema == "" {
 		panic("TenantDB requires admin schema")
 	}
-	return &TenantDB{pool: cfg.Pool, adminSchema: cfg.AdminSchema}
+	return &TenantDB{pool: cfg.Pool, adminSchema: adminSchema}
+}
+
+// WithAdmin executes fn inside a transaction scoped to the admin schema only.
+// No role switching is performed; caller must rely on the connection's identity.
+func (db *TenantDB) WithAdmin(ctx context.Context, fn func(tx pgx.Tx) error) error {
+	tx, err := db.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) // nolint:errcheck
+
+	if _, err := tx.Exec(ctx, `SELECT set_config('search_path', $1, false)`, db.adminSchema); err != nil {
+		return fmt.Errorf("set search_path: %w", err)
+	}
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 // WithTenant executes fn inside a transaction with search_path set to tenant + admin schema.

@@ -1,4 +1,4 @@
--- Tenant registry (immutable, versioned). Relies on search_path being set to the admin schema.
+-- Tenant registry (immutable, versioned).
 
 CREATE TABLE IF NOT EXISTS tenants (
     tenant_id UUID NOT NULL,
