@@ -27,11 +27,6 @@ func BootstrapAdminSchema(ctx context.Context, pool *pgxpool.Pool, adminSchema s
 		return fmt.Errorf("bootstrap admin schema: admin schema is required")
 	}
 
-	var statements []string
-	statements = append(statements, splitStatements(sqlassets.UsersSQL)...)
-	statements = append(statements, splitStatements(sqlassets.EntitySchemasSQL)...)
-	statements = append(statements, splitStatements(sqlassets.TenantsSQL)...)
-
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -46,8 +41,8 @@ func BootstrapAdminSchema(ctx context.Context, pool *pgxpool.Pool, adminSchema s
 		return fmt.Errorf("set search_path: %w", err)
 	}
 
-	for _, stmt := range statements {
-		if _, err := tx.Exec(ctx, stmt); err != nil {
+	for _, ddl := range []string{sqlassets.UsersSQL, sqlassets.EntitySchemasSQL, sqlassets.TenantsSQL} {
+		if _, err := tx.Exec(ctx, ddl); err != nil {
 			return fmt.Errorf("apply ddl: %w", err)
 		}
 	}

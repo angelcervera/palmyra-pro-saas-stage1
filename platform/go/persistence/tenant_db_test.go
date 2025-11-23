@@ -14,7 +14,12 @@ import (
 )
 
 // fakeTx satisfies pgx.Tx and records Exec statements invoked.
-type fakeTx struct{ stmts []string }
+type execCall struct {
+	sql  string
+	args []any
+}
+
+type fakeTx struct{ calls []execCall }
 
 func (f *fakeTx) Begin(ctx context.Context) (pgx.Tx, error) {
 	return nil, errors.New("not implemented")
@@ -34,7 +39,7 @@ func (f *fakeTx) Query(context.Context, string, ...any) (pgx.Rows, error) {
 }
 func (f *fakeTx) QueryRow(context.Context, string, ...any) pgx.Row { return nil }
 func (f *fakeTx) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
-	f.stmts = append(f.stmts, sql)
+	f.calls = append(f.calls, execCall{sql: sql, args: args})
 	return pgconn.CommandTag{}, nil
 }
 func (f *fakeTx) Conn() *pgx.Conn { return nil }
@@ -52,8 +57,9 @@ func TestTenantDBWithAdminSetsOnlySearchPath(t *testing.T) {
 
 	err := db.WithAdmin(context.Background(), func(tx pgx.Tx) error { return nil })
 	require.NoError(t, err)
-	require.Len(t, ftx.stmts, 1)
-	require.Contains(t, strings.ToLower(ftx.stmts[0]), "set_config('search_path'")
+	require.Len(t, ftx.calls, 1)
+	require.Contains(t, strings.ToLower(ftx.calls[0].sql), "set_config('search_path'")
+	require.Equal(t, "admin", ftx.calls[0].args[0])
 }
 
 func TestTenantDBWithTenantSetsRoleAndSearchPath(t *testing.T) {
@@ -63,9 +69,10 @@ func TestTenantDBWithTenantSetsRoleAndSearchPath(t *testing.T) {
 
 	err := db.WithTenant(context.Background(), space, func(tx pgx.Tx) error { return nil })
 	require.NoError(t, err)
-	require.Len(t, ftx.stmts, 2)
-	require.Contains(t, ftx.stmts[0], "SET LOCAL ROLE tenant_acme_role")
-	require.Contains(t, ftx.stmts[1], "tenant_acme, admin")
+	require.Len(t, ftx.calls, 2)
+	require.Contains(t, ftx.calls[0].sql, "tenant_acme_role")
+	require.Contains(t, strings.ToLower(ftx.calls[1].sql), "set_config('search_path'")
+	require.Equal(t, "tenant_acme, admin", ftx.calls[1].args[0])
 }
 
 func TestTenantDBWithTenantMissingRole(t *testing.T) {
