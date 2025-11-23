@@ -31,8 +31,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}
       ENV_KEY: ${ENV_KEY:-dev}
-      ADMIN_SCHEMA: ${ADMIN_SCHEMA:-tenant_admin}
-      TENANT_SLUG: ${TENANT_SLUG:-admin}
+      ADMIN_TENANT_SLUG: ${ADMIN_TENANT_SLUG:-admin}
       TENANT_NAME: ${TENANT_NAME:-Admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Palmyra Admin}
@@ -40,8 +39,7 @@ services:
       "/usr/local/bin/platform-cli", "bootstrap", "platform",
       "--database-url", "${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}",
       "--env-key", "${ENV_KEY:-dev}",
-      "--admin-schema", "${ADMIN_SCHEMA:-tenant_admin}",
-      "--tenant-slug", "${TENANT_SLUG:-admin}",
+      "--tenant-slug", "${ADMIN_TENANT_SLUG:-admin}",
       "--tenant-name", "${TENANT_NAME:-Admin}",
       "--admin-email", "${ADMIN_EMAIL:-admin@example.com}",
       "--admin-full-name", "${ADMIN_FULL_NAME:-Palmyra Admin}" ]
