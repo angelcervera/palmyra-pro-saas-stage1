@@ -1,4 +1,6 @@
--- Tenant registry (immutable, versioned). Relies on search_path being set to the admin schema.
+-- Tenant registry (immutable, versioned).
+-- NOTE: admin schema/search_path is set by docker-entrypoint script (database/000_init_schema.sh)
+-- based on ADMIN_TENANT_SLUG. Do not hardcode schema names here.
 
 CREATE TABLE IF NOT EXISTS tenants (
     tenant_id UUID NOT NULL,

@@ -7,12 +7,8 @@ ADMIN_TENANT_SLUG="${ADMIN_TENANT_SLUG:-admin}"
 ADMIN_SCHEMA="tenant_${ADMIN_TENANT_SLUG//-/_}"
 
 # Ensure admin schema exists and becomes default search_path for this database.
-"${PSQL[@]}" <<SQL
-DO $$ BEGIN
-  EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', '${ADMIN_SCHEMA}');
-  EXECUTE format('ALTER DATABASE %I SET search_path TO %I', '${POSTGRES_DB:-postgres}', '${ADMIN_SCHEMA}');
-END $$;
-SQL
+"${PSQL[@]}" -c "CREATE SCHEMA IF NOT EXISTS \"${ADMIN_SCHEMA}\"" 
+"${PSQL[@]}" -c "ALTER DATABASE \"${POSTGRES_DB:-postgres}\" SET search_path TO \"${ADMIN_SCHEMA}\""
 
 SCHEMA_DIR="/docker-entrypoint-initdb.d/schema"
 
@@ -22,13 +18,13 @@ run_sql_dir() {
   if [[ ! -d "$dir" ]]; then
     echo "[db-init] Skipping missing directory $dir"
     return
-  }
+  fi
 
   mapfile -t files < <(find "$dir" -maxdepth 1 -type f -name '*.sql' | sort)
   if [[ ${#files[@]} -eq 0 ]]; then
     echo "[db-init] No SQL files found under $dir"
     return
-  }
+  fi
 
   echo "[db-init] Applying ${label} files from $dir"
   for file in "${files[@]}"; do
