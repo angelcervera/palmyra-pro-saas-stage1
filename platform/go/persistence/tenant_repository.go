@@ -40,7 +40,7 @@ type TenantStore struct {
 }
 
 // NewTenantStore creates a store; assumes migrations already created the table.
-// If pool or schema parameters are empty, it panics.
+// Panics if pool is nil. AdminSchema is required by TenantDB, so pass the admin schema explicitly.
 func NewTenantStore(ctx context.Context, pool *pgxpool.Pool, schema string) (*TenantStore, error) {
 	table := "tenants"
 	return &TenantStore{adminDB: NewTenantDB(TenantDBConfig{Pool: pool, AdminSchema: schema}), table: table}, nil

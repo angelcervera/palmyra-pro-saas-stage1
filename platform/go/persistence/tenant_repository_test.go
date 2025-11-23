@@ -20,7 +20,7 @@ func TestTenantRepositoryLifecycle(t *testing.T) {
 	pool, cleanup := mustTestPool(t)
 	defer cleanup()
 
-	store, err := NewTenantStore(ctx, pool, "")
+	store, err := NewTenantStore(ctx, pool, "tenant_admin")
 	require.NoError(t, err)
 	repo := store
 
