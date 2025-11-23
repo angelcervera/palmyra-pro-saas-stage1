@@ -12,8 +12,13 @@ import (
 )
 
 // TenantDB wraps a pgx pool to execute queries within a tenant-specific search_path.
+type txBeginner interface {
+	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
+}
+
+// TenantDB wraps a pgx pool to execute queries within a tenant-specific search_path.
 type TenantDB struct {
-	pool        *pgxpool.Pool
+	pool        txBeginner
 	adminSchema string
 }
 
