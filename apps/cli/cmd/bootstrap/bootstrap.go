@@ -2,7 +2,9 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -65,7 +67,7 @@ func platformCommand() *cobra.Command {
 			authProv := &noopAuthProvisioner{}
 			storageProv := &noopStorageProvisioner{}
 
-			tenantSvc := tenantsservice.NewWithProvisioningAndAdmin(tenantRepo, envKey, adminSchema, tenantsservice.ProvisioningDeps{
+			tenantProvisionSvc := tenantsservice.NewWithProvisioningAndAdmin(tenantRepo, envKey, adminSchema, tenantsservice.ProvisioningDeps{
 				DB:      dbProv,
 				Auth:    authProv,
 				Storage: storageProv,
@@ -80,22 +82,70 @@ func platformCommand() *cobra.Command {
 				createdByID = parsed
 			}
 
-			tenantRec, err := tenantSvc.Create(ctx, tenantsservice.CreateInput{
-				Slug:        tenantSlug,
-				DisplayName: strPtrOrNil(tenantName),
-				Status:      tenantsapi.Pending,
-				CreatedBy:   createdByID,
-			})
+			tenantRec, err := tenantRepo.FindBySlug(ctx, tenantSlug)
 			if err != nil {
-				return fmt.Errorf("create tenant: %w", err)
+				if errors.Is(err, tenantsservice.ErrNotFound) {
+					tenantRec, err = tenantProvisionSvc.Create(ctx, tenantsservice.CreateInput{
+						Slug:        tenantSlug,
+						DisplayName: strPtrOrNil(tenantName),
+						Status:      tenantsapi.Pending,
+						CreatedBy:   createdByID,
+					})
+					if err != nil {
+						return fmt.Errorf("create tenant: %w", err)
+					}
+				} else {
+					return fmt.Errorf("get tenant by slug: %w", err)
+				}
 			}
 
-			tenantRec, err = tenantSvc.Provision(ctx, tenantRec.ID)
-			if err != nil {
-				return fmt.Errorf("provision tenant: %w", err)
+			// Per-component check-or-create to avoid duplicate work.
+			externalTenant := fmt.Sprintf("%s-%s", envKey, tenantRec.Slug)
+
+			dbReady := false
+			if res, err := dbProv.Check(ctx, tenantsservice.DBProvisionRequest{TenantID: tenantRec.ID, SchemaName: tenantRec.SchemaName, RoleName: tenantRec.RoleName, AdminSchema: adminSchema}); err == nil {
+				dbReady = res.Ready
+			}
+			if !dbReady {
+				if res, err := dbProv.Ensure(ctx, tenantsservice.DBProvisionRequest{TenantID: tenantRec.ID, SchemaName: tenantRec.SchemaName, RoleName: tenantRec.RoleName, AdminSchema: adminSchema}); err == nil {
+					dbReady = res.Ready
+				} else {
+					return fmt.Errorf("provision db: %w", err)
+				}
 			}
 
-			space, err := tenantSvc.ResolveTenantSpace(ctx, tenantRec.ID)
+			authReady := false
+			if res, err := authProv.Check(ctx, externalTenant); err == nil {
+				authReady = res.Ready
+			}
+			if !authReady {
+				if res, err := authProv.Ensure(ctx, externalTenant); err == nil {
+					authReady = res.Ready
+				} else {
+					return fmt.Errorf("provision auth: %w", err)
+				}
+			}
+
+			storageReady := false
+			if res, err := storageProv.Check(ctx, tenantRec.BasePrefix); err == nil {
+				storageReady = res.Ready
+			}
+			if !storageReady {
+				if res, err := storageProv.Ensure(ctx, tenantRec.BasePrefix); err == nil {
+					storageReady = res.Ready
+				} else {
+					return fmt.Errorf("provision storage: %w", err)
+				}
+			}
+
+			// Persist provisioning status (and activate if fully ready).
+			prov, err := tenantProvisionSvc.ProvisionStatus(ctx, tenantRec.ID)
+			if err != nil {
+				return fmt.Errorf("update provisioning status: %w", err)
+			}
+			tenantRec.Provisioning = prov
+
+			space, err := tenantProvisionSvc.ResolveTenantSpace(ctx, tenantRec.ID)
 			if err != nil {
 				return fmt.Errorf("resolve tenant space: %w", err)
 			}
@@ -111,12 +161,9 @@ func platformCommand() *cobra.Command {
 
 			audit := requesttrace.AuditInfo{}
 			ctxTenant := tenant.WithSpace(ctx, space)
-			user, err := userSvc.Create(ctxTenant, audit, usersservice.CreateInput{
-				Email:    adminEmail,
-				FullName: adminFullName,
-			})
+			user, err := ensureAdminUser(ctxTenant, userSvc, audit, adminEmail, adminFullName)
 			if err != nil {
-				return fmt.Errorf("create admin user: %w", err)
+				return err
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Bootstrap complete. Tenant: %s (%s) | Admin user: %s (%s)\n", tenantRec.Slug, tenantRec.ID, user.Email, user.ID)
@@ -170,4 +217,28 @@ func strPtrOrNil(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// ensureAdminUser performs a check-or-create for the admin user inside the tenant space.
+func ensureAdminUser(ctx context.Context, userSvc usersservice.Service, audit requesttrace.AuditInfo, email, fullName string) (usersservice.User, error) {
+	email = strings.TrimSpace(email)
+	fullName = strings.TrimSpace(fullName)
+	if email == "" || fullName == "" {
+		return usersservice.User{}, fmt.Errorf("admin email and full name are required")
+	}
+
+	filterEmail := email
+	res, err := userSvc.List(ctx, audit, usersservice.ListOptions{Email: &filterEmail, Page: 1, PageSize: 1})
+	if err != nil {
+		return usersservice.User{}, fmt.Errorf("lookup admin user: %w", err)
+	}
+	if len(res.Users) > 0 {
+		return res.Users[0], nil
+	}
+
+	user, err := userSvc.Create(ctx, audit, usersservice.CreateInput{Email: email, FullName: fullName})
+	if err != nil {
+		return usersservice.User{}, fmt.Errorf("create admin user: %w", err)
+	}
+	return user, nil
 }
