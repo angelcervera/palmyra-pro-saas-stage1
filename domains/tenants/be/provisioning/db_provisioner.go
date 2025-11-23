@@ -180,7 +180,7 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 		if _, err := tx.Exec(ctx, grantUsageAdmin); err != nil {
 			return false, fmt.Errorf("grant usage admin schema: %w", err)
 		}
-		for _, table := range []string{"schema_repository", "schema_categories"} {
+		for _, table := range []string{"schema_repository", "schema_categories"} { // future catalog tables can be added here
 			grant := fmt.Sprintf("GRANT SELECT ON %s.%s TO %s", pgx.Identifier{req.AdminSchema}.Sanitize(), pgx.Identifier{table}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
 			if _, err := tx.Exec(ctx, grant); err != nil {
 				return false, fmt.Errorf("grant select %s: %w", table, err)
@@ -188,26 +188,26 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 		}
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("commit: %w", err)
+	// Apply default privileges while scoped to the tenant role but contained within the same admin-owned transaction.
+	setRole := fmt.Sprintf("SET LOCAL ROLE %s", pgx.Identifier{req.RoleName}.Sanitize())
+	if _, err := tx.Exec(ctx, setRole); err != nil {
+		return false, fmt.Errorf("set local role: %w", err)
+	}
+	searchPath := fmt.Sprintf("%s, %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.AdminSchema}.Sanitize())
+	if _, err := tx.Exec(ctx, `SELECT set_config('search_path', $1, false)`, searchPath); err != nil {
+		return false, fmt.Errorf("set search_path: %w", err)
+	}
+	alterDefault := fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL ON TABLES TO %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
+	if _, err := tx.Exec(ctx, alterDefault); err != nil {
+		return false, fmt.Errorf("default privs tables: %w", err)
+	}
+	alterDefaultSeq := fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL ON SEQUENCES TO %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
+	if _, err := tx.Exec(ctx, alterDefaultSeq); err != nil {
+		return false, fmt.Errorf("default privs sequences: %w", err)
 	}
 
-	// Default privileges must be applied while acting as the tenant role to avoid leaking role changes on pooled conns.
-	if err := p.tenantDB.WithTenant(ctx, tenant.Space{
-		SchemaName: req.SchemaName,
-		RoleName:   req.RoleName,
-	}, func(tx pgx.Tx) error {
-		alterDefault := fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL ON TABLES TO %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
-		if _, err := tx.Exec(ctx, alterDefault); err != nil {
-			return fmt.Errorf("default privs tables: %w", err)
-		}
-		alterDefaultSeq := fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL ON SEQUENCES TO %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
-		if _, err := tx.Exec(ctx, alterDefaultSeq); err != nil {
-			return fmt.Errorf("default privs sequences: %w", err)
-		}
-		return nil
-	}); err != nil {
-		return false, err
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("commit: %w", err)
 	}
 
 	return true, nil
