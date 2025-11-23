@@ -48,6 +48,7 @@ import (
 	platformlogging "github.com/zenGate-Global/palmyra-pro-saas/platform/go/logging"
 	platformmiddleware "github.com/zenGate-Global/palmyra-pro-saas/platform/go/middleware"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 	tenantmiddleware "github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant/middleware"
 )
 
@@ -68,7 +69,7 @@ type config struct {
 	DatabaseURL     string        `env:"DATABASE_URL,required"`
 	AuthProvider    string        `env:"AUTH_PROVIDER" envDefault:"firebase"`
 	EnvKey          string        `env:"ENV_KEY,required"`
-	TenantSchema    string        `env:"TENANT_SCHEMA" envDefault:"admin"`
+	AdminTenantSlug string        `env:"ADMIN_TENANT_SLUG" envDefault:"admin"`
 	StorageBackend  string        `env:"STORAGE_BACKEND" envDefault:"gcs"`               // gcs | local
 	StorageBucket   string        `env:"STORAGE_BUCKET"`                                 // required when STORAGE_BACKEND=gcs
 	StorageLocalDir string        `env:"STORAGE_LOCAL_DIR" envDefault:"./.data/storage"` // used when STORAGE_BACKEND=local
@@ -81,6 +82,8 @@ func main() {
 	if err := env.Parse(&cfg); err != nil {
 		log.Fatalf("load config: %v", err)
 	}
+
+	adminSchema := tenant.BuildSchemaName(tenant.ToSnake(cfg.AdminTenantSlug))
 
 	logger, err := platformlogging.NewLogger(platformlogging.Config{
 		Component: "api-server",
@@ -117,7 +120,7 @@ func main() {
 	schemaService := schemarepositoryservice.New(schemaRepo)
 	schemaHTTPHandler := schemarepositoryhandler.New(schemaService, logger)
 
-	tenantStore, err := persistence.NewTenantStore(ctx, pool, cfg.TenantSchema)
+	tenantStore, err := persistence.NewTenantStore(ctx, pool, adminSchema)
 	if err != nil {
 		logger.Fatal("init tenant store", zap.Error(err))
 	}
@@ -148,7 +151,7 @@ func main() {
 	tenantService := tenantsservice.NewWithProvisioningAndAdmin(
 		tenantRepo,
 		cfg.EnvKey,
-		cfg.TenantSchema,
+		adminSchema,
 		tenantsservice.ProvisioningDeps{
 			DB:      dbProv,
 			Auth:    authProv,
@@ -161,7 +164,7 @@ func main() {
 
 	tenantDB := persistence.NewTenantDB(persistence.TenantDBConfig{
 		Pool:        pool,
-		AdminSchema: cfg.TenantSchema,
+		AdminSchema: adminSchema,
 	})
 
 	schemaValidator := persistence.NewSchemaValidator()

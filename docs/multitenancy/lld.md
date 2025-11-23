@@ -29,14 +29,13 @@ This document captures the backend LLD for multi‑tenant routing and storage as
   - Isolation test (`platform/go/persistence/user_repository_test.go`): two schemas, verifies separation and cross-tenant not-found.
 
 ## API wiring
-- `apps/api/main.go` builds one `TenantDB` with `AdminSchema` from env (`TENANT_SCHEMA` / derived admin schema) and injects into entity and user repos.
+- `apps/api/main.go` builds one `TenantDB` with `AdminSchema` derived from `ADMIN_TENANT_SLUG` and injects into entity and user repos.
 - Middleware order: auth → request trace → tenant space. Tenants endpoints remain admin-only.
 
 ## Environment variables (used today)
 - Core routing
   - `ENV_KEY` (required): leading segment for `basePrefix`; enforced by middleware and provisioning.
-  - `ADMIN_TENANT_SLUG` (default `admin`): seeds the admin schema name `tenant_<slugSnake>`.
-  - `TENANT_SCHEMA` (optional override for admin schema in API config; defaults to `admin`).
+  - `ADMIN_TENANT_SLUG` (default `admin`): seeds the admin schema name `tenant_<slugSnake>`; the API derives the admin schema from this value.
 - Database
   - `DATABASE_URL` (required), `TEST_DATABASE_URL` (for integration tests).
 - Storage
