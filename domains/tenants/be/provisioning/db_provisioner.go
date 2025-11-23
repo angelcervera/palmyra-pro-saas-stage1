@@ -124,13 +124,42 @@ func (p *DBProvisioner) Check(ctx context.Context, req service.DBProvisionReques
 			ready = false
 			return nil
 		}
+		// Ensure users table is under the expected tenant schema (search_path could mask a wrong schema).
+		var usersSchema string
+		if err := txx.QueryRow(ctx, `
+			SELECT n.nspname
+			FROM pg_class c
+			JOIN pg_namespace n ON n.oid = c.relnamespace
+			WHERE c.relname = 'users'
+			LIMIT 1
+		`).Scan(&usersSchema); err != nil {
+			return fmt.Errorf("check users schema: %w", err)
+		}
+		if usersSchema != req.SchemaName {
+			ready = false
+			return nil
+		}
 		// Basic read probe to ensure SELECT privilege.
 		if err := txx.QueryRow(ctx, "SELECT 1 FROM users LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("read users table: %w", err)
 		}
 		// Ensure read access to shared catalog tables in admin schema via search_path.
+		if err := txx.QueryRow(ctx, "SELECT to_regclass('schema_repository')").Scan(&dummy); err != nil {
+			return fmt.Errorf("check schema_repository regclass: %w", err)
+		}
+		if dummy == 0 {
+			ready = false
+			return nil
+		}
 		if err := txx.QueryRow(ctx, "SELECT 1 FROM schema_repository LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("read schema_repository: %w", err)
+		}
+		if err := txx.QueryRow(ctx, "SELECT to_regclass('schema_categories')").Scan(&dummy); err != nil {
+			return fmt.Errorf("check schema_categories regclass: %w", err)
+		}
+		if dummy == 0 {
+			ready = false
+			return nil
 		}
 		if err := txx.QueryRow(ctx, "SELECT 1 FROM schema_categories LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("read schema_categories: %w", err)
