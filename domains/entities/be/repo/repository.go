@@ -165,7 +165,7 @@ func (r *repository) resolveEntityRepo(ctx context.Context, tableName string) (*
 		return nil, errors.New("table name is required")
 	}
 
-	schemaRecord, err := r.schemaStore.GetActiveSchemaByTableName(ctx, tableName)
+	schemaRecord, err := r.schemaStore.GetActiveSchemaByTableName(ctx, r.spaceDB, tableName)
 	if err != nil {
 		return nil, err
 	}

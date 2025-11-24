@@ -42,7 +42,24 @@ func NewSchemaRepositoryStore(ctx context.Context, pool *pgxpool.Pool) (*SchemaR
 }
 
 // CreateOrUpdateSchema persists the provided schema definition and optionally activates it.
-func (s *SchemaRepositoryStore) CreateOrUpdateSchema(ctx context.Context, params CreateSchemaParams) (SchemaRecord, error) {
+func (s *SchemaRepositoryStore) CreateOrUpdateSchema(ctx context.Context, spaceDB *SpaceDB, params CreateSchemaParams) (SchemaRecord, error) {
+	if spaceDB == nil {
+		return SchemaRecord{}, errors.New("admin db is required")
+	}
+
+	var record SchemaRecord
+	return record, spaceDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		rec, err := s.CreateOrUpdateSchemaTx(ctx, tx, params)
+		if err != nil {
+			return err
+		}
+		record = rec
+		return nil
+	})
+}
+
+// CreateOrUpdateSchemaTx performs the upsert inside the provided transaction.
+func (s *SchemaRepositoryStore) CreateOrUpdateSchemaTx(ctx context.Context, tx pgx.Tx, params CreateSchemaParams) (SchemaRecord, error) {
 	if params.SchemaID == uuid.Nil {
 		return SchemaRecord{}, errors.New("schema id is required")
 	}
@@ -59,14 +76,6 @@ func (s *SchemaRepositoryStore) CreateOrUpdateSchema(ctx context.Context, params
 	if err != nil {
 		return SchemaRecord{}, fmt.Errorf("compute schema hash: %w", err)
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return SchemaRecord{}, fmt.Errorf("begin schema tx: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	tableName, err := s.resolveSchemaTableName(ctx, tx, params.SchemaID, params.TableName)
 	if err != nil {
@@ -119,16 +128,29 @@ func (s *SchemaRepositoryStore) CreateOrUpdateSchema(ctx context.Context, params
 		return SchemaRecord{}, fmt.Errorf("fetch new schema: %w", err)
 	}
 
-	if err = tx.Commit(ctx); err != nil {
-		return SchemaRecord{}, fmt.Errorf("commit schema tx: %w", err)
-	}
-
 	return record, nil
 }
 
 // GetSchemaByVersion retrieves a specific schema version.
-func (s *SchemaRepositoryStore) GetSchemaByVersion(ctx context.Context, schemaID uuid.UUID, version SemanticVersion) (SchemaRecord, error) {
-	row := s.pool.QueryRow(ctx, `
+func (s *SchemaRepositoryStore) GetSchemaByVersion(ctx context.Context, spaceDB *SpaceDB, schemaID uuid.UUID, version SemanticVersion) (SchemaRecord, error) {
+	if spaceDB == nil {
+		return SchemaRecord{}, errors.New("admin db is required")
+	}
+
+	var record SchemaRecord
+	return record, spaceDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		rec, err := s.GetSchemaByVersionTx(ctx, tx, schemaID, version)
+		if err != nil {
+			return err
+		}
+		record = rec
+		return nil
+	})
+}
+
+// GetSchemaByVersionTx retrieves a specific schema version inside a transaction.
+func (s *SchemaRepositoryStore) GetSchemaByVersionTx(ctx context.Context, tx pgx.Tx, schemaID uuid.UUID, version SemanticVersion) (SchemaRecord, error) {
+	row := tx.QueryRow(ctx, `
 		SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, hash, created_at, created_by, is_soft_deleted, is_active
 		FROM schema_repository
 		WHERE schema_id = $1 AND schema_version = $2 AND is_soft_deleted = FALSE
@@ -146,8 +168,25 @@ func (s *SchemaRepositoryStore) GetSchemaByVersion(ctx context.Context, schemaID
 }
 
 // GetActiveSchema fetches the currently active schema for the provided identifier.
-func (s *SchemaRepositoryStore) GetActiveSchema(ctx context.Context, schemaID uuid.UUID) (SchemaRecord, error) {
-	row := s.pool.QueryRow(ctx, `
+func (s *SchemaRepositoryStore) GetActiveSchema(ctx context.Context, spaceDB *SpaceDB, schemaID uuid.UUID) (SchemaRecord, error) {
+	if spaceDB == nil {
+		return SchemaRecord{}, errors.New("admin db is required")
+	}
+
+	var record SchemaRecord
+	return record, spaceDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		rec, err := s.GetActiveSchemaTx(ctx, tx, schemaID)
+		if err != nil {
+			return err
+		}
+		record = rec
+		return nil
+	})
+}
+
+// GetActiveSchemaTx fetches the currently active schema inside a transaction.
+func (s *SchemaRepositoryStore) GetActiveSchemaTx(ctx context.Context, tx pgx.Tx, schemaID uuid.UUID) (SchemaRecord, error) {
+	row := tx.QueryRow(ctx, `
 		SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, hash, created_at, created_by, is_soft_deleted, is_active
 		FROM schema_repository
 		WHERE schema_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE
@@ -165,8 +204,25 @@ func (s *SchemaRepositoryStore) GetActiveSchema(ctx context.Context, schemaID uu
 }
 
 // ListSchemas returns every non-deleted schema version for the identifier ordered by version chronology.
-func (s *SchemaRepositoryStore) ListSchemas(ctx context.Context, schemaID uuid.UUID) ([]SchemaRecord, error) {
-	rows, err := s.pool.Query(ctx, `
+func (s *SchemaRepositoryStore) ListSchemas(ctx context.Context, spaceDB *SpaceDB, schemaID uuid.UUID) ([]SchemaRecord, error) {
+	if spaceDB == nil {
+		return nil, errors.New("admin db is required")
+	}
+
+	var records []SchemaRecord
+	return records, spaceDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		list, err := s.ListSchemasTx(ctx, tx, schemaID)
+		if err != nil {
+			return err
+		}
+		records = list
+		return nil
+	})
+}
+
+// ListSchemasTx lists schema versions for a schema ID inside a transaction.
+func (s *SchemaRepositoryStore) ListSchemasTx(ctx context.Context, tx pgx.Tx, schemaID uuid.UUID) ([]SchemaRecord, error) {
+	rows, err := tx.Query(ctx, `
 		SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, hash, created_at, created_by, is_soft_deleted, is_active
 		FROM schema_repository
 		WHERE schema_id = $1
@@ -194,7 +250,24 @@ func (s *SchemaRepositoryStore) ListSchemas(ctx context.Context, schemaID uuid.U
 }
 
 // ListAllSchemaVersions returns every schema version across all schema identifiers.
-func (s *SchemaRepositoryStore) ListAllSchemaVersions(ctx context.Context, includeInactive bool) ([]SchemaRecord, error) {
+func (s *SchemaRepositoryStore) ListAllSchemaVersions(ctx context.Context, spaceDB *SpaceDB, includeInactive bool) ([]SchemaRecord, error) {
+	if spaceDB == nil {
+		return nil, errors.New("admin db is required")
+	}
+
+	var records []SchemaRecord
+	return records, spaceDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		list, err := s.ListAllSchemaVersionsTx(ctx, tx, includeInactive)
+		if err != nil {
+			return err
+		}
+		records = list
+		return nil
+	})
+}
+
+// ListAllSchemaVersionsTx returns every schema version inside a transaction.
+func (s *SchemaRepositoryStore) ListAllSchemaVersionsTx(ctx context.Context, tx pgx.Tx, includeInactive bool) ([]SchemaRecord, error) {
 	query := `
 	        SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, hash, created_at, created_by, is_soft_deleted, is_active
 	        FROM schema_repository
@@ -202,7 +275,7 @@ func (s *SchemaRepositoryStore) ListAllSchemaVersions(ctx context.Context, inclu
 	        ORDER BY created_at DESC
 	    `
 
-	rows, err := s.pool.Query(ctx, query, includeInactive)
+	rows, err := tx.Query(ctx, query, includeInactive)
 	if err != nil {
 		return nil, fmt.Errorf("list all schema versions: %w", err)
 	}
@@ -228,13 +301,30 @@ func (s *SchemaRepositoryStore) ListAllSchemaVersions(ctx context.Context, inclu
 }
 
 // GetActiveSchemaByTableName fetches the active schema associated with the provided table name.
-func (s *SchemaRepositoryStore) GetActiveSchemaByTableName(ctx context.Context, tableName string) (SchemaRecord, error) {
+func (s *SchemaRepositoryStore) GetActiveSchemaByTableName(ctx context.Context, spaceDB *SpaceDB, tableName string) (SchemaRecord, error) {
+	if spaceDB == nil {
+		return SchemaRecord{}, errors.New("admin db is required")
+	}
+
+	var record SchemaRecord
+	return record, spaceDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		rec, err := s.GetActiveSchemaByTableNameTx(ctx, tx, tableName)
+		if err != nil {
+			return err
+		}
+		record = rec
+		return nil
+	})
+}
+
+// GetActiveSchemaByTableNameTx fetches the active schema associated with the provided table name inside a transaction.
+func (s *SchemaRepositoryStore) GetActiveSchemaByTableNameTx(ctx context.Context, tx pgx.Tx, tableName string) (SchemaRecord, error) {
 	normalized, err := normalizeTableName(tableName)
 	if err != nil {
 		return SchemaRecord{}, err
 	}
 
-	row := s.pool.QueryRow(ctx, `
+	row := tx.QueryRow(ctx, `
 		SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, hash, created_at, created_by, is_soft_deleted, is_active
 		FROM schema_repository
 		WHERE table_name = $1 AND is_active = TRUE AND is_soft_deleted = FALSE
@@ -253,8 +343,25 @@ func (s *SchemaRepositoryStore) GetActiveSchemaByTableName(ctx context.Context, 
 }
 
 // GetLatestSchemaBySlug returns the most recent schema record that matches the provided slug.
-func (s *SchemaRepositoryStore) GetLatestSchemaBySlug(ctx context.Context, slug string) (SchemaRecord, error) {
-	row := s.pool.QueryRow(ctx, `
+func (s *SchemaRepositoryStore) GetLatestSchemaBySlug(ctx context.Context, spaceDB *SpaceDB, slug string) (SchemaRecord, error) {
+	if spaceDB == nil {
+		return SchemaRecord{}, errors.New("admin db is required")
+	}
+
+	var record SchemaRecord
+	return record, spaceDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		rec, err := s.GetLatestSchemaBySlugTx(ctx, tx, slug)
+		if err != nil {
+			return err
+		}
+		record = rec
+		return nil
+	})
+}
+
+// GetLatestSchemaBySlugTx returns the most recent schema record that matches the provided slug inside a transaction.
+func (s *SchemaRepositoryStore) GetLatestSchemaBySlugTx(ctx context.Context, tx pgx.Tx, slug string) (SchemaRecord, error) {
+	row := tx.QueryRow(ctx, `
 		SELECT schema_id, schema_version, category_id, table_name, slug, schema_definition, hash, created_at, created_by, is_soft_deleted, is_active
 		FROM schema_repository
 		WHERE slug = $1
@@ -274,16 +381,19 @@ func (s *SchemaRepositoryStore) GetLatestSchemaBySlug(ctx context.Context, slug 
 }
 
 // ActivateSchemaVersion toggles the target version as the active one (soft-deleting remains intact).
-func (s *SchemaRepositoryStore) ActivateSchemaVersion(ctx context.Context, schemaID uuid.UUID, version SemanticVersion) error {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("begin activate schema tx: %w", err)
+func (s *SchemaRepositoryStore) ActivateSchemaVersion(ctx context.Context, spaceDB *SpaceDB, schemaID uuid.UUID, version SemanticVersion) error {
+	if spaceDB == nil {
+		return errors.New("admin db is required")
 	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
-	if _, err = tx.Exec(ctx, `
+	return spaceDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		return s.ActivateSchemaVersionTx(ctx, tx, schemaID, version)
+	})
+}
+
+// ActivateSchemaVersionTx toggles the target version as the active one inside a transaction.
+func (s *SchemaRepositoryStore) ActivateSchemaVersionTx(ctx context.Context, tx pgx.Tx, schemaID uuid.UUID, version SemanticVersion) error {
+	if _, err := tx.Exec(ctx, `
 		UPDATE schema_repository
 		SET is_active = FALSE
 		WHERE schema_id = $1 AND is_soft_deleted = FALSE
@@ -305,13 +415,25 @@ func (s *SchemaRepositoryStore) ActivateSchemaVersion(ctx context.Context, schem
 		return ErrSchemaNotFound
 	}
 
-	return tx.Commit(ctx)
+	return nil
 }
 
 // SoftDeleteSchema marks the provided schema version as deleted and deactivates it when needed.
 // deletedAt is ignored because schema versions are immutable and only track creation timestamps.
-func (s *SchemaRepositoryStore) SoftDeleteSchema(ctx context.Context, schemaID uuid.UUID, version SemanticVersion, _ time.Time) error {
-	result, err := s.pool.Exec(ctx, `
+func (s *SchemaRepositoryStore) SoftDeleteSchema(ctx context.Context, spaceDB *SpaceDB, schemaID uuid.UUID, version SemanticVersion, deletedAt time.Time) error {
+	if spaceDB == nil {
+		return errors.New("admin db is required")
+	}
+
+	return spaceDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		return s.SoftDeleteSchemaTx(ctx, tx, schemaID, version, deletedAt)
+	})
+}
+
+// SoftDeleteSchemaTx marks the provided schema version as deleted inside a transaction.
+// deletedAt is ignored because schema versions are immutable and only track creation timestamps.
+func (s *SchemaRepositoryStore) SoftDeleteSchemaTx(ctx context.Context, tx pgx.Tx, schemaID uuid.UUID, version SemanticVersion, _ time.Time) error {
+	result, err := tx.Exec(ctx, `
 		UPDATE schema_repository
 		SET is_soft_deleted = TRUE,
 		    is_active = FALSE

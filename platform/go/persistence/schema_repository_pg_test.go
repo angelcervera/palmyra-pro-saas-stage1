@@ -96,7 +96,7 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 	defV1 := SchemaDefinition(`{"title":"schema-v1"}`)
 	versionV1 := SemanticVersion{Major: 1, Minor: 0, Patch: 0}
 
-	recordV1, err := store.CreateOrUpdateSchema(ctx, CreateSchemaParams{
+	recordV1, err := store.CreateOrUpdateSchema(ctx, spaceDB, CreateSchemaParams{
 		SchemaID:   schemaID,
 		Version:    versionV1,
 		Definition: defV1,
@@ -111,23 +111,23 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 	require.Equal(t, "cards-schema", recordV1.Slug)
 	require.Equal(t, childCategoryID, recordV1.CategoryID)
 
-	gotV1, err := store.GetSchemaByVersion(ctx, schemaID, versionV1)
+	gotV1, err := store.GetSchemaByVersion(ctx, spaceDB, schemaID, versionV1)
 	require.NoError(t, err)
 	require.JSONEq(t, string(defV1), string(gotV1.SchemaDefinition))
 	require.True(t, gotV1.IsActive)
 
-	active, err := store.GetActiveSchema(ctx, schemaID)
+	active, err := store.GetActiveSchema(ctx, spaceDB, schemaID)
 	require.NoError(t, err)
 	require.Equal(t, versionV1, active.SchemaVersion)
 
-	byTable, err := store.GetActiveSchemaByTableName(ctx, "cards_entities")
+	byTable, err := store.GetActiveSchemaByTableName(ctx, spaceDB, "cards_entities")
 	require.NoError(t, err)
 	require.Equal(t, active.SchemaID, byTable.SchemaID)
 	require.Equal(t, "cards_entities", byTable.TableName)
 
 	defV2 := SchemaDefinition(`{"title":"schema-v2"}`)
 	versionV2 := SemanticVersion{Major: 1, Minor: 1, Patch: 0}
-	recordV2, err := store.CreateOrUpdateSchema(ctx, CreateSchemaParams{
+	recordV2, err := store.CreateOrUpdateSchema(ctx, spaceDB, CreateSchemaParams{
 		SchemaID:   schemaID,
 		Version:    versionV2,
 		Definition: defV2,
@@ -142,40 +142,40 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 	require.Equal(t, "cards-schema", recordV2.Slug)
 
 	// version 1 should have been deactivated when v2 became active
-	gotV1, err = store.GetSchemaByVersion(ctx, schemaID, versionV1)
+	gotV1, err = store.GetSchemaByVersion(ctx, spaceDB, schemaID, versionV1)
 	require.NoError(t, err)
 	require.False(t, gotV1.IsActive)
 
-	active, err = store.GetActiveSchema(ctx, schemaID)
+	active, err = store.GetActiveSchema(ctx, spaceDB, schemaID)
 	require.NoError(t, err)
 	require.Equal(t, versionV2, active.SchemaVersion)
 
-	_, err = store.GetActiveSchemaByTableName(ctx, "missing_entities")
+	_, err = store.GetActiveSchemaByTableName(ctx, spaceDB, "missing_entities")
 	require.ErrorIs(t, err, ErrSchemaNotFound)
 
-	require.NoError(t, store.ActivateSchemaVersion(ctx, schemaID, versionV1))
+	require.NoError(t, store.ActivateSchemaVersion(ctx, spaceDB, schemaID, versionV1))
 
-	active, err = store.GetActiveSchema(ctx, schemaID)
+	active, err = store.GetActiveSchema(ctx, spaceDB, schemaID)
 	require.NoError(t, err)
 	require.Equal(t, versionV1, active.SchemaVersion)
 
 	deleteTime := time.Now().UTC()
-	require.NoError(t, store.SoftDeleteSchema(ctx, schemaID, versionV1, deleteTime))
+	require.NoError(t, store.SoftDeleteSchema(ctx, spaceDB, schemaID, versionV1, deleteTime))
 
-	_, err = store.GetSchemaByVersion(ctx, schemaID, versionV1)
+	_, err = store.GetSchemaByVersion(ctx, spaceDB, schemaID, versionV1)
 	require.ErrorIs(t, err, ErrSchemaNotFound)
 
-	require.NoError(t, store.ActivateSchemaVersion(ctx, schemaID, versionV2))
+	require.NoError(t, store.ActivateSchemaVersion(ctx, spaceDB, schemaID, versionV2))
 
-	active, err = store.GetActiveSchema(ctx, schemaID)
+	active, err = store.GetActiveSchema(ctx, spaceDB, schemaID)
 	require.NoError(t, err)
 	require.Equal(t, versionV2, active.SchemaVersion)
 
-	records, err := store.ListSchemas(ctx, schemaID)
+	records, err := store.ListSchemas(ctx, spaceDB, schemaID)
 	require.NoError(t, err)
 	require.Len(t, records, 2)
 
-	_, err = store.CreateOrUpdateSchema(ctx, CreateSchemaParams{
+	_, err = store.CreateOrUpdateSchema(ctx, spaceDB, CreateSchemaParams{
 		SchemaID:   schemaID,
 		Version:    SemanticVersion{Major: 2, Minor: 0, Patch: 0},
 		Definition: SchemaDefinition(`{"title":"schema-v3"}`),

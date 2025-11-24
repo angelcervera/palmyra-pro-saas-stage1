@@ -120,7 +120,7 @@ END$$;`)
 	}`))
 
 	version := SemanticVersion{Major: 1, Minor: 0, Patch: 0}
-	_, err = schemaStore.CreateOrUpdateSchema(ctx, CreateSchemaParams{
+	_, err = schemaStore.CreateOrUpdateSchema(ctx, spaceDB, CreateSchemaParams{
 		SchemaID:   schemaID,
 		Version:    version,
 		Definition: baseSchema,
