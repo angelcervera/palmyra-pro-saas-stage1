@@ -25,13 +25,12 @@ go run ./apps/cli --help
 ## Commands
 
 ### bootstrap
-Bootstrap platform resources. Currently creates the admin tenant space and an initial admin user.
+Bootstrap platform resources. Creates the **admin** tenant space and an initial admin user (Phase 1).
 
 ```bash
 bin/platform-cli bootstrap platform \
   --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
   --env-key dev \
-  --admin-schema admin \
   --tenant-slug admin \
   --tenant-name "Admin" \
   --admin-email admin@example.com \
@@ -41,12 +40,35 @@ bin/platform-cli bootstrap platform \
 Flags:
 - `--database-url` (required): Postgres connection string.
 - `--env-key`: environment key prefix (default `dev`).
-- `--admin-schema`: admin schema for tenant registry (default `admin`).
 - `--tenant-slug`: admin tenant slug (default `admin`).
 - `--tenant-name`: display name for admin tenant (default `Admin`).
 - `--admin-email` (required): initial admin user email.
 - `--admin-full-name` (required): initial admin user full name.
 - `--created-by`: UUID for audit (optional; defaults to random).
+
+### tenant
+Tenant utilities.
+
+#### tenant create
+Create and fully bootstrap a tenant space (role, schema, grants, base tables, tenant admin user).
+
+```bash
+bin/platform-cli tenant create \
+  --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
+  --env-key dev \
+  --tenant-slug acme \
+  --tenant-name "Acme Corp" \
+  --admin-email admin@acme.com \
+  --admin-full-name "Acme Admin"
+```
+
+Flags:
+- `--database-url` (required): Postgres connection string.
+- `--env-key`: environment key prefix (default `dev`).
+- `--tenant-slug` (required): tenant slug.
+- `--tenant-name`: display name for tenant.
+- `--admin-email` (required): tenant admin user email.
+- `--admin-full-name` (required): tenant admin user full name.
 
 ### auth
 Group for authentication helpers.

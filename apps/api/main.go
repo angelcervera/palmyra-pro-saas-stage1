@@ -126,7 +126,7 @@ func main() {
 	}
 
 	tenantRepo := tenantsrepo.NewPostgresRepository(tenantStore)
-	dbProv := tenantsprov.NewDBProvisioner(pool)
+	dbProv := tenantsprov.NewDBProvisioner(pool, adminSchema)
 	authProv := tenantsprov.NewAuthProvisioner()
 	var storageProv tenantsservice.StorageProvisioner
 	switch cfg.StorageBackend {
@@ -148,10 +148,9 @@ func main() {
 	default:
 		logger.Fatal("invalid STORAGE_BACKEND (use gcs or local)", zap.String("backend", cfg.StorageBackend))
 	}
-	tenantService := tenantsservice.NewWithProvisioningAndAdmin(
+	tenantService := tenantsservice.New(
 		tenantRepo,
 		cfg.EnvKey,
-		adminSchema,
 		tenantsservice.ProvisioningDeps{
 			DB:      dbProv,
 			Auth:    authProv,

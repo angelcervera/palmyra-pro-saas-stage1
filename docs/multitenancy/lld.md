@@ -57,30 +57,34 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - Tenant middleware still validates `basePrefix` envKey and returns ProblemDetails: 401 invalid tenant, 403 env mismatch/disabled/unknown.
 
 ## Bootstrapping & DDL
-- Base schemas/tables: `database/schema/users.sql`.
-- Tenant registry DDL: `database/schema/tenants.sql`.
-- Bootstrap: run `platform-cli bootstrap platform --database-url <url> --admin-schema <schema> ...` to create the admin schema, apply base DDL (admin + tenant-space users), and seed the admin tenant/user. No SQL is auto-applied at container start.
+- Phase 1 (platform bootstrap) via `platform-cli bootstrap platform ...`:
+  - Creates **admin schema only** and applies embedded DDL: `database/schema/tenant_space/users.sql`, `database/schema/platform/entity_schemas.sql`, `database/schema/platform/tenants.sql`.
+  - Seeds admin tenant/user. No tenant roles are created here.
+- Phase 2 (per-tenant bootstrap) is **only** in `DBProvisioner`:
+  - Creates tenant NOLOGIN role, grants membership to the app role, creates tenant schema owned by that role.
+  - Grants USAGE on admin schema plus SELECT on `schema_repository` and `schema_categories`.
+  - Applies default privileges (tables/sequences) while scoped with `SET LOCAL ROLE`.
+  - Creates tenant `users` table using the embedded asset (same as Phase 1) inside the tenant transaction so ownership stays with the tenant role.
+  - Leaves entity tables lazy (created at runtime by repositories).
 
 ## Testing
 - Integration (Testcontainers) for tenant registry, entities, users; skip when `testing.Short()` or `TEST_DATABASE_URL` unset.
 - Unit tests for middleware cache and tenant helpers unchanged.
 
-## Provisioning flow (planned, with tenant roles)
-- Where we stand: tenant registry and tenant.Space middleware exist; `TenantDB.WithTenant` currently only sets `search_path`; provisioning endpoints are stubbed.
-- Recent changes: tenant Space now carries `roleName`; `TenantDB.WithTenant` sets both `SET LOCAL ROLE roleName` and `search_path`; service wiring uses provisioners (DB roles/schema/grants, auth, storage) plus advisory lock.
+## Provisioning flow (implemented for DB, planned for auth/storage)
+- Where we stand: tenant registry and tenant.Space middleware exist; `TenantDB.WithTenant` sets both `SET LOCAL ROLE roleName` and `search_path`. DB provisioner is active; auth/storage are still stubbed.
 - Target behaviour (`POST /admin/tenants/{id}:provision`): end in `active` with `dbReady && authReady == true`, `lastProvisionedAt` set, `lastError` cleared; idempotent; accepts `pending|provisioning|active` (not `disabled`).
 - Happy-path steps:
   1. Fetch + lock tenant; set status `provisioning`, clear `lastError`, bump version.
   2. Derive names: `schemaName=tenant_<slug_snake>`, `roleName=tenant_<slug_snake>_role`, `basePrefix=<ENV_KEY>/<slug>-<shortId>/`, `externalAuthTenant=<ENV_KEY>-<slug>`.
-  3. Database: ensure NOLOGIN `roleName`, grant it to app DB user; create schema owned by `roleName`; default privileges to `roleName`; read-only grants to admin schema (`USAGE`) and `schema_repository` (`SELECT`); run base DDL for shared tenant tables (e.g., `users`) under `SET ROLE roleName`; **entity tables remain runtime/lazy** because new schemas can be added later—default privileges ensure those tables will be owned by the tenant role when created.
-  4. Auth: ensure external auth tenant exists with envKey guard; mark `authReady`.
-  5. Storage: verify configured bucket/prefix (GCS or local); for GCS, write/delete a sentinel under `basePrefix`.
+  3. Database (DBProvisioner only): ensure NOLOGIN `roleName`, grant it to app DB user; create schema owned by `roleName`; set default privileges in the same transaction with `SET LOCAL ROLE` + `search_path`; grant USAGE on admin schema and SELECT on `schema_repository`/`schema_categories`; create tenant `users` table from embedded DDL under tenant role; **entity tables remain runtime/lazy** and inherit ownership via default privs.
+  4. Auth: ensure external auth tenant exists with envKey guard; mark `authReady`. (pending real impl)
+  5. Storage: verify configured bucket/prefix (GCS/local); for GCS, write/delete sentinel under `basePrefix`. (pending real impl)
   6. Commit: if both ready → `status=active` else `provisioning`; set `lastProvisionedAt`, clear `lastError`, bump `tenant_version`.
 - Failure handling: keep achieved flags, store `lastError`, status `pending` if nothing ready else `provisioning`; retries re-validate resources.
 - Provision status (`GET ...:provision-status`): live-check role/grants/schema/base tables, auth tenant, GCS prefix; persist flag changes; promote to `active` when both ready.
 - Runtime invariant: `TenantDB.WithTenant` must execute `SET LOCAL ROLE roleName` and `SET LOCAL search_path = schemaName,<admin_schema>` for every tenant-scoped txn; lazy ensure paths must run under the tenant role so new tables inherit ownership.
-- Because schemas can be added over time in the schema repository, entity tables are created on-demand at runtime; default privileges from provisioning ensure those tables land with the tenant role and stay isolated.
-- The tenant registry now stores `role_name`; runtime uses the stored value (no derivation). Keep DB and `tenant.Space` in sync; missing/empty `role_name` is an error.
+- The tenant registry stores `role_name`; runtime uses the stored value (no derivation). Keep DB and `tenant.Space` in sync; missing/empty `role_name` is an error.
 
 ## Current limitations / open items
 - Provisioning workflow remains unimplemented; service returns `ErrNotImplemented` until wired to steps above.

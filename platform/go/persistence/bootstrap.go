@@ -37,7 +37,7 @@ func BootstrapAdminSchema(ctx context.Context, pool *pgxpool.Pool, adminSchema s
 		return fmt.Errorf("create admin schema: %w", err)
 	}
 
-	if _, err := tx.Exec(ctx, `SELECT set_config('search_path', $1, false)`, adminSchema); err != nil {
+	if _, err := tx.Exec(ctx, `SELECT set_config('search_path', $1, true)`, adminSchema); err != nil {
 		return fmt.Errorf("set search_path: %w", err)
 	}
 

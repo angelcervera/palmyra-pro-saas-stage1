@@ -14,10 +14,9 @@ type DBProvisioner interface {
 }
 
 type DBProvisionRequest struct {
-	TenantID    uuid.UUID
-	SchemaName  string
-	RoleName    string
-	AdminSchema string
+	TenantID   uuid.UUID
+	SchemaName string
+	RoleName   string
 }
 
 type DBProvisionResult struct {

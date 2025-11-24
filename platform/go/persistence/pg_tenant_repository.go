@@ -1,0 +1,203 @@
+package persistence
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// TenantStore provides access to the tenants table.
+type TenantStore struct {
+	adminDB *TenantDB
+	table   string
+}
+
+// NewTenantStore creates a store; assumes migrations already created the table.
+// Panics if pool is nil. AdminSchema is required by TenantDB, so pass the admin schema explicitly.
+func NewTenantStore(ctx context.Context, pool *pgxpool.Pool, schema string) (*TenantStore, error) {
+	table := "tenants"
+	return &TenantStore{adminDB: NewTenantDB(TenantDBConfig{Pool: pool, AdminSchema: schema}), table: table}, nil
+}
+
+const tenantSelectColumns = `tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
+        base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at, created_by,
+        db_ready, auth_ready, last_provisioned_at, last_error`
+
+// Create inserts the initial tenant version.
+func (s *TenantStore) Create(ctx context.Context, rec TenantRecord) (TenantRecord, error) {
+	if rec.TenantID == uuid.Nil {
+		return TenantRecord{}, errors.New("tenant id is required")
+	}
+	if rec.TenantVersion == (SemanticVersion{}) {
+		return TenantRecord{}, errors.New("tenant version is required")
+	}
+
+	query := fmt.Sprintf(`
+	        INSERT INTO %s (
+	            tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
+	            base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at,
+	            created_by, db_ready, auth_ready, last_provisioned_at, last_error
+	        ) VALUES (
+	            $1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,FALSE,$10,$11,$12,$13,$14,$15
+	        )
+	        RETURNING `+tenantSelectColumns+`
+	    `, s.table)
+
+	var out TenantRecord
+	err := s.adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		row := tx.QueryRow(ctx, query,
+			rec.TenantID, rec.TenantVersion.String(), rec.Slug, rec.DisplayName, rec.Status,
+			rec.SchemaName, rec.RoleName, rec.BasePrefix, rec.ShortTenantID, rec.CreatedAt, rec.CreatedBy,
+			rec.DBReady, rec.AuthReady, rec.LastProvisionedAt, rec.LastError,
+		)
+
+		var scanErr error
+		out, scanErr = scanTenantRecord(row)
+		return scanErr
+	})
+	if err != nil {
+		return TenantRecord{}, err
+	}
+	return out, nil
+}
+
+// AppendVersion inserts a new version and deactivates previous active version.
+func (s *TenantStore) AppendVersion(ctx context.Context, rec TenantRecord) (TenantRecord, error) {
+	var out TenantRecord
+	err := s.adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		deactivate := fmt.Sprintf("UPDATE %s SET is_active = FALSE WHERE tenant_id = $1", s.table)
+		if _, err := tx.Exec(ctx, deactivate, rec.TenantID); err != nil {
+			return err
+		}
+
+		insert := fmt.Sprintf(`
+	        INSERT INTO %s (
+	            tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,
+	            base_prefix, short_tenant_id, is_active, is_soft_deleted, created_at,
+	            created_by, db_ready, auth_ready, last_provisioned_at, last_error
+	        ) VALUES (
+	            $1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,FALSE,$10,$11,$12,$13,$14,$15
+	        )
+	        RETURNING `+tenantSelectColumns+`
+	    `, s.table)
+
+		row := tx.QueryRow(ctx, insert,
+			rec.TenantID, rec.TenantVersion.String(), rec.Slug, rec.DisplayName, rec.Status,
+			rec.SchemaName, rec.RoleName, rec.BasePrefix, rec.ShortTenantID, rec.CreatedAt, rec.CreatedBy,
+			rec.DBReady, rec.AuthReady, rec.LastProvisionedAt, rec.LastError,
+		)
+
+		var scanErr error
+		out, scanErr = scanTenantRecord(row)
+		return scanErr
+	})
+	if err != nil {
+		return TenantRecord{}, err
+	}
+	return out, nil
+}
+
+// GetActive fetches the active tenant version.
+func (s *TenantStore) GetActive(ctx context.Context, id uuid.UUID) (TenantRecord, error) {
+	query := fmt.Sprintf(`SELECT %s FROM %s WHERE tenant_id = $1 AND is_active = TRUE AND is_soft_deleted = FALSE`, tenantSelectColumns, s.table)
+	var out TenantRecord
+	err := s.adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		var scanErr error
+		out, scanErr = scanTenantRecord(tx.QueryRow(ctx, query, id))
+		return scanErr
+	})
+	if err != nil {
+		return TenantRecord{}, err
+	}
+	return out, nil
+}
+
+// GetBySlug returns the active tenant by slug.
+func (s *TenantStore) GetBySlug(ctx context.Context, slug string) (TenantRecord, error) {
+	query := fmt.Sprintf(`SELECT %s FROM %s WHERE slug = $1 AND is_active = TRUE AND is_soft_deleted = FALSE`, tenantSelectColumns, s.table)
+	var out TenantRecord
+	err := s.adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		var scanErr error
+		out, scanErr = scanTenantRecord(tx.QueryRow(ctx, query, slug))
+		return scanErr
+	})
+	if err != nil {
+		return TenantRecord{}, err
+	}
+	return out, nil
+}
+
+// ListActive returns paginated active tenants with optional status filter.
+func (s *TenantStore) ListActive(ctx context.Context, status *string, limit, offset int) ([]TenantRecord, int, error) {
+	where := "WHERE is_active = TRUE AND is_soft_deleted = FALSE"
+	args := []any{}
+	if status != nil {
+		where += " AND status = $1"
+		args = append(args, *status)
+	}
+
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s %s", s.table, where)
+	query := fmt.Sprintf(`SELECT %s FROM %s %s
+	        ORDER BY created_at DESC
+	        LIMIT %d OFFSET %d`, tenantSelectColumns, s.table, where, limit, offset)
+
+	var (
+		total   int
+		records []TenantRecord
+	)
+
+	err := s.adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+			return err
+		}
+
+		rows, err := tx.Query(ctx, query, args...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			rec, err := scanTenantRecord(rows)
+			if err != nil {
+				return err
+			}
+			records = append(records, rec)
+		}
+
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return records, total, nil
+}
+
+func scanTenantRecord(row pgx.Row) (TenantRecord, error) {
+	var rec TenantRecord
+	var versionStr string
+	if err := row.Scan(&rec.TenantID, &versionStr, &rec.Slug, &rec.DisplayName, &rec.Status, &rec.SchemaName, &rec.RoleName, &rec.BasePrefix, &rec.ShortTenantID, &rec.IsActive, &rec.IsSoftDeleted, &rec.CreatedAt, &rec.CreatedBy, &rec.DBReady, &rec.AuthReady, &rec.LastProvisionedAt, &rec.LastError); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return TenantRecord{}, ErrNotFound
+		}
+		return TenantRecord{}, err
+	}
+	ver, err := ParseSemanticVersion(versionStr)
+	if err != nil {
+		return TenantRecord{}, fmt.Errorf("parse tenant version: %w", err)
+	}
+	rec.TenantVersion = ver
+	if strings.TrimSpace(rec.RoleName) == "" {
+		return TenantRecord{}, fmt.Errorf("tenant %s missing role name", rec.TenantID)
+	}
+	return rec, nil
+}
+
+// helper to avoid unused import warning when strings isn't used (but currently used in fmt building)
+var _ = strings.Compare
