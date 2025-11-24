@@ -123,3 +123,44 @@ Output is written to stdout; pipe or copy into `Authorization: Bearer <token>` h
 - `auth create-user`
 - `auth create-tenant`
 - `bootstrap` helpers for first-run setup
+
+### schema categories
+Admin CRUD helpers for schema categories (backed by the shared persistence layer).
+
+List categories (optionally include soft-deleted):
+```bash
+bin/platform-cli schema categories list \
+  --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
+  --env-key dev \
+  --admin-tenant-slug admin \
+  --include-deleted
+```
+
+Create or update (upsert) a category:
+```bash
+# create
+bin/platform-cli schema categories upsert \
+  --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
+  --env-key dev \
+  --admin-tenant-slug admin \
+  --name "Payments" \
+  --slug payments \
+  --description "Schemas for payment flows"
+
+# update (pass the category id)
+bin/platform-cli schema categories upsert \
+  --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
+  --env-key dev \
+  --admin-tenant-slug admin \
+  --id 11111111-1111-1111-1111-111111111111 \
+  --name "Payments & Billing"
+```
+
+Soft delete by id:
+```bash
+bin/platform-cli schema categories delete \
+  --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
+  --env-key dev \
+  --admin-tenant-slug admin \
+  --id 11111111-1111-1111-1111-111111111111
+```
