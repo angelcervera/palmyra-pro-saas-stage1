@@ -13,15 +13,15 @@ import (
 
 // TenantStore provides access to the tenants table.
 type TenantStore struct {
-	adminDB *TenantDB
+	adminDB *SpaceDB
 	table   string
 }
 
 // NewTenantStore creates a store; assumes migrations already created the table.
-// Panics if pool is nil. AdminSchema is required by TenantDB, so pass the admin schema explicitly.
+// Panics if pool is nil. AdminSchema is required by SpaceDB, so pass the admin schema explicitly.
 func NewTenantStore(ctx context.Context, pool *pgxpool.Pool, schema string) (*TenantStore, error) {
 	table := "tenants"
-	return &TenantStore{adminDB: NewTenantDB(TenantDBConfig{Pool: pool, AdminSchema: schema}), table: table}, nil
+	return &TenantStore{adminDB: NewSpaceDB(SpaceDBConfig{Pool: pool, AdminSchema: schema}), table: table}, nil
 }
 
 const tenantSelectColumns = `tenant_id, tenant_version, slug, display_name, status, schema_name, role_name,

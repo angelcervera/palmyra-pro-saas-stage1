@@ -33,13 +33,13 @@ var (
 
 // UserStore exposes persistence helpers for the users table.
 type UserStore struct {
-	db *TenantDB
+	db *SpaceDB
 }
 
 // NewUserStore ensures the users table exists and returns a store instance.
-func NewUserStore(ctx context.Context, db *TenantDB) (*UserStore, error) {
+func NewUserStore(ctx context.Context, db *SpaceDB) (*UserStore, error) {
 	if db == nil {
-		return nil, errors.New("tenant db is required")
+		return nil, errors.New("space db is required")
 	}
 
 	return &UserStore{db: db}, nil

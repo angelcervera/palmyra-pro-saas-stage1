@@ -16,7 +16,7 @@ import (
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
-func TestEntityRepositoryIsolationWithTenantDB(t *testing.T) {
+func TestEntityRepositoryIsolationWithSpaceDB(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
@@ -53,6 +53,11 @@ func TestEntityRepositoryIsolationWithTenantDB(t *testing.T) {
 	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.UsersSQL))
 	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.EntitySchemasSQL))
 	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.TenantsSQL))
+
+	spaceDB := NewSpaceDB(SpaceDBConfig{
+		Pool:        pool,
+		AdminSchema: adminSchema,
+	})
 
 	tenantSchemaA := tenant.BuildSchemaName("dev", "acme_co")
 	tenantSchemaB := tenant.BuildSchemaName("dev", "beta_inc")
@@ -96,7 +101,7 @@ END$$;`)
 	schemaID := uuid.New()
 	categoryID := uuid.New()
 
-	_, err = categoryStore.CreateSchemaCategory(ctx, CreateSchemaCategoryParams{
+	_, err = categoryStore.CreateSchemaCategory(ctx, spaceDB, CreateSchemaCategoryParams{
 		CategoryID: categoryID,
 		Name:       "cards",
 		Slug:       "cards",
@@ -127,12 +132,8 @@ END$$;`)
 	require.NoError(t, err)
 
 	validator := NewSchemaValidator()
-	tenantDB := NewTenantDB(TenantDBConfig{
-		Pool:        pool,
-		AdminSchema: adminSchema,
-	})
 
-	entityRepo, err := NewEntityRepository(ctx, tenantDB, schemaStore, validator, EntityRepositoryConfig{
+	entityRepo, err := NewEntityRepository(ctx, spaceDB, schemaStore, validator, EntityRepositoryConfig{
 		SchemaID: schemaID,
 	})
 	require.NoError(t, err)

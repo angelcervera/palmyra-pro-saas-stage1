@@ -102,12 +102,17 @@ func main() {
 	}
 	defer persistence.ClosePool(pool)
 
+	spaceDB := persistence.NewSpaceDB(persistence.SpaceDBConfig{
+		Pool:        pool,
+		AdminSchema: adminSchema,
+	})
+
 	categoryStore, err := persistence.NewSchemaCategoryStore(ctx, pool)
 	if err != nil {
 		logger.Fatal("init schema category store", zap.Error(err))
 	}
 
-	categoryRepo := schemacategoriesrepo.NewPostgresRepository(categoryStore)
+	categoryRepo := schemacategoriesrepo.NewPostgresRepository(spaceDB, categoryStore)
 	categoryService := schemacategoriesservice.New(categoryRepo)
 	categoryHTTPHandler := schemacategorieshandler.New(categoryService, logger)
 
@@ -161,14 +166,9 @@ func main() {
 
 	authMiddleware := buildAuthMiddleware(ctx, cfg, tenantService, logger)
 
-	tenantDB := persistence.NewTenantDB(persistence.TenantDBConfig{
-		Pool:        pool,
-		AdminSchema: adminSchema,
-	})
-
 	schemaValidator := persistence.NewSchemaValidator()
 
-	userStore, err := persistence.NewUserStore(ctx, tenantDB)
+	userStore, err := persistence.NewUserStore(ctx, spaceDB)
 	if err != nil {
 		logger.Fatal("init user store", zap.Error(err))
 	}
@@ -177,7 +177,7 @@ func main() {
 	userService := usersservice.New(userRepo)
 	userHTTPHandler := usershandler.New(userService, logger)
 
-	entitiesRepo := entitiesrepo.New(tenantDB, schemaStore, schemaValidator)
+	entitiesRepo := entitiesrepo.New(spaceDB, schemaStore, schemaValidator)
 	entitiesService := entitiesservice.New(entitiesRepo)
 	entitiesHTTPHandler := entitieshandler.New(entitiesService, logger)
 

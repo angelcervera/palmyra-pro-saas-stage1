@@ -12,7 +12,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - **Tenant middleware** (`platform/go/tenant/middleware/tenant_space.go`): after auth, extracts tenant claim, resolves via tenant service, enforces `basePrefix` envKey prefix, caches (TTL optional), and attaches `tenant.Space` to context; on failure emits ProblemDetails (401/403).
 
 ## Persistence routing
-- **TenantDB** (`platform/go/persistence/tenant_db.go`): wraps `pgxpool`; `WithTenant(ctx, space, fn)` starts a tx, sets `search_path` to `<tenant schema>,<admin schema>`, executes `fn(tx)`, commits/rolls back. Admin schema passed via config; tenant schema comes from `tenant.Space`.
+- **SpaceDB** (`platform/go/persistence/space_db.go`): wraps `pgxpool`; `WithSpace(ctx, space, fn)` starts a tx, sets `search_path` to `<tenant schema>,<admin schema>`, executes `fn(tx)`, commits/rolls back. Admin schema passed via config; tenant schema comes from `tenant.Space`.
 
 ## Tenant registry persistence
 - **Store** (`platform/go/persistence/tenant_repository.go`): append-only versions with fields `{tenant_id, tenant_version, slug, display_name, status, schema_name, base_prefix, short_tenant_id, created_at, created_by, db_ready, auth_ready, last_provisioned_at, last_error, is_active, is_soft_deleted}`.  
@@ -20,16 +20,16 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 
 ## Tenant-scoped domains (implemented)
 - **Entities**
-  - Repo (`platform/go/persistence/entity_repository.go`): all methods take `tenant.Space` and run via `TenantDB.WithTenant`; DDL (entity table + indexes) executed lazily inside the tenant schema on first use. `search_path` keeps FK to admin `schema_repository`.
+  - Repo (`platform/go/persistence/entity_repository.go`): all methods take `tenant.Space` and run via `SpaceDB.WithSpace`; DDL (entity table + indexes) executed lazily inside the tenant schema on first use. `search_path` keeps FK to admin `schema_repository`.
   - Domain repo (`domains/entities/be/repo`): extracts `tenant.Space` from context, forwards to persistence repo.
   - Isolation test (`platform/go/persistence/entity_repository_test.go`): two schemas, verifies writes and reads stay within their schema; cross-tenant get returns not-found.
 - **Users**
-  - Store (`platform/go/persistence/user_repository.go`): same pattern as entities; `users` table ensured lazily per tenant schema via `TenantDB.WithTenant`.
+  - Store (`platform/go/persistence/user_repository.go`): same pattern as entities; `users` table ensured lazily per tenant schema via `SpaceDB.WithSpace`.
   - Domain repo (`domains/users/be/repo`): pulls `tenant.Space` from context; services/handlers unchanged.
   - Isolation test (`platform/go/persistence/user_repository_test.go`): two schemas, verifies separation and cross-tenant not-found.
 
 ## API wiring
-- `apps/api/main.go` builds one `TenantDB` with `AdminSchema` derived from `ADMIN_TENANT_SLUG` and injects into entity and user repos.
+- `apps/api/main.go` builds one `SpaceDB` with `AdminSchema` derived from `ADMIN_TENANT_SLUG` and injects into entity and user repos.
 - Middleware order: auth → request trace → tenant space. Tenants endpoints remain admin-only.
 
 ## Environment variables (used today)
@@ -72,7 +72,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - Unit tests for middleware cache and tenant helpers unchanged.
 
 ## Provisioning flow (implemented for DB, planned for auth/storage)
-- Where we stand: tenant registry and tenant.Space middleware exist; `TenantDB.WithTenant` sets both `SET LOCAL ROLE roleName` and `search_path`. DB provisioner is active; auth/storage are still stubbed.
+- Where we stand: tenant registry and tenant.Space middleware exist; `SpaceDB.WithSpace` sets both `SET LOCAL ROLE roleName` and `search_path`. DB provisioner is active; auth/storage are still stubbed.
 - Target behaviour (`POST /admin/tenants/{id}:provision`): end in `active` with `dbReady && authReady == true`, `lastProvisionedAt` set, `lastError` cleared; idempotent; accepts `pending|provisioning|active` (not `disabled`).
 - Happy-path steps:
   1. Fetch + lock tenant; set status `provisioning`, clear `lastError`, bump version.
@@ -83,7 +83,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
   6. Commit: if both ready → `status=active` else `provisioning`; set `lastProvisionedAt`, clear `lastError`, bump `tenant_version`.
 - Failure handling: keep achieved flags, store `lastError`, status `pending` if nothing ready else `provisioning`; retries re-validate resources.
 - Provision status (`GET ...:provision-status`): live-check role/grants/schema/base tables, auth tenant, GCS prefix; persist flag changes; promote to `active` when both ready.
-- Runtime invariant: `TenantDB.WithTenant` must execute `SET LOCAL ROLE roleName` and `SET LOCAL search_path = schemaName,<admin_schema>` for every tenant-scoped txn; lazy ensure paths must run under the tenant role so new tables inherit ownership.
+- Runtime invariant: `SpaceDB.WithSpace` must execute `SET LOCAL ROLE roleName` and `SET LOCAL search_path = schemaName,<admin_schema>` for every tenant-scoped txn; lazy ensure paths must run under the tenant role so new tables inherit ownership.
 - The tenant registry stores `role_name`; runtime uses the stored value (no derivation). Keep DB and `tenant.Space` in sync; missing/empty `role_name` is an error.
 
 ## Current limitations / open items

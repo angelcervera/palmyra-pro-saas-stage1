@@ -18,7 +18,7 @@ import (
 // DBProvisioner creates per-tenant roles/schemas/grants and base shared tables.
 type DBProvisioner struct {
 	pool        *pgxpool.Pool
-	tenantDB    *persistence.TenantDB
+	spaceDB     *persistence.SpaceDB
 	adminSchema string
 }
 
@@ -35,7 +35,7 @@ func NewDBProvisioner(pool *pgxpool.Pool, adminSchema string) *DBProvisioner {
 	return &DBProvisioner{
 		pool:        pool,
 		adminSchema: adminSchema,
-		tenantDB: persistence.NewTenantDB(persistence.TenantDBConfig{
+		spaceDB: persistence.NewSpaceDB(persistence.SpaceDBConfig{
 			Pool:        pool,
 			AdminSchema: adminSchema,
 		}),
@@ -93,7 +93,7 @@ func (p *DBProvisioner) Check(ctx context.Context, req service.DBProvisionReques
 
 	ready := true
 
-	if err := p.tenantDB.WithTenant(ctx, tenant.Space{
+	if err := p.spaceDB.WithTenant(ctx, tenant.Space{
 		SchemaName: req.SchemaName,
 		RoleName:   req.RoleName,
 	}, func(txx pgx.Tx) error {
@@ -196,7 +196,7 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 		return false, fmt.Errorf("create schema: %w", err)
 	}
 
-	// Ensure the application role can assume the tenant role to execute SET ROLE in TenantDB.
+	// Ensure the application role can assume the tenant role to execute SET ROLE in SpaceDB.
 	if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT %s TO CURRENT_USER", pgx.Identifier{req.RoleName}.Sanitize())); err != nil {
 		return false, fmt.Errorf("grant tenant role to app user: %w", err)
 	}
@@ -243,7 +243,7 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 }
 
 func (p *DBProvisioner) ensureBaseTables(ctx context.Context, req service.DBProvisionRequest) error {
-	return p.tenantDB.WithTenant(ctx, tenant.Space{
+	return p.spaceDB.WithTenant(ctx, tenant.Space{
 		SchemaName: req.SchemaName,
 		RoleName:   req.RoleName,
 	}, func(tx pgx.Tx) error {

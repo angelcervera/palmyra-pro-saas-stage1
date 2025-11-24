@@ -38,7 +38,7 @@ type EntityRepositoryConfig struct {
 // EntityRepository persists immutable entity documents with schema validation and versioning.
 // tableName holds the raw schema-owned table (e.g. cards_entities) while tableIdent caches the quoted/sanitized identifier generated via pgx.Identifier to embed safely in SQL strings.
 type EntityRepository struct {
-	db         *TenantDB
+	db         *SpaceDB
 	schemas    SchemaResolver
 	validator  PayloadValidator
 	tableName  string
@@ -96,9 +96,9 @@ type ListEntitiesParams struct {
 }
 
 // NewEntityRepository ensures the backing table exists and returns a repository instance.
-func NewEntityRepository(ctx context.Context, db *TenantDB, schemaStore SchemaResolver, validator PayloadValidator, cfg EntityRepositoryConfig) (*EntityRepository, error) {
+func NewEntityRepository(ctx context.Context, db *SpaceDB, schemaStore SchemaResolver, validator PayloadValidator, cfg EntityRepositoryConfig) (*EntityRepository, error) {
 	if db == nil {
-		return nil, errors.New("tenant db is required")
+		return nil, errors.New("space db is required")
 	}
 	if schemaStore == nil {
 		return nil, errors.New("schema store is required")

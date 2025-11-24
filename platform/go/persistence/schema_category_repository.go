@@ -51,7 +51,7 @@ var (
 	ErrSchemaCategoryConflict = errors.New("schema category conflict")
 )
 
-func (s *SchemaCategoryStore) CreateSchemaCategory(ctx context.Context, params CreateSchemaCategoryParams) (SchemaCategory, error) {
+func (s *SchemaCategoryStore) CreateSchemaCategoryTx(ctx context.Context, tx pgx.Tx, params CreateSchemaCategoryParams) (SchemaCategory, error) {
 	if params.CategoryID == uuid.Nil {
 		return SchemaCategory{}, errors.New("category id is required")
 	}
@@ -66,14 +66,6 @@ func (s *SchemaCategoryStore) CreateSchemaCategory(ctx context.Context, params C
 	if err != nil {
 		return SchemaCategory{}, err
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return SchemaCategory{}, fmt.Errorf("begin category tx: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	var existingSlug string
 	switch scanErr := tx.QueryRow(ctx, `
@@ -115,15 +107,11 @@ func (s *SchemaCategoryStore) CreateSchemaCategory(ctx context.Context, params C
 		return SchemaCategory{}, fmt.Errorf("fetch schema category: %w", err)
 	}
 
-	if err = tx.Commit(ctx); err != nil {
-		return SchemaCategory{}, fmt.Errorf("commit schema category tx: %w", err)
-	}
-
 	return category, nil
 }
 
-func (s *SchemaCategoryStore) GetSchemaCategory(ctx context.Context, categoryID uuid.UUID) (SchemaCategory, error) {
-	row := s.pool.QueryRow(ctx, `
+func (s *SchemaCategoryStore) GetSchemaCategoryTx(ctx context.Context, tx pgx.Tx, categoryID uuid.UUID) (SchemaCategory, error) {
+	row := tx.QueryRow(ctx, `
 		SELECT category_id, parent_category_id, name, slug, description, created_at, updated_at, deleted_at
 		FROM schema_categories
 		WHERE category_id = $1 AND deleted_at IS NULL
@@ -140,8 +128,8 @@ func (s *SchemaCategoryStore) GetSchemaCategory(ctx context.Context, categoryID 
 	return category, nil
 }
 
-func (s *SchemaCategoryStore) ListSchemaCategories(ctx context.Context, includeDeleted bool) ([]SchemaCategory, error) {
-	rows, err := s.pool.Query(ctx, `
+func (s *SchemaCategoryStore) ListSchemaCategoriesTx(ctx context.Context, tx pgx.Tx, includeDeleted bool) ([]SchemaCategory, error) {
+	rows, err := tx.Query(ctx, `
 		SELECT category_id, parent_category_id, name, slug, description, created_at, updated_at, deleted_at
 		FROM schema_categories
 		WHERE ($1::bool = TRUE OR deleted_at IS NULL)
@@ -168,12 +156,12 @@ func (s *SchemaCategoryStore) ListSchemaCategories(ctx context.Context, includeD
 	return categories, nil
 }
 
-func (s *SchemaCategoryStore) SoftDeleteSchemaCategory(ctx context.Context, categoryID uuid.UUID, deletedAt time.Time) error {
+func (s *SchemaCategoryStore) SoftDeleteSchemaCategoryTx(ctx context.Context, tx pgx.Tx, categoryID uuid.UUID, deletedAt time.Time) error {
 	if deletedAt.IsZero() {
 		deletedAt = time.Now().UTC()
 	}
 
-	result, err := s.pool.Exec(ctx, `
+	result, err := tx.Exec(ctx, `
 		UPDATE schema_categories
 		SET deleted_at = $2,
 		    updated_at = NOW()
@@ -197,18 +185,10 @@ type UpdateSchemaCategoryParams struct {
 	Slug             *string
 }
 
-func (s *SchemaCategoryStore) UpdateSchemaCategory(ctx context.Context, categoryID uuid.UUID, params UpdateSchemaCategoryParams) (SchemaCategory, error) {
+func (s *SchemaCategoryStore) UpdateSchemaCategoryTx(ctx context.Context, tx pgx.Tx, categoryID uuid.UUID, params UpdateSchemaCategoryParams) (SchemaCategory, error) {
 	if categoryID == uuid.Nil {
 		return SchemaCategory{}, errors.New("category id is required")
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return SchemaCategory{}, fmt.Errorf("begin update schema category tx: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	row := tx.QueryRow(ctx, `
 		SELECT category_id, parent_category_id, name, slug, description, created_at, updated_at, deleted_at
@@ -282,11 +262,86 @@ func (s *SchemaCategoryStore) UpdateSchemaCategory(ctx context.Context, category
 		return SchemaCategory{}, fmt.Errorf("fetch updated schema category: %w", err)
 	}
 
-	if err = tx.Commit(ctx); err != nil {
-		return SchemaCategory{}, fmt.Errorf("commit update schema category tx: %w", err)
+	return category, nil
+}
+
+// CreateSchemaCategory wraps CreateSchemaCategoryTx inside WithAdmin to scope queries to the admin schema.
+func (s *SchemaCategoryStore) CreateSchemaCategory(ctx context.Context, adminDB *SpaceDB, params CreateSchemaCategoryParams) (SchemaCategory, error) {
+	if adminDB == nil {
+		return SchemaCategory{}, errors.New("admin db is required")
 	}
 
-	return category, nil
+	var category SchemaCategory
+	return category, adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		cat, err := s.CreateSchemaCategoryTx(ctx, tx, params)
+		if err != nil {
+			return err
+		}
+		category = cat
+		return nil
+	})
+}
+
+// GetSchemaCategory wraps GetSchemaCategoryTx inside WithAdmin.
+func (s *SchemaCategoryStore) GetSchemaCategory(ctx context.Context, adminDB *SpaceDB, categoryID uuid.UUID) (SchemaCategory, error) {
+	if adminDB == nil {
+		return SchemaCategory{}, errors.New("admin db is required")
+	}
+
+	var category SchemaCategory
+	return category, adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		cat, err := s.GetSchemaCategoryTx(ctx, tx, categoryID)
+		if err != nil {
+			return err
+		}
+		category = cat
+		return nil
+	})
+}
+
+// ListSchemaCategories wraps ListSchemaCategoriesTx inside WithAdmin.
+func (s *SchemaCategoryStore) ListSchemaCategories(ctx context.Context, adminDB *SpaceDB, includeDeleted bool) ([]SchemaCategory, error) {
+	if adminDB == nil {
+		return nil, errors.New("admin db is required")
+	}
+
+	var categories []SchemaCategory
+	return categories, adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		list, err := s.ListSchemaCategoriesTx(ctx, tx, includeDeleted)
+		if err != nil {
+			return err
+		}
+		categories = list
+		return nil
+	})
+}
+
+// UpdateSchemaCategory wraps UpdateSchemaCategoryTx inside WithAdmin.
+func (s *SchemaCategoryStore) UpdateSchemaCategory(ctx context.Context, adminDB *SpaceDB, categoryID uuid.UUID, params UpdateSchemaCategoryParams) (SchemaCategory, error) {
+	if adminDB == nil {
+		return SchemaCategory{}, errors.New("admin db is required")
+	}
+
+	var category SchemaCategory
+	return category, adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		cat, err := s.UpdateSchemaCategoryTx(ctx, tx, categoryID, params)
+		if err != nil {
+			return err
+		}
+		category = cat
+		return nil
+	})
+}
+
+// SoftDeleteSchemaCategory wraps SoftDeleteSchemaCategoryTx inside WithAdmin.
+func (s *SchemaCategoryStore) SoftDeleteSchemaCategory(ctx context.Context, adminDB *SpaceDB, categoryID uuid.UUID, deletedAt time.Time) error {
+	if adminDB == nil {
+		return errors.New("admin db is required")
+	}
+
+	return adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		return s.SoftDeleteSchemaCategoryTx(ctx, tx, categoryID, deletedAt)
+	})
 }
 
 func scanSchemaCategory(scanner rowScanner) (SchemaCategory, error) {
