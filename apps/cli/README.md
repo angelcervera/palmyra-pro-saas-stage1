@@ -164,3 +164,48 @@ bin/platform-cli schema categories delete \
   --admin-tenant-slug admin \
   --id 11111111-1111-1111-1111-111111111111
 ```
+
+### schema definitions
+Manage schema repository definitions/versions.
+
+List all schemas (optionally include inactive):
+```bash
+bin/platform-cli schema definitions list \
+  --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
+  --env-key dev \
+  --admin-tenant-slug admin \
+  --include-inactive
+```
+
+List versions for a specific schema (optionally include soft-deleted):
+```bash
+bin/platform-cli schema definitions list \
+  --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
+  --env-key dev \
+  --admin-tenant-slug admin \
+  --schema-id 11111111-1111-1111-1111-111111111111 \
+  --include-deleted
+```
+
+Create or update (upsert) a schema definition version:
+```bash
+bin/platform-cli schema definitions upsert \
+  --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
+  --env-key dev \
+  --admin-tenant-slug admin \
+  --table-name cards_entities \
+  --slug cards-schema \
+  --category-id 22222222-2222-2222-2222-222222222222 \
+  --definition-file ./schemas/cards.json
+  # optionally provide --schema-id <uuid> and/or --schema-version 1.2.3
+```
+
+Soft delete a schema version:
+```bash
+bin/platform-cli schema definitions delete \
+  --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
+  --env-key dev \
+  --admin-tenant-slug admin \
+  --schema-id 11111111-1111-1111-1111-111111111111 \
+  --schema-version 1.0.0
+```
