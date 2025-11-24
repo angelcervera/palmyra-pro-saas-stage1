@@ -24,7 +24,7 @@ func applyDDLToSchema(ctx context.Context, pool *pgxpool.Pool, schema string, sq
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err = tx.Exec(ctx, `SELECT set_config('search_path', $1, false)`, schema); err != nil {
+	if _, err = tx.Exec(ctx, `SELECT set_config('search_path', $1, true)`, schema); err != nil {
 		return err
 	}
 
