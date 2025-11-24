@@ -136,7 +136,7 @@ func TestProvisionHappyPath(t *testing.T) {
 		Storage: stubStorage{res: StorageProvisionResult{Ready: true}},
 	}
 
-	svc := New(repo, "dev", "tenant_admin", deps)
+	svc := New(repo, "dev", deps)
 
 	updated, err := svc.Provision(context.Background(), tenantRecord.ID)
 	require.NoError(t, err)
@@ -158,7 +158,7 @@ func TestProvisionPartialFailureKeepsFlags(t *testing.T) {
 		Storage: stubStorage{res: StorageProvisionResult{Ready: true}},
 	}
 
-	svc := New(repo, "dev", "tenant_admin", deps)
+	svc := New(repo, "dev", deps)
 
 	updated, err := svc.Provision(context.Background(), tenantRecord.ID)
 	require.NoError(t, err)
@@ -181,7 +181,7 @@ func TestProvisionStatusPromotesWhenReady(t *testing.T) {
 		Storage: stubStorage{res: StorageProvisionResult{Ready: true}},
 	}
 
-	svc := New(repo, "dev", "tenant_admin", deps)
+	svc := New(repo, "dev", deps)
 
 	status, err := svc.ProvisionStatus(context.Background(), tenantRecord.ID)
 	require.NoError(t, err)

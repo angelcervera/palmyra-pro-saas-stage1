@@ -101,12 +101,11 @@ type Repository interface {
 type Service struct {
 	repo         Repository
 	envKey       string
-	adminSchema  string
 	provisioning ProvisioningDeps
 }
 
-// New allows specifying admin schema for DB grants.
-func New(repo Repository, envKey, adminSchema string, deps ProvisioningDeps) *Service {
+// New builds the tenant service with provisioning dependencies.
+func New(repo Repository, envKey string, deps ProvisioningDeps) *Service {
 	if repo == nil {
 		panic("tenants repo is required")
 	}
@@ -116,7 +115,7 @@ func New(repo Repository, envKey, adminSchema string, deps ProvisioningDeps) *Se
 	if deps.DB == nil || deps.Auth == nil || deps.Storage == nil {
 		panic("provisioning deps must be non-nil")
 	}
-	return &Service{repo: repo, envKey: envKey, adminSchema: adminSchema, provisioning: deps}
+	return &Service{repo: repo, envKey: envKey, provisioning: deps}
 }
 
 // List tenants with optional status filter.

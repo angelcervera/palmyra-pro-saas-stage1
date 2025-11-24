@@ -151,7 +151,6 @@ func main() {
 	tenantService := tenantsservice.New(
 		tenantRepo,
 		cfg.EnvKey,
-		adminSchema,
 		tenantsservice.ProvisioningDeps{
 			DB:      dbProv,
 			Auth:    authProv,

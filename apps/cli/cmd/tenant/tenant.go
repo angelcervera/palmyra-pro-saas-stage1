@@ -71,7 +71,6 @@ func createCommand() *cobra.Command {
 			svc := service.New(
 				tenantRepo,
 				envKey,
-				adminSchema,
 				service.ProvisioningDeps{
 					DB:      dbProv,
 					Auth:    authProv,
