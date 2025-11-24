@@ -27,6 +27,7 @@ func Command() *cobra.Command {
 	}
 
 	cmd.AddCommand(categoriesCommand())
+	cmd.AddCommand(definitionsCommand())
 	return cmd
 }
 
@@ -289,7 +290,7 @@ func wrapCategoryError(action string, err error) error {
 	var validationErr *schemacategoriesservice.ValidationError
 	switch {
 	case errors.As(err, &validationErr):
-		return fmt.Errorf("%s validation failed:\n%s", action, formatFieldErrors(validationErr.Fields))
+		return fmt.Errorf("%s validation failed:\n%s", action, formatFieldErrors(map[string][]string(validationErr.Fields)))
 	case errors.Is(err, schemacategoriesservice.ErrConflict):
 		return fmt.Errorf("%s conflict: name or slug already exists", action)
 	case errors.Is(err, schemacategoriesservice.ErrNotFound):
@@ -299,7 +300,7 @@ func wrapCategoryError(action string, err error) error {
 	}
 }
 
-func formatFieldErrors(fields schemacategoriesservice.FieldErrors) string {
+func formatFieldErrors(fields map[string][]string) string {
 	keys := make([]string, 0, len(fields))
 	for field := range fields {
 		keys = append(keys, field)

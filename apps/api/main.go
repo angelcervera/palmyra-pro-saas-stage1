@@ -121,7 +121,7 @@ func main() {
 		logger.Fatal("init schema repository store", zap.Error(err))
 	}
 
-	schemaRepo := schemarepositoryrepo.NewPostgresRepository(schemaStore)
+	schemaRepo := schemarepositoryrepo.NewPostgresRepository(spaceDB, schemaStore)
 	schemaService := schemarepositoryservice.New(schemaRepo)
 	schemaHTTPHandler := schemarepositoryhandler.New(schemaService, logger)
 

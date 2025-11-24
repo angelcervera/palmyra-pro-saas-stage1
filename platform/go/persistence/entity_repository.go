@@ -21,8 +21,8 @@ var ErrEntityAlreadyExists = errors.New("entity already exists")
 
 // SchemaResolver exposes the subset of schema store operations needed by the entity repository.
 type SchemaResolver interface {
-	GetActiveSchema(ctx context.Context, schemaID uuid.UUID) (SchemaRecord, error)
-	GetSchemaByVersion(ctx context.Context, schemaID uuid.UUID, version SemanticVersion) (SchemaRecord, error)
+	GetActiveSchema(ctx context.Context, adminDB *SpaceDB, schemaID uuid.UUID) (SchemaRecord, error)
+	GetSchemaByVersion(ctx context.Context, adminDB *SpaceDB, schemaID uuid.UUID, version SemanticVersion) (SchemaRecord, error)
 }
 
 // PayloadValidator validates JSON documents against schema definitions.
@@ -110,7 +110,7 @@ func NewEntityRepository(ctx context.Context, db *SpaceDB, schemaStore SchemaRes
 		return nil, errors.New("schema id is required")
 	}
 
-	activeSchema, err := schemaStore.GetActiveSchema(ctx, cfg.SchemaID)
+	activeSchema, err := schemaStore.GetActiveSchema(ctx, db, cfg.SchemaID)
 	if err != nil {
 		return nil, fmt.Errorf("resolve active schema: %w", err)
 	}
@@ -544,7 +544,7 @@ func (r *EntityRepository) SoftDeleteEntity(ctx context.Context, space tenant.Sp
 
 func (r *EntityRepository) resolveSchema(ctx context.Context, version *SemanticVersion) (SchemaRecord, error) {
 	if version == nil {
-		schema, err := r.schemas.GetActiveSchema(ctx, r.schemaID)
+		schema, err := r.schemas.GetActiveSchema(ctx, r.db, r.schemaID)
 		if err != nil {
 			return SchemaRecord{}, err
 		}
@@ -553,7 +553,7 @@ func (r *EntityRepository) resolveSchema(ctx context.Context, version *SemanticV
 		}
 		return schema, nil
 	}
-	schema, err := r.schemas.GetSchemaByVersion(ctx, r.schemaID, *version)
+	schema, err := r.schemas.GetSchemaByVersion(ctx, r.db, r.schemaID, *version)
 	if err != nil {
 		return SchemaRecord{}, err
 	}
