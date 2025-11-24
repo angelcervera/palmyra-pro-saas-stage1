@@ -265,6 +265,85 @@ func (s *SchemaCategoryStore) UpdateSchemaCategoryTx(ctx context.Context, tx pgx
 	return category, nil
 }
 
+// CreateSchemaCategory wraps CreateSchemaCategoryTx inside WithAdmin to scope queries to the admin schema.
+func (s *SchemaCategoryStore) CreateSchemaCategory(ctx context.Context, adminDB *TenantDB, params CreateSchemaCategoryParams) (SchemaCategory, error) {
+	if adminDB == nil {
+		return SchemaCategory{}, errors.New("admin db is required")
+	}
+
+	var category SchemaCategory
+	return category, adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		cat, err := s.CreateSchemaCategoryTx(ctx, tx, params)
+		if err != nil {
+			return err
+		}
+		category = cat
+		return nil
+	})
+}
+
+// GetSchemaCategory wraps GetSchemaCategoryTx inside WithAdmin.
+func (s *SchemaCategoryStore) GetSchemaCategory(ctx context.Context, adminDB *TenantDB, categoryID uuid.UUID) (SchemaCategory, error) {
+	if adminDB == nil {
+		return SchemaCategory{}, errors.New("admin db is required")
+	}
+
+	var category SchemaCategory
+	return category, adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		cat, err := s.GetSchemaCategoryTx(ctx, tx, categoryID)
+		if err != nil {
+			return err
+		}
+		category = cat
+		return nil
+	})
+}
+
+// ListSchemaCategories wraps ListSchemaCategoriesTx inside WithAdmin.
+func (s *SchemaCategoryStore) ListSchemaCategories(ctx context.Context, adminDB *TenantDB, includeDeleted bool) ([]SchemaCategory, error) {
+	if adminDB == nil {
+		return nil, errors.New("admin db is required")
+	}
+
+	var categories []SchemaCategory
+	return categories, adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		list, err := s.ListSchemaCategoriesTx(ctx, tx, includeDeleted)
+		if err != nil {
+			return err
+		}
+		categories = list
+		return nil
+	})
+}
+
+// UpdateSchemaCategory wraps UpdateSchemaCategoryTx inside WithAdmin.
+func (s *SchemaCategoryStore) UpdateSchemaCategory(ctx context.Context, adminDB *TenantDB, categoryID uuid.UUID, params UpdateSchemaCategoryParams) (SchemaCategory, error) {
+	if adminDB == nil {
+		return SchemaCategory{}, errors.New("admin db is required")
+	}
+
+	var category SchemaCategory
+	return category, adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		cat, err := s.UpdateSchemaCategoryTx(ctx, tx, categoryID, params)
+		if err != nil {
+			return err
+		}
+		category = cat
+		return nil
+	})
+}
+
+// SoftDeleteSchemaCategory wraps SoftDeleteSchemaCategoryTx inside WithAdmin.
+func (s *SchemaCategoryStore) SoftDeleteSchemaCategory(ctx context.Context, adminDB *TenantDB, categoryID uuid.UUID, deletedAt time.Time) error {
+	if adminDB == nil {
+		return errors.New("admin db is required")
+	}
+
+	return adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+		return s.SoftDeleteSchemaCategoryTx(ctx, tx, categoryID, deletedAt)
+	})
+}
+
 func scanSchemaCategory(scanner rowScanner) (SchemaCategory, error) {
 	var (
 		categoryID       uuid.UUID
