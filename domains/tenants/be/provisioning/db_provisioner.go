@@ -191,14 +191,14 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 		}
 	}
 
-	// // Grant the new tenant role permission to the app user, to allow it to manipulate the tenant schema.
-	// if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT %s TO CURRENT_USER", pgx.Identifier{req.RoleName}.Sanitize())); err != nil {
-	// 	return false, fmt.Errorf("grant role to tenat role: %w", err)
-	// }
-
 	createSchema := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s AUTHORIZATION %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
 	if _, err := tx.Exec(ctx, createSchema); err != nil {
 		return false, fmt.Errorf("create schema: %w", err)
+	}
+
+	// Ensure the application role can assume the tenant role to execute SET ROLE in TenantDB.
+	if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT %s TO CURRENT_USER", pgx.Identifier{req.RoleName}.Sanitize())); err != nil {
+		return false, fmt.Errorf("grant tenant role to app user: %w", err)
 	}
 
 	grantUsageTenant := fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
@@ -210,7 +210,7 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 	if _, err := tx.Exec(ctx, grantUsageAdmin); err != nil {
 		return false, fmt.Errorf("grant usage admin schema: %w", err)
 	}
-	for _, table := range []string{"schema_repository", "schema_categories"} { // future catalog tables can be added here
+	for _, table := range []string{"schema_repository", "schema_categories"} { // future catalog tables must be added here
 		grant := fmt.Sprintf("GRANT SELECT ON %s.%s TO %s", pgx.Identifier{p.adminSchema}.Sanitize(), pgx.Identifier{table}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
 		if _, err := tx.Exec(ctx, grant); err != nil {
 			return false, fmt.Errorf("grant select %s: %w", table, err)
@@ -223,7 +223,7 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 		return false, fmt.Errorf("set local role: %w", err)
 	}
 	searchPath := fmt.Sprintf("%s, %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{p.adminSchema}.Sanitize())
-	if _, err := tx.Exec(ctx, `SELECT set_config('search_path', $1, false)`, searchPath); err != nil {
+	if _, err := tx.Exec(ctx, `SELECT set_config('search_path', $1, true)`, searchPath); err != nil {
 		return false, fmt.Errorf("set search_path: %w", err)
 	}
 	alterDefault := fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT ALL ON TABLES TO %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
