@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -37,6 +38,9 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 	connString, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
+	adminSchema := "tenant_admin"
+	connString = fmt.Sprintf("%s&search_path=%s", connString, adminSchema)
+
 	pool, err := NewPool(ctx, PoolConfig{ConnString: connString})
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -44,6 +48,11 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 	})
 
 	require.NoError(t, applyCoreSchemaDDL(ctx, pool))
+
+	spaceDB := NewSpaceDB(SpaceDBConfig{
+		Pool:        pool,
+		AdminSchema: adminSchema,
+	})
 
 	store, err := NewSchemaRepositoryStore(ctx, pool)
 	require.NoError(t, err)
@@ -56,7 +65,7 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 	childCategoryID := uuid.New()
 	rootDescription := "System schemas"
 
-	rootCategory, err := categoryStore.CreateSchemaCategory(ctx, CreateSchemaCategoryParams{
+	rootCategory, err := categoryStore.CreateSchemaCategory(ctx, spaceDB, CreateSchemaCategoryParams{
 		CategoryID: rootCategoryID,
 		Name:       "root",
 		Slug:       "system-schemas",
@@ -69,7 +78,7 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 	require.Equal(t, "system-schemas", rootCategory.Slug)
 	require.Nil(t, rootCategory.ParentCategoryID)
 
-	childCategory, err := categoryStore.CreateSchemaCategory(ctx, CreateSchemaCategoryParams{
+	childCategory, err := categoryStore.CreateSchemaCategory(ctx, spaceDB, CreateSchemaCategoryParams{
 		CategoryID:       childCategoryID,
 		ParentCategoryID: &rootCategoryID,
 		Name:             "cards",
@@ -80,7 +89,7 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 	require.Equal(t, rootCategoryID, *childCategory.ParentCategoryID)
 	require.Equal(t, "cards", childCategory.Slug)
 
-	categories, err := categoryStore.ListSchemaCategories(ctx, false)
+	categories, err := categoryStore.ListSchemaCategories(ctx, spaceDB, false)
 	require.NoError(t, err)
 	require.Len(t, categories, 2)
 
@@ -177,8 +186,8 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	require.NoError(t, categoryStore.SoftDeleteSchemaCategory(ctx, rootCategoryID, time.Now().UTC()))
+	require.NoError(t, categoryStore.SoftDeleteSchemaCategory(ctx, spaceDB, rootCategoryID, time.Now().UTC()))
 
-	_, err = categoryStore.GetSchemaCategory(ctx, rootCategoryID)
+	_, err = categoryStore.GetSchemaCategory(ctx, spaceDB, rootCategoryID)
 	require.ErrorIs(t, err, ErrSchemaNotFound)
 }

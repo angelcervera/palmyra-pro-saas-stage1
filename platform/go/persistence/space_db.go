@@ -68,7 +68,7 @@ func (db *SpaceDB) WithTenant(ctx context.Context, tenantSpace tenant.Space, fn 
 	defer tx.Rollback(ctx) // nolint:errcheck
 
 	if strings.TrimSpace(tenantSpace.RoleName) == "" {
-		return fmt.Errorf("tenantSpace role is required in tenant.Space")
+		return fmt.Errorf("space role is required in tenant.Space")
 	}
 
 	if _, err = tx.Exec(ctx, fmt.Sprintf("SET LOCAL ROLE %s", pgx.Identifier{tenantSpace.RoleName}.Sanitize())); err != nil {

@@ -54,6 +54,11 @@ func TestEntityRepositoryIsolationWithSpaceDB(t *testing.T) {
 	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.EntitySchemasSQL))
 	require.NoError(t, applyDDLToSchema(ctx, pool, adminSchema, sqlassets.TenantsSQL))
 
+	spaceDB := NewSpaceDB(SpaceDBConfig{
+		Pool:        pool,
+		AdminSchema: adminSchema,
+	})
+
 	tenantSchemaA := tenant.BuildSchemaName("dev", "acme_co")
 	tenantSchemaB := tenant.BuildSchemaName("dev", "beta_inc")
 	_, err = pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+tenantSchemaA)
@@ -96,7 +101,7 @@ END$$;`)
 	schemaID := uuid.New()
 	categoryID := uuid.New()
 
-	_, err = categoryStore.CreateSchemaCategory(ctx, CreateSchemaCategoryParams{
+	_, err = categoryStore.CreateSchemaCategory(ctx, spaceDB, CreateSchemaCategoryParams{
 		CategoryID: categoryID,
 		Name:       "cards",
 		Slug:       "cards",
@@ -127,10 +132,6 @@ END$$;`)
 	require.NoError(t, err)
 
 	validator := NewSchemaValidator()
-	spaceDB := NewSpaceDB(SpaceDBConfig{
-		Pool:        pool,
-		AdminSchema: adminSchema,
-	})
 
 	entityRepo, err := NewEntityRepository(ctx, spaceDB, schemaStore, validator, EntityRepositoryConfig{
 		SchemaID: schemaID,
