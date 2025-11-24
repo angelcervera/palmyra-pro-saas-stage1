@@ -16,6 +16,7 @@ import (
 	schemacategoriesservice "github.com/zenGate-Global/palmyra-pro-saas/domains/schema-categories/be/service"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/persistence"
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/requesttrace"
+	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
 // Command groups schema-related CLI helpers (categories today, repository later).
@@ -248,13 +249,20 @@ func newSchemaCategoryService(ctx context.Context, databaseURL, envKey, adminTen
 		return nil, nil, fmt.Errorf("init pool: %w", err)
 	}
 
+	adminSchema := tenant.BuildSchemaName(envKey, tenant.ToSnake(adminTenantSlug))
+
+	spaceDB := persistence.NewSpaceDB(persistence.SpaceDBConfig{
+		Pool:        pool,
+		AdminSchema: adminSchema,
+	})
+
 	store, err := persistence.NewSchemaCategoryStore(ctx, pool)
 	if err != nil {
 		persistence.ClosePool(pool)
 		return nil, nil, fmt.Errorf("init schema category store: %w", err)
 	}
 
-	repo := schemacategoriesrepo.NewPostgresRepository(store)
+	repo := schemacategoriesrepo.NewPostgresRepository(spaceDB, store)
 	svc := schemacategoriesservice.New(repo)
 
 	cleanup := func() {

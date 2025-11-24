@@ -266,7 +266,7 @@ func (s *SchemaCategoryStore) UpdateSchemaCategoryTx(ctx context.Context, tx pgx
 }
 
 // CreateSchemaCategory wraps CreateSchemaCategoryTx inside WithAdmin to scope queries to the admin schema.
-func (s *SchemaCategoryStore) CreateSchemaCategory(ctx context.Context, adminDB *TenantDB, params CreateSchemaCategoryParams) (SchemaCategory, error) {
+func (s *SchemaCategoryStore) CreateSchemaCategory(ctx context.Context, adminDB *SpaceDB, params CreateSchemaCategoryParams) (SchemaCategory, error) {
 	if adminDB == nil {
 		return SchemaCategory{}, errors.New("admin db is required")
 	}
@@ -283,7 +283,7 @@ func (s *SchemaCategoryStore) CreateSchemaCategory(ctx context.Context, adminDB 
 }
 
 // GetSchemaCategory wraps GetSchemaCategoryTx inside WithAdmin.
-func (s *SchemaCategoryStore) GetSchemaCategory(ctx context.Context, adminDB *TenantDB, categoryID uuid.UUID) (SchemaCategory, error) {
+func (s *SchemaCategoryStore) GetSchemaCategory(ctx context.Context, adminDB *SpaceDB, categoryID uuid.UUID) (SchemaCategory, error) {
 	if adminDB == nil {
 		return SchemaCategory{}, errors.New("admin db is required")
 	}
@@ -300,7 +300,7 @@ func (s *SchemaCategoryStore) GetSchemaCategory(ctx context.Context, adminDB *Te
 }
 
 // ListSchemaCategories wraps ListSchemaCategoriesTx inside WithAdmin.
-func (s *SchemaCategoryStore) ListSchemaCategories(ctx context.Context, adminDB *TenantDB, includeDeleted bool) ([]SchemaCategory, error) {
+func (s *SchemaCategoryStore) ListSchemaCategories(ctx context.Context, adminDB *SpaceDB, includeDeleted bool) ([]SchemaCategory, error) {
 	if adminDB == nil {
 		return nil, errors.New("admin db is required")
 	}
@@ -317,7 +317,7 @@ func (s *SchemaCategoryStore) ListSchemaCategories(ctx context.Context, adminDB 
 }
 
 // UpdateSchemaCategory wraps UpdateSchemaCategoryTx inside WithAdmin.
-func (s *SchemaCategoryStore) UpdateSchemaCategory(ctx context.Context, adminDB *TenantDB, categoryID uuid.UUID, params UpdateSchemaCategoryParams) (SchemaCategory, error) {
+func (s *SchemaCategoryStore) UpdateSchemaCategory(ctx context.Context, adminDB *SpaceDB, categoryID uuid.UUID, params UpdateSchemaCategoryParams) (SchemaCategory, error) {
 	if adminDB == nil {
 		return SchemaCategory{}, errors.New("admin db is required")
 	}
@@ -334,7 +334,7 @@ func (s *SchemaCategoryStore) UpdateSchemaCategory(ctx context.Context, adminDB 
 }
 
 // SoftDeleteSchemaCategory wraps SoftDeleteSchemaCategoryTx inside WithAdmin.
-func (s *SchemaCategoryStore) SoftDeleteSchemaCategory(ctx context.Context, adminDB *TenantDB, categoryID uuid.UUID, deletedAt time.Time) error {
+func (s *SchemaCategoryStore) SoftDeleteSchemaCategory(ctx context.Context, adminDB *SpaceDB, categoryID uuid.UUID, deletedAt time.Time) error {
 	if adminDB == nil {
 		return errors.New("admin db is required")
 	}

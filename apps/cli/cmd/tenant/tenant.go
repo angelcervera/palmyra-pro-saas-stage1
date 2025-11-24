@@ -111,7 +111,7 @@ func createCommand() *cobra.Command {
 				return fmt.Errorf("refresh provision status: %w", err)
 			}
 
-			tenantDB := persistence.NewTenantDB(persistence.TenantDBConfig{
+			spaceDB := persistence.NewSpaceDB(persistence.SpaceDBConfig{
 				Pool:        pool,
 				AdminSchema: adminSchema,
 			})
@@ -122,7 +122,7 @@ func createCommand() *cobra.Command {
 				SchemaName:    t.SchemaName,
 				RoleName:      t.RoleName,
 			}
-			if err := seedTenantAdminUser(ctx, tenantDB, space, adminEmail, adminName); err != nil {
+			if err := seedTenantAdminUser(ctx, spaceDB, space, adminEmail, adminName); err != nil {
 				return fmt.Errorf("seed tenant admin user: %w", err)
 			}
 
@@ -148,14 +148,14 @@ func createCommand() *cobra.Command {
 }
 
 // seedTenantAdminUser inserts or updates an admin user inside the tenant schema.
-func seedTenantAdminUser(ctx context.Context, tenantDB *persistence.TenantDB, space tenant.Space, email, fullName string) error {
+func seedTenantAdminUser(ctx context.Context, spaceDB *persistence.SpaceDB, space tenant.Space, email, fullName string) error {
 	email = strings.TrimSpace(email)
 	fullName = strings.TrimSpace(fullName)
 	if email == "" || fullName == "" {
 		return fmt.Errorf("tenant admin email and full name are required to seed user")
 	}
 
-	return tenantDB.WithTenant(ctx, space, func(tx pgx.Tx) error {
+	return spaceDB.WithTenant(ctx, space, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `
             INSERT INTO users (user_id, email, full_name)
             VALUES ($1, $2, $3)

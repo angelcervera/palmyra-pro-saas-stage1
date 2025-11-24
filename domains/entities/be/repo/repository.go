@@ -34,15 +34,15 @@ type Repository interface {
 }
 
 type repository struct {
-	tenantDB    *persistence.TenantDB
+	spaceDB     *persistence.SpaceDB
 	schemaStore *persistence.SchemaRepositoryStore
 	validator   *persistence.SchemaValidator
 }
 
 // New constructs a Repository backed by the shared persistence layer.
-func New(tenantDB *persistence.TenantDB, schemaStore *persistence.SchemaRepositoryStore, validator *persistence.SchemaValidator) Repository {
-	if tenantDB == nil {
-		panic("tenant db is required")
+func New(spaceDB *persistence.SpaceDB, schemaStore *persistence.SchemaRepositoryStore, validator *persistence.SchemaValidator) Repository {
+	if spaceDB == nil {
+		panic("space db is required")
 	}
 	if schemaStore == nil {
 		panic("schema repository store is required")
@@ -51,7 +51,7 @@ func New(tenantDB *persistence.TenantDB, schemaStore *persistence.SchemaReposito
 		panic("schema validator is required")
 	}
 
-	return &repository{tenantDB: tenantDB, schemaStore: schemaStore, validator: validator}
+	return &repository{spaceDB: spaceDB, schemaStore: schemaStore, validator: validator}
 }
 
 func (r *repository) List(ctx context.Context, tableName string, params ListParams) (ListResult, error) {
@@ -170,7 +170,7 @@ func (r *repository) resolveEntityRepo(ctx context.Context, tableName string) (*
 		return nil, err
 	}
 
-	return persistence.NewEntityRepository(ctx, r.tenantDB, r.schemaStore, r.validator, persistence.EntityRepositoryConfig{
+	return persistence.NewEntityRepository(ctx, r.spaceDB, r.schemaStore, r.validator, persistence.EntityRepositoryConfig{
 		SchemaID: schemaRecord.SchemaID,
 	})
 }

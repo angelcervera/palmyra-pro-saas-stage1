@@ -68,8 +68,8 @@ func platformCommand() *cobra.Command {
 			}
 
 			// Seed admin user first; its ID is used as created_by for the admin tenant.
-			tenantDB := persistence.NewTenantDB(persistence.TenantDBConfig{Pool: pool, AdminSchema: adminSchema})
-			adminUserID, err := seedAdminUser(ctx, tenantDB, adminEmail, adminFullName)
+			spaceDB := persistence.NewSpaceDB(persistence.SpaceDBConfig{Pool: pool, AdminSchema: adminSchema})
+			adminUserID, err := seedAdminUser(ctx, spaceDB, adminEmail, adminFullName)
 			if err != nil {
 				return fmt.Errorf("seed admin user: %w", err)
 			}
@@ -142,7 +142,7 @@ func defaultName(slug, name string) string {
 
 // seedAdminUser inserts an admin user row inside the admin schema using WithAdmin.
 // It is safe to run multiple times (unique email constraint).
-func seedAdminUser(ctx context.Context, tenantDB *persistence.TenantDB, email, fullName string) (uuid.UUID, error) {
+func seedAdminUser(ctx context.Context, spaceDB *persistence.SpaceDB, email, fullName string) (uuid.UUID, error) {
 	email = strings.TrimSpace(email)
 	fullName = strings.TrimSpace(fullName)
 	if email == "" || fullName == "" {
@@ -150,7 +150,7 @@ func seedAdminUser(ctx context.Context, tenantDB *persistence.TenantDB, email, f
 	}
 
 	var userID uuid.UUID
-	if err := tenantDB.WithAdmin(ctx, func(tx pgx.Tx) error {
+	if err := spaceDB.WithAdmin(ctx, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `
             INSERT INTO users (user_id, email, full_name)
             VALUES ($1, $2, $3)

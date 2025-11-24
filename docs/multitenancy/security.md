@@ -29,7 +29,7 @@ Use this as the baseline when refining provisioning, runtime routing, and audits
 - Two-response policy per `docs/api.md`: success (200/201/204/202) + default `application/problem+json` using shared `ProblemDetails` schema.
 
 ### Interaction with DB isolation
-- When the request context contains `tenant.Space`, `TenantDB.WithTenant` must both set `search_path` and `SET LOCAL ROLE` to the tenant role derived from the space. This ties API-layer tenant resolution to DB-level privileges.
+- When the request context contains `tenant.Space`, `SpaceDB.WithSpace` must both set `search_path` and `SET LOCAL ROLE` to the tenant role derived from the space. This ties API-layer tenant resolution to DB-level privileges.
 
 ---
 
@@ -66,7 +66,7 @@ Use this as the baseline when refining provisioning, runtime routing, and audits
 ## Diagram (request path)
 1. **JWT auth** → credentials + tenant claim.  
 2. **Tenant middleware** → resolves tenant, envKey guard, attaches `tenant.Space`.  
-3. **TenantDB.WithTenant** → `SET LOCAL ROLE tenant_<slug>_role; SET LOCAL search_path = tenant_<slug>,<admin_schema>;`.  
+3. **SpaceDB.WithSpace** → `SET LOCAL ROLE tenant_<slug>_role; SET LOCAL search_path = tenant_<slug>,<admin_schema>;`.  
 4. **Handlers/Repos** operate; cross-tenant access blocked by role grants.
 
 ---

@@ -14,7 +14,7 @@ import (
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
-func TestUserStoreIsolationWithTenantDB(t *testing.T) {
+func TestUserStoreIsolationWithSpaceDB(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
@@ -84,12 +84,12 @@ END$$;`)
 	_, err = pool.Exec(ctx, `GRANT SELECT ON `+adminSchema+`.schema_repository TO `+tenantSchemaB+`_role`)
 	require.NoError(t, err)
 
-	tenantDB := NewTenantDB(TenantDBConfig{
+	spaceDB := NewSpaceDB(SpaceDBConfig{
 		Pool:        pool,
 		AdminSchema: adminSchema,
 	})
 
-	store, err := NewUserStore(ctx, tenantDB)
+	store, err := NewUserStore(ctx, spaceDB)
 	require.NoError(t, err)
 
 	spaceA := tenant.Space{

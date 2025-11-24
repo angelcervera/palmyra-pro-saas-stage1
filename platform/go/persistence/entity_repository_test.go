@@ -16,7 +16,7 @@ import (
 	"github.com/zenGate-Global/palmyra-pro-saas/platform/go/tenant"
 )
 
-func TestEntityRepositoryIsolationWithTenantDB(t *testing.T) {
+func TestEntityRepositoryIsolationWithSpaceDB(t *testing.T) {
 	t.Parallel()
 
 	if testing.Short() {
@@ -127,12 +127,12 @@ END$$;`)
 	require.NoError(t, err)
 
 	validator := NewSchemaValidator()
-	tenantDB := NewTenantDB(TenantDBConfig{
+	spaceDB := NewSpaceDB(SpaceDBConfig{
 		Pool:        pool,
 		AdminSchema: adminSchema,
 	})
 
-	entityRepo, err := NewEntityRepository(ctx, tenantDB, schemaStore, validator, EntityRepositoryConfig{
+	entityRepo, err := NewEntityRepository(ctx, spaceDB, schemaStore, validator, EntityRepositoryConfig{
 		SchemaID: schemaID,
 	})
 	require.NoError(t, err)

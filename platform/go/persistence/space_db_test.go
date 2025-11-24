@@ -51,9 +51,9 @@ func (p *fakePool) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx
 	return p.tx, nil
 }
 
-func TestTenantDBWithAdminSetsOnlySearchPath(t *testing.T) {
+func TestSpaceDBWithAdminSetsOnlySearchPath(t *testing.T) {
 	ftx := &fakeTx{}
-	db := &TenantDB{pool: &fakePool{tx: ftx}, adminSchema: "admin"}
+	db := &SpaceDB{pool: &fakePool{tx: ftx}, adminSchema: "admin"}
 
 	err := db.WithAdmin(context.Background(), func(tx pgx.Tx) error { return nil })
 	require.NoError(t, err)
@@ -62,9 +62,9 @@ func TestTenantDBWithAdminSetsOnlySearchPath(t *testing.T) {
 	require.Equal(t, "admin", ftx.calls[0].args[0])
 }
 
-func TestTenantDBWithTenantSetsRoleAndSearchPath(t *testing.T) {
+func TestSpaceDBWithSpaceSetsRoleAndSearchPath(t *testing.T) {
 	ftx := &fakeTx{}
-	db := &TenantDB{pool: &fakePool{tx: ftx}, adminSchema: "admin"}
+	db := &SpaceDB{pool: &fakePool{tx: ftx}, adminSchema: "admin"}
 	space := tenant.Space{SchemaName: "tenant_acme", RoleName: "tenant_acme_role"}
 
 	err := db.WithTenant(context.Background(), space, func(tx pgx.Tx) error { return nil })
@@ -75,9 +75,9 @@ func TestTenantDBWithTenantSetsRoleAndSearchPath(t *testing.T) {
 	require.Equal(t, "tenant_acme, admin", ftx.calls[1].args[0])
 }
 
-func TestTenantDBWithTenantMissingRole(t *testing.T) {
-	db := &TenantDB{pool: &fakePool{tx: &fakeTx{}}, adminSchema: "admin"}
+func TestSpaceDBWithSpaceMissingRole(t *testing.T) {
+	db := &SpaceDB{pool: &fakePool{tx: &fakeTx{}}, adminSchema: "admin"}
 	err := db.WithTenant(context.Background(), tenant.Space{SchemaName: "tenant_acme"}, func(tx pgx.Tx) error { return nil })
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "tenant role is required")
+	require.Contains(t, err.Error(), "space role is required")
 }

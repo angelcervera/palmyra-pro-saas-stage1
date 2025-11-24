@@ -83,8 +83,8 @@ func TestDBProvisionerEnsure_NoLeakAndAccess(t *testing.T) {
 	require.NotEqual(t, roleName, currentRole)
 
 	// (2) tenant role can read admin schema repository tables
-	tenantDB := persistence.NewTenantDB(persistence.TenantDBConfig{Pool: pool, AdminSchema: "tenant_admin"})
-	err = tenantDB.WithTenant(ctx, tenant.Space{SchemaName: schemaName, RoleName: roleName}, func(tx pgx.Tx) error {
+	spaceDB := persistence.NewSpaceDB(persistence.SpaceDBConfig{Pool: pool, AdminSchema: "tenant_admin"})
+	err = spaceDB.WithTenant(ctx, tenant.Space{SchemaName: schemaName, RoleName: roleName}, func(tx pgx.Tx) error {
 		var c int
 		if err := tx.QueryRow(ctx, "SELECT count(*) FROM schema_repository").Scan(&c); err != nil {
 			return err
