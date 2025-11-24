@@ -61,10 +61,9 @@ func TestDBProvisionerEnsure_NoLeakAndAccess(t *testing.T) {
 	prov := NewDBProvisioner(pool, "tenant_admin")
 
 	req := service.DBProvisionRequest{
-		TenantID:    uuid.New(),
-		SchemaName:  schemaName,
-		RoleName:    roleName,
-		AdminSchema: "tenant_admin",
+		TenantID:   uuid.New(),
+		SchemaName: schemaName,
+		RoleName:   roleName,
 	}
 
 	_, err := prov.Ensure(ctx, req)

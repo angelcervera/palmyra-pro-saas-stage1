@@ -43,11 +43,6 @@ func NewDBProvisioner(pool *pgxpool.Pool, adminSchema string) *DBProvisioner {
 }
 
 func (p *DBProvisioner) Ensure(ctx context.Context, req service.DBProvisionRequest) (service.DBProvisionResult, error) {
-	req.AdminSchema = strings.TrimSpace(req.AdminSchema)
-	if req.AdminSchema != "" && req.AdminSchema != p.adminSchema {
-		return service.DBProvisionResult{}, fmt.Errorf("admin schema mismatch: provisioner=%s request=%s", p.adminSchema, req.AdminSchema)
-	}
-
 	ready, err := p.ensureRoleSchemaAndGrants(ctx, req)
 	if err != nil {
 		return service.DBProvisionResult{}, err
@@ -61,12 +56,6 @@ func (p *DBProvisioner) Ensure(ctx context.Context, req service.DBProvisionReque
 func (p *DBProvisioner) Check(ctx context.Context, req service.DBProvisionRequest) (service.DBProvisionResult, error) {
 	if req.RoleName == "" || req.SchemaName == "" {
 		return service.DBProvisionResult{Ready: false}, fmt.Errorf("role and schema required")
-	}
-	if req.AdminSchema == "" {
-		return service.DBProvisionResult{Ready: false}, fmt.Errorf("admin schema required")
-	}
-	if req.AdminSchema != p.adminSchema {
-		return service.DBProvisionResult{}, fmt.Errorf("admin schema mismatch: provisioner=%s request=%s", p.adminSchema, req.AdminSchema)
 	}
 
 	conn, err := p.pool.Acquire(ctx)
@@ -143,14 +132,14 @@ func (p *DBProvisioner) Check(ctx context.Context, req service.DBProvisionReques
 				SELECT 1 FROM pg_class c
 				JOIN pg_namespace n ON n.oid = c.relnamespace
 				WHERE n.nspname = $1 AND c.relname = 'schema_repository'
-			)`, req.AdminSchema).Scan(&hasSchemaRepo); err != nil {
+			)`, p.adminSchema).Scan(&hasSchemaRepo); err != nil {
 			return fmt.Errorf("check schema_repository regclass: %w", err)
 		}
 		if !hasSchemaRepo {
 			ready = false
 			return nil
 		}
-		if err := txx.QueryRow(ctx, "SELECT 1 FROM "+pgx.Identifier{req.AdminSchema, "schema_repository"}.Sanitize()+" LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err := txx.QueryRow(ctx, "SELECT 1 FROM "+pgx.Identifier{p.adminSchema, "schema_repository"}.Sanitize()+" LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("read schema_repository: %w", err)
 		}
 		var hasSchemaCategories bool
@@ -159,14 +148,14 @@ func (p *DBProvisioner) Check(ctx context.Context, req service.DBProvisionReques
 				SELECT 1 FROM pg_class c
 				JOIN pg_namespace n ON n.oid = c.relnamespace
 				WHERE n.nspname = $1 AND c.relname = 'schema_categories'
-			)`, req.AdminSchema).Scan(&hasSchemaCategories); err != nil {
+			)`, p.adminSchema).Scan(&hasSchemaCategories); err != nil {
 			return fmt.Errorf("check schema_categories regclass: %w", err)
 		}
 		if !hasSchemaCategories {
 			ready = false
 			return nil
 		}
-		if err := txx.QueryRow(ctx, "SELECT 1 FROM "+pgx.Identifier{req.AdminSchema, "schema_categories"}.Sanitize()+" LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err := txx.QueryRow(ctx, "SELECT 1 FROM "+pgx.Identifier{p.adminSchema, "schema_categories"}.Sanitize()+" LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("read schema_categories: %w", err)
 		}
 		return nil
@@ -217,16 +206,14 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 		return false, fmt.Errorf("grant usage tenant schema: %w", err)
 	}
 
-	if req.AdminSchema != "" {
-		grantUsageAdmin := fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", pgx.Identifier{req.AdminSchema}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
-		if _, err := tx.Exec(ctx, grantUsageAdmin); err != nil {
-			return false, fmt.Errorf("grant usage admin schema: %w", err)
-		}
-		for _, table := range []string{"schema_repository", "schema_categories"} { // future catalog tables can be added here
-			grant := fmt.Sprintf("GRANT SELECT ON %s.%s TO %s", pgx.Identifier{req.AdminSchema}.Sanitize(), pgx.Identifier{table}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
-			if _, err := tx.Exec(ctx, grant); err != nil {
-				return false, fmt.Errorf("grant select %s: %w", table, err)
-			}
+	grantUsageAdmin := fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", pgx.Identifier{p.adminSchema}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
+	if _, err := tx.Exec(ctx, grantUsageAdmin); err != nil {
+		return false, fmt.Errorf("grant usage admin schema: %w", err)
+	}
+	for _, table := range []string{"schema_repository", "schema_categories"} { // future catalog tables can be added here
+		grant := fmt.Sprintf("GRANT SELECT ON %s.%s TO %s", pgx.Identifier{p.adminSchema}.Sanitize(), pgx.Identifier{table}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
+		if _, err := tx.Exec(ctx, grant); err != nil {
+			return false, fmt.Errorf("grant select %s: %w", table, err)
 		}
 	}
 
@@ -235,7 +222,7 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 	if _, err := tx.Exec(ctx, setRole); err != nil {
 		return false, fmt.Errorf("set local role: %w", err)
 	}
-	searchPath := fmt.Sprintf("%s, %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.AdminSchema}.Sanitize())
+	searchPath := fmt.Sprintf("%s, %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{p.adminSchema}.Sanitize())
 	if _, err := tx.Exec(ctx, `SELECT set_config('search_path', $1, false)`, searchPath); err != nil {
 		return false, fmt.Errorf("set search_path: %w", err)
 	}

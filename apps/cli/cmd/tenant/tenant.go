@@ -102,10 +102,9 @@ func createCommand() *cobra.Command {
 
 			// Create DB artifacts first (idempotent), then refresh status.
 			if _, err := dbProv.Ensure(ctx, service.DBProvisionRequest{
-				TenantID:    t.ID,
-				SchemaName:  t.SchemaName,
-				RoleName:    t.RoleName,
-				AdminSchema: adminSchema,
+				TenantID:   t.ID,
+				SchemaName: t.SchemaName,
+				RoleName:   t.RoleName,
 			}); err != nil {
 				return fmt.Errorf("db ensure: %w", err)
 			}

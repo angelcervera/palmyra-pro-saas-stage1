@@ -201,10 +201,9 @@ func (s *Service) Provision(ctx context.Context, id uuid.UUID) (Tenant, error) {
 	roleName := current.RoleName
 
 	dbRes, dbErr := s.provisioning.DB.Ensure(ctx, DBProvisionRequest{
-		TenantID:    current.ID,
-		SchemaName:  current.SchemaName,
-		RoleName:    roleName,
-		AdminSchema: s.adminSchema,
+		TenantID:   current.ID,
+		SchemaName: current.SchemaName,
+		RoleName:   roleName,
 	})
 	authRes, authErr := s.provisioning.Auth.Ensure(ctx, fmt.Sprintf("%s-%s", s.envKey, current.Slug))
 	storageRes, storageErr := s.provisioning.Storage.Ensure(ctx, current.BasePrefix)
@@ -284,7 +283,7 @@ func (s *Service) ProvisionStatus(ctx context.Context, id uuid.UUID) (Provisioni
 
 	roleName := current.RoleName
 
-	dbRes, dbErr := s.provisioning.DB.Check(ctx, DBProvisionRequest{TenantID: current.ID, SchemaName: current.SchemaName, RoleName: roleName, AdminSchema: s.adminSchema})
+	dbRes, dbErr := s.provisioning.DB.Check(ctx, DBProvisionRequest{TenantID: current.ID, SchemaName: current.SchemaName, RoleName: roleName})
 	if dbErr != nil {
 		return ProvisioningStatus{}, dbErr
 	}
