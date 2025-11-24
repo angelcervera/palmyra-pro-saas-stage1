@@ -43,6 +43,7 @@ func NewDBProvisioner(pool *pgxpool.Pool, adminSchema string) *DBProvisioner {
 }
 
 func (p *DBProvisioner) Ensure(ctx context.Context, req service.DBProvisionRequest) (service.DBProvisionResult, error) {
+	req.AdminSchema = strings.TrimSpace(req.AdminSchema)
 	if req.AdminSchema != "" && req.AdminSchema != p.adminSchema {
 		return service.DBProvisionResult{}, fmt.Errorf("admin schema mismatch: provisioner=%s request=%s", p.adminSchema, req.AdminSchema)
 	}
@@ -201,9 +202,10 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 		}
 	}
 
-	if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT %s TO CURRENT_USER", pgx.Identifier{req.RoleName}.Sanitize())); err != nil {
-		return false, fmt.Errorf("grant role to app user: %w", err)
-	}
+	// // Grant the new tenant role permission to the app user, to allow it to manipulate the tenant schema.
+	// if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT %s TO CURRENT_USER", pgx.Identifier{req.RoleName}.Sanitize())); err != nil {
+	// 	return false, fmt.Errorf("grant role to tenat role: %w", err)
+	// }
 
 	createSchema := fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s AUTHORIZATION %s", pgx.Identifier{req.SchemaName}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
 	if _, err := tx.Exec(ctx, createSchema); err != nil {

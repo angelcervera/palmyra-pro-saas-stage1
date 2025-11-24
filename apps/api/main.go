@@ -148,7 +148,7 @@ func main() {
 	default:
 		logger.Fatal("invalid STORAGE_BACKEND (use gcs or local)", zap.String("backend", cfg.StorageBackend))
 	}
-	tenantService := tenantsservice.NewWithProvisioningAndAdmin(
+	tenantService := tenantsservice.New(
 		tenantRepo,
 		cfg.EnvKey,
 		adminSchema,

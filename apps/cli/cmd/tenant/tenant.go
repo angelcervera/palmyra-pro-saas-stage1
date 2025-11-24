@@ -68,7 +68,7 @@ func createCommand() *cobra.Command {
 			authProv := readyAuthProvisioner{}
 			storageProv := readyStorageProvisioner{}
 
-			svc := service.NewWithProvisioningAndAdmin(
+			svc := service.New(
 				tenantRepo,
 				envKey,
 				adminSchema,

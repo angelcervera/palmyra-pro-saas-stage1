@@ -105,33 +105,8 @@ type Service struct {
 	provisioning ProvisioningDeps
 }
 
-// New constructs a Service with required dependencies.
-func New(repo Repository, envKey string) *Service {
-	if repo == nil {
-		panic("tenants repo is required")
-	}
-	if envKey == "" {
-		panic("envKey is required")
-	}
-	return &Service{repo: repo, envKey: envKey}
-}
-
-// NewWithProvisioning allows injecting provisioning dependencies; defaults stay zero-value safe for CRUD-only code paths.
-func NewWithProvisioning(repo Repository, envKey string, deps ProvisioningDeps) *Service {
-	if repo == nil {
-		panic("tenants repo is required")
-	}
-	if envKey == "" {
-		panic("envKey is required")
-	}
-	if deps.DB == nil || deps.Auth == nil || deps.Storage == nil {
-		panic("provisioning deps must be non-nil")
-	}
-	return &Service{repo: repo, envKey: envKey, provisioning: deps}
-}
-
-// NewWithProvisioningAndAdmin allows specifying admin schema for DB grants.
-func NewWithProvisioningAndAdmin(repo Repository, envKey, adminSchema string, deps ProvisioningDeps) *Service {
+// New allows specifying admin schema for DB grants.
+func New(repo Repository, envKey, adminSchema string, deps ProvisioningDeps) *Service {
 	if repo == nil {
 		panic("tenants repo is required")
 	}
