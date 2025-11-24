@@ -117,51 +117,55 @@ func (p *DBProvisioner) Check(ctx context.Context, req service.DBProvisionReques
 			return fmt.Errorf("check schema: %w", err)
 		}
 		// Confirm users table is registered.
-		if err := txx.QueryRow(ctx, "SELECT to_regclass('users')").Scan(&dummy); err != nil {
+		var usersExists bool
+		if err := txx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM pg_class c
+				JOIN pg_namespace n ON n.oid = c.relnamespace
+				WHERE n.nspname = $1 AND c.relname = 'users'
+			)`, req.SchemaName).Scan(&usersExists); err != nil {
 			return fmt.Errorf("check users regclass: %w", err)
 		}
-		if dummy == 0 {
-			ready = false
-			return nil
-		}
-		// Ensure users table is under the expected tenant schema (search_path could mask a wrong schema).
-		var usersSchema string
-		if err := txx.QueryRow(ctx, `
-			SELECT n.nspname
-			FROM pg_class c
-			JOIN pg_namespace n ON n.oid = c.relnamespace
-			WHERE c.relname = 'users'
-			LIMIT 1
-		`).Scan(&usersSchema); err != nil {
-			return fmt.Errorf("check users schema: %w", err)
-		}
-		if usersSchema != req.SchemaName {
+		if !usersExists {
 			ready = false
 			return nil
 		}
 		// Basic read probe to ensure SELECT privilege.
-		if err := txx.QueryRow(ctx, "SELECT 1 FROM users LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err := txx.QueryRow(ctx, "SELECT 1 FROM "+pgx.Identifier{req.SchemaName, "users"}.Sanitize()+" LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("read users table: %w", err)
 		}
 		// Ensure read access to shared catalog tables in admin schema via search_path.
-		if err := txx.QueryRow(ctx, "SELECT to_regclass('schema_repository')").Scan(&dummy); err != nil {
+		var hasSchemaRepo bool
+		if err := txx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM pg_class c
+				JOIN pg_namespace n ON n.oid = c.relnamespace
+				WHERE n.nspname = $1 AND c.relname = 'schema_repository'
+			)`, req.AdminSchema).Scan(&hasSchemaRepo); err != nil {
 			return fmt.Errorf("check schema_repository regclass: %w", err)
 		}
-		if dummy == 0 {
+		if !hasSchemaRepo {
 			ready = false
 			return nil
 		}
-		if err := txx.QueryRow(ctx, "SELECT 1 FROM schema_repository LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err := txx.QueryRow(ctx, "SELECT 1 FROM "+pgx.Identifier{req.AdminSchema, "schema_repository"}.Sanitize()+" LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("read schema_repository: %w", err)
 		}
-		if err := txx.QueryRow(ctx, "SELECT to_regclass('schema_categories')").Scan(&dummy); err != nil {
+		var hasSchemaCategories bool
+		if err := txx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM pg_class c
+				JOIN pg_namespace n ON n.oid = c.relnamespace
+				WHERE n.nspname = $1 AND c.relname = 'schema_categories'
+			)`, req.AdminSchema).Scan(&hasSchemaCategories); err != nil {
 			return fmt.Errorf("check schema_categories regclass: %w", err)
 		}
-		if dummy == 0 {
+		if !hasSchemaCategories {
 			ready = false
 			return nil
 		}
-		if err := txx.QueryRow(ctx, "SELECT 1 FROM schema_categories LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err := txx.QueryRow(ctx, "SELECT 1 FROM "+pgx.Identifier{req.AdminSchema, "schema_categories"}.Sanitize()+" LIMIT 1").Scan(&dummy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("read schema_categories: %w", err)
 		}
 		return nil
@@ -185,9 +189,16 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 	}
 	defer tx.Rollback(ctx) // nolint:errcheck
 
-	roleSQL := fmt.Sprintf("CREATE ROLE %s NOLOGIN", pgx.Identifier{req.RoleName}.Sanitize())
-	if _, err := tx.Exec(ctx, roleSQL); err != nil {
-		// ignore duplicate role
+	// Create tenant role only if missing to avoid aborting the transaction.
+	var roleExists bool
+	if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", req.RoleName).Scan(&roleExists); err != nil {
+		return false, fmt.Errorf("check role existence: %w", err)
+	}
+	if !roleExists {
+		roleSQL := fmt.Sprintf("CREATE ROLE %s NOLOGIN", pgx.Identifier{req.RoleName}.Sanitize())
+		if _, err := tx.Exec(ctx, roleSQL); err != nil {
+			return false, fmt.Errorf("create role: %w", err)
+		}
 	}
 
 	if _, err := tx.Exec(ctx, fmt.Sprintf("GRANT %s TO CURRENT_USER", pgx.Identifier{req.RoleName}.Sanitize())); err != nil {
@@ -249,7 +260,13 @@ func (p *DBProvisioner) ensureBaseTables(ctx context.Context, req service.DBProv
 	}, func(tx pgx.Tx) error {
 		// If the users table already exists (e.g., created by init SQL), skip creation.
 		var exists bool
-		if err := tx.QueryRow(ctx, "SELECT to_regclass('users') IS NOT NULL").Scan(&exists); err != nil {
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM pg_class c
+				JOIN pg_namespace n ON n.oid = c.relnamespace
+				WHERE n.nspname = $1 AND c.relname = 'users'
+			)`, req.SchemaName).Scan(&exists); err != nil {
 			return fmt.Errorf("check users table: %w", err)
 		}
 		if exists {
