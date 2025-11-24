@@ -26,7 +26,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS tenants_active_one_per_id
     ON tenants (tenant_id) WHERE is_active = TRUE;
 
 -- Prevent duplicate slugs among active tenants; allow historical versions to coexist.
-CREATE UNIQUE INDEX tenants_slug_unique_active
+CREATE UNIQUE INDEX IF NOT EXISTS tenants_slug_unique_active
     ON tenants (slug) WHERE is_active = TRUE;
 
 CREATE INDEX IF NOT EXISTS tenants_slug_idx ON tenants (slug);
