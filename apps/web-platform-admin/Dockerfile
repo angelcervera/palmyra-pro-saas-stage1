@@ -22,11 +22,11 @@ ARG VITE_API_BASE_URL=/api/v1
 ARG VITE_ENV=development
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 ENV VITE_ENV=${VITE_ENV}
-RUN pnpm --filter @zengateglobal/web-admin... build
+RUN pnpm --filter @zengateglobal/web-platform-admin... build
 
 FROM nginx:1.27-alpine AS runner
 WORKDIR /usr/share/nginx/html
-COPY apps/web-admin/docker/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/apps/web-admin/dist ./
+COPY apps/web-platform-admin/docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/apps/web-platform-admin/dist ./
 EXPOSE 4173
 CMD ["nginx", "-g", "daemon off;"]

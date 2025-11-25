@@ -3,7 +3,7 @@ id: web-app
 version: 1.1.0
 lastUpdated: 2025-11-02
 appliesTo:
-  - apps/web-admin
+  - apps/web-platform-admin
   - apps/web-pwa
   - domains/*/fe
   - packages/api-sdk/src/generated/*
@@ -14,9 +14,9 @@ relatedDocs:
   - docs/project-requirements-document.md
   - docs/adr/index.md
 commandsUsed:
-  - pnpm dev -C apps/web-admin
+  - pnpm dev -C apps/web-platform-admin
   - pnpm dev -C apps/web-pwa
-  - pnpm build -C apps/web-admin
+  - pnpm build -C apps/web-platform-admin
   - pnpm build -C apps/web-pwa
 ---
 
@@ -28,7 +28,7 @@ commandsUsed:
 - FE-GEN-002 (MUST) Generated TS in `packages/api-sdk/src/generated/<domain>` is read-only; regen on contract change.
 - FE-HTTP-003 (MUST) Handle two-response policy: one success code + default RFC7807 `ProblemDetails` on errors.
 - FE-AUTH-004 (MUST) Attach JWT to all API calls except `POST /auth/signup` and `POST /auth/login`.
-- FE-MOD-005 (MUST) Domain-first composition: consume domain exports in `/apps/web-admin` and `/apps/web-pwa`; no cross-domain internal imports.
+- FE-MOD-005 (MUST) Domain-first composition: consume domain exports in `/apps/web-platform-admin` and `/apps/web-pwa`; no cross-domain internal imports.
 - FE-JSON-006 (MUST) JSON payloads camelCase; align form fields and serializers to contracts.
 - FE-TS-008 (MUST) TypeScript-only sources: use `.ts/.tsx` exclusively. Do not introduce `.js/.jsx`; migrate any JS to TS.
 - FE-SDK-009 (MUST) Consume the publishable API SDK `@zengateglobal/api-sdk` from apps. Do not import from `packages/api-sdk/src/generated/*`; those files are internal to the SDK build.
@@ -41,7 +41,7 @@ commandsUsed:
 
 ## App Catalog
 
-- Admin App (`apps/web-admin`)
+- Admin App (`apps/web-platform-admin`)
   - Audience: internal administrators and user managers
   - Scope: CRUD and approval workflows (users, schema categories, schema repository, entities), advanced filtering/pagination, role‑gated UI
   - Online-only by default; graceful handling of transient network issues
@@ -71,12 +71,12 @@ commandsUsed:
 /platform/ts                    # Shared UI primitives, HTTP client, auth utilities, form helpers
 
 /packages/api-sdk               # Publishable TS SDK wrapping generated clients (ESM), name: @zengateglobal/api-sdk
-/apps/web-admin                 # React 19 + Vite admin application shell (routes, layout, theming)
+/apps/web-platform-admin                 # React 19 + Vite admin application shell (routes, layout, theming)
 /apps/web-pwa                   # React 19 + Vite PWA shell (offline‑first, installable)
 ```
 
 Rules:
-- Keep domain UI isolated inside `/domains/<domain>/fe`. Export public surface via an index to be consumed by `/apps/web-admin` and `/apps/web-pwa`.
+- Keep domain UI isolated inside `/domains/<domain>/fe`. Export public surface via an index to be consumed by `/apps/web-platform-admin` and `/apps/web-pwa`.
 - Only put cross‑cutting utilities in `/platform/ts` (UI primitives, auth, http client, date, i18n helpers).
 - Do not import from other domain internals; depend on their exported surface.
 
@@ -98,14 +98,14 @@ Rules:
 ### 2.2 Conventions
 - Files: TypeScript (`.ts`, `.tsx`) only; strict mode enabled (no `.js/.jsx`).
 - Styling: Tailwind utility classes; shadcn components for primitives; no ad‑hoc design tokens outside theme.
-- i18n: `react-i18next`; keep copy in `/apps/web-admin/src/i18n` and `/apps/web-pwa/src/i18n` with domain‑scoped namespaces.
+- i18n: `react-i18next`; keep copy in `/apps/web-platform-admin/src/i18n` and `/apps/web-pwa/src/i18n` with domain‑scoped namespaces.
 - Lint/format: ESLint + Prettier; rely on workspace config.
-- Dependencies: check updates with `pnpm outdated` and upgrade proactively (minor/patch). For majors, test locally (`pnpm dev`, `pnpm build -C apps/web-admin`) before adopting.
+- Dependencies: check updates with `pnpm outdated` and upgrade proactively (minor/patch). For majors, test locally (`pnpm dev`, `pnpm build -C apps/web-platform-admin`) before adopting.
 - Providers live under `src/providers` (theme, i18n, query, auth). Wire them once in `src/main.tsx` so the entire app can consume shared context.
 
 ### 2.3 Workspace package naming (scope)
 - Scope all workspace packages with `@zengateglobal`:
-  - `apps/web-admin/package.json`: `"name": "@zengateglobal/web-admin", "private": true`
+  - `apps/web-platform-admin/package.json`: `"name": "@zengateglobal/web-platform-admin", "private": true`
   - `apps/web-pwa/package.json`: `"name": "@zengateglobal/web-pwa", "private": true`
   - Libraries (e.g., `platform/ts`): `"name": "@zengateglobal/platform-ts"`
 - Use `workspace:*` for internal dependencies, e.g. `"@zengateglobal/platform-ts": "workspace:*"`.
@@ -146,12 +146,12 @@ Run codegen (always follow both steps so generated sources and compiled output s
 
 ## 5) Routing & Shell Composition
 
-- The admin shell lives in `/apps/web-admin` and mounts domain routes.
+- The admin shell lives in `/apps/web-platform-admin` and mounts domain routes.
 - The PWA shell lives in `/apps/web-pwa` and mounts a subset of routes optimized for offline.
 - Use React Router with lazy routes. Example structure:
 
 ```
-/apps/web-admin/src
+/apps/web-platform-admin/src
   main.tsx              # entrypoint
   app.tsx               # layout shell (navbar, sidebar, theme)
   routes.tsx            # route tree wiring domains
@@ -227,7 +227,7 @@ Prerequisites:
 Commands:
 - `pnpm install` — install workspace deps
 - SDK: `pnpm -F @zengateglobal/api-sdk build` (or `pnpm -F @zengateglobal/api-sdk dev` if configured)
-- Admin: `pnpm dev -C apps/web-admin`, `pnpm build -C apps/web-admin`
+- Admin: `pnpm dev -C apps/web-platform-admin`, `pnpm build -C apps/web-platform-admin`
 - PWA: `pnpm dev -C apps/web-pwa`, `pnpm build -C apps/web-pwa`
 - Domain tests: `pnpm test -C domains/<domain>/fe`
 
@@ -245,7 +245,7 @@ Dev server proxy example (Vite): proxy `/api` to backend during dev to avoid COR
 - Build: Vite creates static bundles per app; outputs served by the chosen static host or behind the API reverse proxy.
 - Asset hashing for cache‑busting; HTML references auto‑updated by Vite.
 - Environment: inject `VITE_*` variables at build time via `.env.*` or CI env.
-- CI: build each app independently, e.g. `pnpm build -C apps/web-admin` and `pnpm build -C apps/web-pwa`; run tests; publish artifacts.
+- CI: build each app independently, e.g. `pnpm build -C apps/web-platform-admin` and `pnpm build -C apps/web-pwa`; run tests; publish artifacts.
 - PWA specifics (`apps/web-pwa`):
   - Use `vite-plugin-pwa` with `registerType: 'autoUpdate'` and `workbox` runtime caching for `/api/v1/*` GETs
   - Precache app shell, fonts, icons; provide an offline fallback route
@@ -259,7 +259,7 @@ Dev server proxy example (Vite): proxy `/api` to backend during dev to avoid COR
 ## 13) Observability & Logging
 
 - Log errors with stack traces in dev; silence console in production except error reporting.
-- Optionally wire Sentry (or equivalent) via `/apps/web-admin/src/providers` and `/apps/web-pwa/src/providers`.
+- Optionally wire Sentry (or equivalent) via `/apps/web-platform-admin/src/providers` and `/apps/web-pwa/src/providers`.
 - Propagate backend `X-Request-ID` in error UIs when available to correlate client reports with server logs.
 - PWA: log SW lifecycle events (installed/updated) and surface current `VITE_APP_VERSION` for support.
 
@@ -310,7 +310,7 @@ export { useUsersQuery, useApproveUser } from './hooks/users';
 
 Shell composition (admin):
 ```tsx
-// apps/web-admin/src/routes.tsx
+// apps/web-platform-admin/src/routes.tsx
 import { UsersRoutes } from '../../domains/users/fe';
 
 export const routes = [
@@ -360,7 +360,7 @@ Playbook A1 — Contracts → TS codegen → UI update
 - Step 2: Regenerate TS types/clients into `packages/api-sdk/src/generated/<domain>` (example):
   - `pnpm dlx @hey-api/openapi-ts@0.86.11 -i contracts/<domain>.yaml -o packages/api-sdk/src/generated/<domain>`
 - Step 3: Update domain FE code under `domains/<domain>/fe` to use new types; adapt forms and views.
-- Step 4: Verify admin shell compiles: `pnpm build -C apps/web-admin` (and PWA if relevant).
+- Step 4: Verify admin shell compiles: `pnpm build -C apps/web-platform-admin` (and PWA if relevant).
 - Step 4.1: Rebuild the SDK package: `pnpm -F @zengateglobal/api-sdk build` and update app deps if versioned.
 - Validation:
   - Type errors resolved in domain FE
@@ -369,7 +369,7 @@ Playbook A1 — Contracts → TS codegen → UI update
 Playbook A2 — Add a new frontend domain
 - Create: `domains/<name>/fe/{components,hooks,stores,views,tests}` with an `index.ts` that exports routes and hooks.
 - Generate client/types for the new contract into `packages/api-sdk/src/generated/<name>`.
-- Wire routes in `apps/web-admin/src/routes.tsx` (and in `apps/web-pwa` if included).
+- Wire routes in `apps/web-platform-admin/src/routes.tsx` (and in `apps/web-pwa` if included).
 - Expose domain exports from the SDK (types/services) as needed for external consumers.
 - Add tests (Vitest/RTL) for views and hooks; MSW fixtures reflect generated types.
 
@@ -415,7 +415,7 @@ After a contract change
 ---
 
 ## Appendix D — Validation Gates
-- Admin build: `pnpm build -C apps/web-admin`
+- Admin build: `pnpm build -C apps/web-platform-admin`
 - PWA build: `pnpm build -C apps/web-pwa`
 - Domain tests: `pnpm test -C domains/<domain>/fe`
 - Manual: simulate offline in DevTools; verify PWA screens render and queued mutations replay

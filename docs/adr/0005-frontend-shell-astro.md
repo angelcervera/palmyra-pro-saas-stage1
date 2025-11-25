@@ -15,7 +15,7 @@ relatedDocs:
 We evaluated Astro as a potential shell for the frontend. Astro excels for content-heavy, SEO-first sites and hybrid islands, but our primary apps are an Admin SPA and a PWA with offline-first behavior and role-gated CRUD flows. These prioritize client routing, background sync, and tight SPA ergonomics over SSR/SSG.
 
 ## Decision
-Do not use Astro as the application shell for Admin or PWA. Retain React 19 + Vite SPA shells (`apps/web-admin`, `apps/web-pwa`). Astro remains a candidate for a separate marketing/docs site if needed.
+Do not use Astro as the application shell for Admin or PWA. Retain React 19 + Vite SPA shells (`apps/web-platform-admin`, `apps/web-pwa`). Astro remains a candidate for a separate marketing/docs site if needed.
 
 ## Consequences
 - Simpler routing and service worker lifecycle for offline-first PWA.

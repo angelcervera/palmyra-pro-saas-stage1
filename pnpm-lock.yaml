@@ -61,7 +61,7 @@ importers:
         specifier: ^7.2.2
         version: 7.2.2(@types/node@24.10.0)(jiti@2.6.1)(lightningcss@1.30.2)
 
-  apps/web-admin:
+  apps/web-platform-admin:
     dependencies:
       '@dnd-kit/core':
         specifier: 6.3.1

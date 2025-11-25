@@ -17,12 +17,12 @@ pnpm install
 
 | Command | Description |
 | --- | --- |
-| `pnpm dev -C apps/web-admin` | Start the Vite dev server (watches files, enables React Query Devtools in dev).
-| `pnpm build -C apps/web-admin` | Type-check and produce production assets (must run after every FE change per build gate).
-| `pnpm preview -C apps/web-admin` | Preview the production build locally.
-| `pnpm lint -C apps/web-admin` | Run ESLint with the flat config bundle.
+| `pnpm dev -C apps/web-platform-admin` | Start the Vite dev server (watches files, enables React Query Devtools in dev).
+| `pnpm build -C apps/web-platform-admin` | Type-check and produce production assets (must run after every FE change per build gate).
+| `pnpm preview -C apps/web-platform-admin` | Preview the production build locally.
+| `pnpm lint -C apps/web-platform-admin` | Run ESLint with the flat config bundle.
 
-> **Build Gate**: before pushing or opening a PR, run `pnpm build -C apps/web-admin` and fix any errors. This mirrors the requirement in `AGENTS.md`.
+> **Build Gate**: before pushing or opening a PR, run `pnpm build -C apps/web-platform-admin` and fix any errors. This mirrors the requirement in `AGENTS.md`.
 
 ## Environment Variables
 Copy `.env.example` to `.env` or set the variables before running the dev server:
@@ -37,7 +37,7 @@ The dev server reads `import.meta.env.*`; no rebuild is needed when variables ch
 
 ## Project Layout
 ```
-apps/web-admin/
+apps/web-platform-admin/
   src/
     App.tsx            # renders route tree + devtools (in dev)
     main.tsx           # provider stack + BrowserRouter

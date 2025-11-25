@@ -146,10 +146,10 @@ Swap `<token>` for the admin/user payload to confirm role checks (`RequireRole("
 
 #### 2.3 Setting the admin web app token via DevTools
 
-When running `pnpm dev -C apps/web-admin`, point the frontend at Docker’s API by exporting:
+When running `pnpm dev -C apps/web-platform-admin`, point the frontend at Docker’s API by exporting:
 
 ```bash
-VITE_API_BASE_URL=http://localhost:3000/api/v1 pnpm dev -C apps/web-admin
+VITE_API_BASE_URL=http://localhost:3000/api/v1 pnpm dev -C apps/web-platform-admin
 ```
 
 To simulate a signed-in session inside the browser:
