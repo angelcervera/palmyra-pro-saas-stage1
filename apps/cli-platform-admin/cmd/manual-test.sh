@@ -10,7 +10,7 @@ if [[ -z "${DB_URL}" ]]; then
 fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BIN_PATH="${ROOT_DIR}/bin/platform-cli"
+BIN_PATH="${ROOT_DIR}/bin/cli-platform-admin"
 ENV_KEY="dev"
 ADMIN_SLUG="admin"
 

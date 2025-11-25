@@ -57,7 +57,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - Tenant middleware still validates `basePrefix` envKey and returns ProblemDetails: 401 invalid tenant, 403 env mismatch/disabled/unknown.
 
 ## Bootstrapping & DDL
-- Phase 1 (platform bootstrap) via `platform-cli bootstrap platform ...`:
+- Phase 1 (platform bootstrap) via `cli-platform-admin bootstrap platform ...`:
   - Creates **admin schema only** and applies embedded DDL: `database/schema/tenant_space/users.sql`, `database/schema/platform/entity_schemas.sql`, `database/schema/platform/tenants.sql`.
   - Seeds admin tenant/user. No tenant roles are created here.
 - Phase 2 (per-tenant bootstrap) is **only** in `DBProvisioner`:

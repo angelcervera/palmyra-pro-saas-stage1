@@ -7,13 +7,13 @@ Command-line utilities for local/dev administration tasks (auth, bootstrap, tena
 Build a binary first (recommended):
 
 ```bash
-go build -o bin/platform-cli ./apps/cli
+go build -o bin/cli-platform-admin ./apps/cli
 ```
 
 Then run commands via the binary:
 
 ```bash
-bin/platform-cli --help
+bin/cli-platform-admin --help
 ```
 
 As an alternative, run directly from source:
@@ -28,7 +28,7 @@ go run ./apps/cli --help
 Bootstrap platform resources. Creates the **admin** tenant space and an initial admin user (Phase 1).
 
 ```bash
-bin/platform-cli bootstrap platform \
+bin/cli-platform-admin bootstrap platform \
   --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
   --env-key dev \
   --tenant-slug admin \
@@ -53,7 +53,7 @@ Tenant utilities.
 Create and fully bootstrap a tenant space (role, schema, grants, base tables, tenant admin user).
 
 ```bash
-bin/platform-cli tenant create \
+bin/cli-platform-admin tenant create \
   --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
   --env-key dev \
   --tenant-slug acme \
@@ -97,7 +97,7 @@ Examples:
 
 ```bash
 # Admin token for dev tenant
-bin/platform-cli auth devtoken \
+bin/cli-platform-admin auth devtoken \
   --project-id local-palmyra \
   --tenant tenant-dev \
   --user-id admin-123 \
@@ -109,7 +109,7 @@ bin/platform-cli auth devtoken \
   --expires-in 2h
 
 # Non-admin user
-bin/platform-cli auth devtoken \
+bin/cli-platform-admin auth devtoken \
   --project-id local-palmyra \
   --tenant tenant-dev \
   --user-id user-001 \
@@ -129,7 +129,7 @@ Admin CRUD helpers for schema categories (backed by the shared persistence layer
 
 List categories (optionally include soft-deleted):
 ```bash
-bin/platform-cli schema categories list \
+bin/cli-platform-admin schema categories list \
   --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
   --env-key dev \
   --admin-tenant-slug admin \
@@ -139,7 +139,7 @@ bin/platform-cli schema categories list \
 Create or update (upsert) a category:
 ```bash
 # create
-bin/platform-cli schema categories upsert \
+bin/cli-platform-admin schema categories upsert \
   --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
   --env-key dev \
   --admin-tenant-slug admin \
@@ -148,7 +148,7 @@ bin/platform-cli schema categories upsert \
   --description "Schemas for payment flows"
 
 # update (pass the category id)
-bin/platform-cli schema categories upsert \
+bin/cli-platform-admin schema categories upsert \
   --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
   --env-key dev \
   --admin-tenant-slug admin \
@@ -158,7 +158,7 @@ bin/platform-cli schema categories upsert \
 
 Soft delete by id:
 ```bash
-bin/platform-cli schema categories delete \
+bin/cli-platform-admin schema categories delete \
   --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
   --env-key dev \
   --admin-tenant-slug admin \
@@ -170,7 +170,7 @@ Manage schema repository definitions/versions.
 
 List all schemas (optionally include inactive):
 ```bash
-bin/platform-cli schema definitions list \
+bin/cli-platform-admin schema definitions list \
   --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
   --env-key dev \
   --admin-tenant-slug admin \
@@ -179,7 +179,7 @@ bin/platform-cli schema definitions list \
 
 List versions for a specific schema (optionally include soft-deleted):
 ```bash
-bin/platform-cli schema definitions list \
+bin/cli-platform-admin schema definitions list \
   --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
   --env-key dev \
   --admin-tenant-slug admin \
@@ -189,7 +189,7 @@ bin/platform-cli schema definitions list \
 
 Create or update (upsert) a schema definition version:
 ```bash
-bin/platform-cli schema definitions upsert \
+bin/cli-platform-admin schema definitions upsert \
   --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
   --env-key dev \
   --admin-tenant-slug admin \
@@ -202,7 +202,7 @@ bin/platform-cli schema definitions upsert \
 
 Soft delete a schema version:
 ```bash
-bin/platform-cli schema definitions delete \
+bin/cli-platform-admin schema definitions delete \
   --database-url "postgres://palmyra:palmyra@localhost:5432/palmyra?sslmode=disable" \
   --env-key dev \
   --admin-tenant-slug admin \
