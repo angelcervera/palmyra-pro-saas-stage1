@@ -2,8 +2,8 @@
 tmp
 .gocache
 node_modules
-apps/web-admin/dist
-apps/web-admin/.vite
+apps/web-platform-admin/dist
+apps/web-platform-admin/.vite
 packages/api-sdk/dist
 packages/api-sdk/*.build.tsbuildinfo
 packages/persistence-sdk/dist
