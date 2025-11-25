@@ -1,16 +1,12 @@
 import {
-	type BatchWrite,
-	type EntityIdentifier,
-	type EntityRecord,
-	type PaginatedResult,
-	type PaginationQuery,
-	PersistenceClient,
-	type PersistenceProvider,
-	type SaveEntityInput,
-	type SchemaDefinition,
-	type SchemaIdentifier,
-	type SchemaMetadata,
+	 type BatchWrite,
+	 type EntityRecord,
+	 type MetadataSnapshot,
+	 type PaginatedResult,
+	 PersistenceClient,
+	 type SchemaDefinition,
 } from "@zengateglobal/persistence-sdk";
+import { createOfflineSqliteProvider } from "@zengateglobal/persistence-sdk";
 
 export type Person = {
 	name: string;
@@ -53,151 +49,27 @@ const PERSON_SCHEMA_DEFINITION: SchemaDefinition = {
 	},
 };
 
-type InMemoryRow = EntityRecord<PersonRecord>;
-
-class InMemoryPersistenceProvider implements PersistenceProvider {
-	readonly name = "demo-memory";
-	readonly description = "In-memory persistence provider for demo UI";
-
-	private readonly tables = new Map<string, Map<string, InMemoryRow>>();
-	private readonly metadata = new Map<string, SchemaMetadata>([
-		[
-			PERSON_TABLE,
-			{
-				tableName: PERSON_TABLE,
-				activeVersion: PERSON_SCHEMA_VERSION,
-				versions: new Map<string, SchemaDefinition>([
-					[PERSON_SCHEMA_VERSION, PERSON_SCHEMA_DEFINITION],
-				]),
-			},
-		],
-	]);
-
-	private ensureTable(tableName: string): Map<string, InMemoryRow> {
-		let table = this.tables.get(tableName);
-		if (!table) {
-			table = new Map<string, InMemoryRow>();
-			this.tables.set(tableName, table);
-		}
-		return table;
-	}
-
-	async getMetadata() {
-		const tables = new Map(this.metadata);
-		return { tables, fetchedAt: new Date() };
-	}
-
-	async getEntity<TPayload = unknown>(
-		ref: EntityIdentifier,
-	): Promise<EntityRecord<TPayload>> {
-		const table = this.tables.get(ref.tableName);
-		if (!table) {
-			throw new Error("Entity not found");
-		}
-		const row = table.get(ref.entityId);
-		if (!row || row.isDeleted) {
-			throw new Error("Entity not found");
-		}
-		return row as unknown as EntityRecord<TPayload>;
-	}
-
-	async queryEntities<TPayload = unknown>(
-		scope: SchemaIdentifier,
-		pagination: PaginationQuery = {},
-	): Promise<PaginatedResult<EntityRecord<TPayload>>> {
-		const table =
-			this.tables.get(scope.tableName) ?? new Map<string, InMemoryRow>();
-		const rows = Array.from(table.values()).filter((row) => !row.isDeleted);
-		rows.sort((a, b) => b.ts.getTime() - a.ts.getTime());
-
-		const page = Math.max(pagination.page ?? 1, 1);
-		const pageSize = Math.max(pagination.pageSize ?? 10, 1);
-		const start = (page - 1) * pageSize;
-		const paged = rows.slice(start, start + pageSize);
-		const totalItems = rows.length;
-		const totalPages = Math.max(Math.ceil(totalItems / pageSize), 1);
-
-		return {
-			items: paged as unknown as EntityRecord<TPayload>[],
-			page,
-			pageSize,
-			totalItems,
-			totalPages,
-		};
-	}
-
-	async saveEntity<TPayload = unknown>(
-		input: SaveEntityInput<TPayload>,
-	): Promise<EntityRecord<TPayload>> {
-		const table = this.ensureTable(input.tableName);
-		const entityId = input.entityId ?? crypto.randomUUID();
-		const existing = table.get(entityId);
-		const entityVersion = this.nextVersion(existing?.entityVersion);
-		const ts = new Date();
-		const payload = this.normalizePayload(
-			input.payload as unknown as PersonRecord,
-			entityId,
-			entityVersion,
-		);
-
-		const row: InMemoryRow = {
-			tableName: input.tableName,
-			schemaVersion: PERSON_SCHEMA_VERSION,
-			entityId,
-			entityVersion,
-			payload,
-			ts,
-			isDeleted: false,
-		};
-		table.set(entityId, row);
-		return row as unknown as EntityRecord<TPayload>;
-	}
-
-	async deleteEntity(input: EntityIdentifier): Promise<void> {
-		const table = this.ensureTable(input.tableName);
-		const row = table.get(input.entityId);
-		if (!row) return;
-		table.set(input.entityId, { ...row, isDeleted: true, ts: new Date() });
-	}
-
-	async batchWrites(operations: BatchWrite[]): Promise<void> {
-		for (const op of operations) {
-			if (op.type === "save") {
-				await this.saveEntity(op.data as SaveEntityInput<PersonRecord>);
-			} else if (op.type === "delete") {
-				await this.deleteEntity(op.data);
-			}
-		}
-	}
-
-	private nextVersion(current?: string): string {
-		if (!current) return "1.0.0";
-		const [major, minor, patch] = current
-			.split(".")
-			.map((v) => Number.parseInt(v, 10) || 0);
-		const nextPatch = (Number.isFinite(patch) ? patch : 0) + 1;
-		return `${major}.${minor}.${nextPatch}`;
-	}
-
-	private normalizePayload(
-		payload: PersonRecord,
-		entityId: string,
-		entityVersion: string,
-	): PersonRecord {
-		return {
-			queuedForSync: payload.queuedForSync ?? true,
-			lastSynced: payload.lastSynced ?? null,
-			lastSyncError: payload.lastSyncError ?? null,
-			entityId,
-			entityVersion,
-			entitySchemaId: PERSON_SCHEMA_ID,
-			entitySchemaVersion: PERSON_SCHEMA_VERSION,
-			entity: payload.entity,
-		};
-	}
+function buildMetadataSnapshot(): MetadataSnapshot {
+	return {
+		tables: new Map([
+			[
+				PERSON_TABLE,
+				{
+					tableName: PERSON_TABLE,
+					activeVersion: PERSON_SCHEMA_VERSION,
+					versions: new Map([[PERSON_SCHEMA_VERSION, PERSON_SCHEMA_DEFINITION]]),
+				},
+			],
+		]),
+		fetchedAt: new Date(),
+	};
 }
 
-const provider = new InMemoryPersistenceProvider();
+const provider = createOfflineSqliteProvider({
+	// Shared demo DB within OPFS; adjust per-tenant if needed.
+	databaseName: "/offline/persons-demo.db",
+	initialMetadata: buildMetadataSnapshot(),
+});
 const client = new PersistenceClient([provider]);
 
 function unwrap(row: EntityRecord<PersonRecord>): PersonRecord {
