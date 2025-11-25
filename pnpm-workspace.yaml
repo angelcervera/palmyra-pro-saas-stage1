@@ -1,5 +1,6 @@
 packages:
   - apps/*
+  - apps/demos/*
   - domains/**/fe
   - platform/ts
   - packages/*

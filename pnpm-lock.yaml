@@ -12,7 +12,7 @@ importers:
         specifier: 2.3.5
         version: 2.3.5
 
-  apps/demo:
+  apps/demos/offline:
     dependencies:
       '@hookform/resolvers':
         specifier: 5.2.2
@@ -22,7 +22,7 @@ importers:
         version: 5.90.7(react@19.2.0)
       '@zengateglobal/persistence-sdk':
         specifier: workspace:*
-        version: link:../../packages/persistence-sdk
+        version: link:../../../packages/persistence-sdk
       react:
         specifier: ^19.2.0
         version: 19.2.0
