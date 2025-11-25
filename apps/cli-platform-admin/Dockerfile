@@ -7,9 +7,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/cli-platform-admin ./apps/cli
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/cli-platform-admin ./apps/cli-platform-admin
 
-RUN install -m 0755 apps/cli/wait-for-postgres.sh /out/wait-for-postgres.sh
+RUN install -m 0755 apps/cli-platform-admin/wait-for-postgres.sh /out/wait-for-postgres.sh
 
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update \

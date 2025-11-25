@@ -7,7 +7,7 @@ Command-line utilities for local/dev administration tasks (auth, bootstrap, tena
 Build a binary first (recommended):
 
 ```bash
-go build -o bin/cli-platform-admin ./apps/cli
+go build -o bin/cli-platform-admin ./apps/cli-platform-admin
 ```
 
 Then run commands via the binary:
@@ -18,7 +18,7 @@ bin/cli-platform-admin --help
 
 As an alternative, run directly from source:
 ```bash
-go run ./apps/cli --help
+go run ./apps/cli-platform-admin --help
 ```
 
 

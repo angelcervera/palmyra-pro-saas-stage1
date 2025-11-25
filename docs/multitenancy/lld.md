@@ -7,7 +7,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - **Tenant Space** (`platform/go/tenant.Space`): `{tenantId, slug, shortTenantId, schemaName, basePrefix}`.  
   - `schemaName = "tenant_" + snake_case(slug)`.  
   - `basePrefix = <envKey>/<slug>-<shortTenantId>/` (bucket comes from env, not stored per tenant).  
-- **Admin schema**: derived from `ADMIN_TENANT_SLUG` (default `admin`) as `tenant_<slugSnake>`. The bootstrap CLI command initializes this schema and the base tables (see `apps/cli/cmd/bootstrap`).
+- **Admin schema**: derived from `ADMIN_TENANT_SLUG` (default `admin`) as `tenant_<slugSnake>`. The bootstrap CLI command initializes this schema and the base tables (see `apps/cli-platform-admin/cmd/bootstrap`).
 - **Tenant registry**: immutable, versioned rows in `tenants` table (admin schema) defined in `database/schema/tenants.sql`. Active version enforced by partial index; slug uniqueness enforced across non-deleted rows.
 - **Tenant middleware** (`platform/go/tenant/middleware/tenant_space.go`): after auth, extracts tenant claim, resolves via tenant service, enforces `basePrefix` envKey prefix, caches (TTL optional), and attaches `tenant.Space` to context; on failure emits ProblemDetails (401/403).
 
