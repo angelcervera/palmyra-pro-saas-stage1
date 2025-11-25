@@ -34,8 +34,12 @@ export function pushToast(params: {
 	title: string;
 	description?: string;
 }) {
+	const id =
+		typeof crypto !== "undefined" && crypto.randomUUID
+			? crypto.randomUUID()
+			: Math.random().toString(36).slice(2, 10);
 	addToast({
-		id: crypto.randomUUID(),
+		id,
 		kind: params.kind ?? "info",
 		title: params.title,
 		description: params.description,
@@ -51,7 +55,35 @@ export function ToastHost() {
 		() => toasts,
 	);
 
-	useEffect(() => () => listeners.clear(), []);
+	useEffect(() => {
+		const onError = (event: ErrorEvent) => {
+			pushToast({
+				kind: "error",
+				title: "Unexpected error",
+				description: event.message,
+			});
+		};
+		const onRejection = (event: PromiseRejectionEvent) => {
+			const message =
+				event.reason instanceof Error
+					? event.reason.message
+					: typeof event.reason === "string"
+						? event.reason
+						: JSON.stringify(event.reason);
+			pushToast({
+				kind: "error",
+				title: "Unhandled error",
+				description: message,
+			});
+		};
+		window.addEventListener("error", onError);
+		window.addEventListener("unhandledrejection", onRejection);
+		return () => {
+			window.removeEventListener("error", onError);
+			window.removeEventListener("unhandledrejection", onRejection);
+			listeners.clear();
+		};
+	}, []);
 
 	return (
 		<div
@@ -78,12 +110,14 @@ export function ToastHost() {
 						border: `1px solid ${toast.kind === "error" ? "#fecdd3" : "#e2e8f0"}`,
 					}}
 				>
-					<div style={{
-						display: "flex",
-						justifyContent: "space-between",
-						alignItems: "center",
-						gap: 12,
-					}}>
+					<div
+						style={{
+							display: "flex",
+							justifyContent: "space-between",
+							alignItems: "center",
+							gap: 12,
+						}}
+					>
 						<strong style={{ color: "#0f172a", fontSize: 14 }}>
 							{toast.title}
 						</strong>
