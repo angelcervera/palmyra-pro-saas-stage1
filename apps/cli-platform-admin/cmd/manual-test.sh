@@ -15,7 +15,7 @@ ENV_KEY="dev"
 ADMIN_SLUG="admin"
 
 echo "[1] Building CLI binary -> ${BIN_PATH}" >&2
-go build -o "${BIN_PATH}" ./apps/cli
+go build -o "${BIN_PATH}" ./apps/cli-platform-admin
 
 run() {
   echo "\n>>>>>> $*" >&2
