@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/zenGate-Global/palmyra-pro-saas/apps/cli/root"
+	"github.com/zenGate-Global/palmyra-pro-saas/apps/cli-platform-admin/root"
 )
 
 func main() {

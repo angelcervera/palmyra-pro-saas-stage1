@@ -6,7 +6,7 @@ import (
 
 // rootCmd is the base command for the Palmyra admin CLI. Subcommands (auth, bootstrap, etc.) are attached here.
 var rootCmd = &cobra.Command{
-	Use:           "palmyra",
+	Use:           "cli-platform-admin",
 	Short:         "Palmyra admin CLI",
 	Long:          "Administrative utilities for Palmyra (dev tokens, bootstrap helpers, tenant/user management).",
 	SilenceErrors: true,

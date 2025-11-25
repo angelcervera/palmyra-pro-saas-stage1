@@ -7,7 +7,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/platform-cli ./apps/cli
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/cli-platform-admin ./apps/cli
 
 RUN install -m 0755 apps/cli/wait-for-postgres.sh /out/wait-for-postgres.sh
 
@@ -18,7 +18,7 @@ RUN apt-get update \
 
 # Busybox sh in Debian image is fine; nc is available for readiness check.
 
-COPY --from=builder /out/platform-cli /usr/local/bin/platform-cli
+COPY --from=builder /out/cli-platform-admin /usr/local/bin/cli-platform-admin
 COPY --from=builder /out/wait-for-postgres.sh /usr/local/bin/wait-for-postgres.sh
 
-ENTRYPOINT ["/usr/local/bin/platform-cli"]
+ENTRYPOINT ["/usr/local/bin/cli-platform-admin"]
