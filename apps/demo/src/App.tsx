@@ -9,9 +9,9 @@ import {
 	useParams,
 } from "react-router-dom";
 
-import { PersonForm } from "./components/PersonForm";
-import { PersonTable } from "./components/PersonTable";
-import { seedDemoPerson } from "./persistence";
+import { PersonForm } from "./domains/person/components/PersonForm";
+import { PersonTable } from "./domains/person/components/PersonTable";
+import { seedDemoPerson } from "./domains/person/persistence";
 import {
 	useCreatePerson,
 	useDeletePerson,
@@ -19,7 +19,7 @@ import {
 	usePersonList,
 	useSyncAllPersons,
 	useUpdatePerson,
-} from "./use-persons";
+} from "./domains/person/use-persons";
 
 const queryClient = new QueryClient();
 const PAGE_SIZE = 5;
