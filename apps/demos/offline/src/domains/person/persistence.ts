@@ -1,12 +1,16 @@
+// Demo wiring for the persistence-sdk using the offline SQLite provider.
+// Keep everything in one file so readers can copy/paste into their apps.
 import {
 	 type BatchWrite,
 	 type EntityRecord,
 	 type MetadataSnapshot,
 	 type PaginatedResult,
 	 PersistenceClient,
+	 type PersistenceProvider,
 	 type SchemaDefinition,
 } from "@zengateglobal/persistence-sdk";
 import { createOfflineSqliteProvider } from "@zengateglobal/persistence-sdk";
+import { pushToast } from "../../components/toast";
 
 export type Person = {
 	name: string;
@@ -49,6 +53,7 @@ const PERSON_SCHEMA_DEFINITION: SchemaDefinition = {
 	},
 };
 
+// Minimal schema metadata seeded locally so the offline provider knows the table and version to use.
 function buildMetadataSnapshot(): MetadataSnapshot {
 	return {
 		tables: new Map([
@@ -65,13 +70,44 @@ function buildMetadataSnapshot(): MetadataSnapshot {
 	};
 }
 
-const provider = createOfflineSqliteProvider({
-	// Shared demo DB within OPFS; adjust per-tenant if needed.
-	databaseName: "/offline/persons-demo.db",
-	initialMetadata: buildMetadataSnapshot(),
-});
+// Create the offline SQLite provider; fail fast with a helpful message if the browser blocks WASM workers.
+function createSqliteProvider(): PersistenceProvider {
+	if (typeof Worker === "undefined") {
+		throw new Error(
+			"Offline storage needs Web Workers; this browser or environment blocks them.",
+		);
+	}
+	try {
+		return createOfflineSqliteProvider({
+			// Shared demo DB within OPFS; adjust per-tenant if needed.
+			databaseName: "/offline/persons-demo.db",
+			initialMetadata: buildMetadataSnapshot(),
+		});
+	} catch (error) {
+		throw new Error(
+			`Offline SQLite initialization failed: ${describeError(error)}. Ensure WASM assets are served with Content-Type application/wasm and module workers are allowed.`,
+		);
+	}
+}
+
+const provider = createSqliteProvider();
 const client = new PersistenceClient([provider]);
 
+// Wrap calls so we can show clean, user-facing errors in the UI instead of noisy stack traces.
+async function runWithClient<T>(
+	opLabel: string,
+	fn: (c: PersistenceClient) => Promise<T>,
+): Promise<T> {
+	try {
+		return await fn(client);
+	} catch (error) {
+		const message = `${opLabel} failed: ${describeError(error)}`;
+		pushToast({ kind: "error", title: opLabel, description: message });
+		throw new Error(message);
+	}
+}
+
+// Helpers below mirror a tiny repository layer the UI can call directly.
 function unwrap(row: EntityRecord<PersonRecord>): PersonRecord {
 	return row.payload;
 }
@@ -81,11 +117,14 @@ export async function listPersons(options: {
 	pageSize?: number;
 	queuedOnly?: boolean;
 }): Promise<PaginatedResult<PersonRecord>> {
+	// List locally cached persons; optionally show only items still queued for sync.
 	const page = Math.max(options.page ?? 1, 1);
 	const pageSize = Math.max(options.pageSize ?? 10, 1);
-	const result = await client.queryEntities<PersonRecord>(
-		{ tableName: PERSON_TABLE },
-		{ page: 1, pageSize: 1000 },
+	const result = await runWithClient("List persons", (c) =>
+		c.queryEntities<PersonRecord>(
+			{ tableName: PERSON_TABLE },
+			{ page: 1, pageSize: 1000 },
+		),
 	);
 	const filteredItems = options.queuedOnly
 		? result.items.map(unwrap).filter((item) => item.queuedForSync)
@@ -98,14 +137,18 @@ export async function listPersons(options: {
 }
 
 export async function getPerson(entityId: string): Promise<PersonRecord> {
-	const row = await client.getEntity<PersonRecord>({
-		tableName: PERSON_TABLE,
-		entityId,
-	});
+	// Fetch a single person by ID from the offline store.
+	const row = await runWithClient("Load person", (c) =>
+		c.getEntity<PersonRecord>({
+			tableName: PERSON_TABLE,
+			entityId,
+		}),
+	);
 	return unwrap(row);
 }
 
 export async function createPerson(input: Person): Promise<PersonRecord> {
+	// Create a new person locally; marked as queued for the next sync.
 	const payload: PersonRecord = {
 		queuedForSync: true,
 		lastSynced: null,
@@ -116,10 +159,12 @@ export async function createPerson(input: Person): Promise<PersonRecord> {
 		entitySchemaVersion: PERSON_SCHEMA_VERSION,
 		entity: input,
 	};
-	const row = await client.saveEntity<PersonRecord>({
-		tableName: PERSON_TABLE,
-		payload,
-	});
+	const row = await runWithClient("Create person", (c) =>
+		c.saveEntity<PersonRecord>({
+			tableName: PERSON_TABLE,
+			payload,
+		}),
+	);
 	return unwrap(row);
 }
 
@@ -127,6 +172,7 @@ export async function updatePerson(
 	entityId: string,
 	input: Person,
 ): Promise<PersonRecord> {
+	// Update an existing person; keep them queued for sync until the next push.
 	const existing = await getPerson(entityId);
 	const payload: PersonRecord = {
 		...existing,
@@ -134,22 +180,30 @@ export async function updatePerson(
 		lastSyncError: null,
 		entity: input,
 	};
-	const row = await client.saveEntity<PersonRecord>({
-		tableName: PERSON_TABLE,
-		entityId,
-		payload,
-	});
+	const row = await runWithClient("Update person", (c) =>
+		c.saveEntity<PersonRecord>({
+			tableName: PERSON_TABLE,
+			entityId,
+			payload,
+		}),
+	);
 	return unwrap(row);
 }
 
 export async function deletePerson(entityId: string): Promise<void> {
-	await client.deleteEntity({ tableName: PERSON_TABLE, entityId });
+	// Soft-delete the person locally.
+	await runWithClient("Delete person", (c) =>
+		c.deleteEntity({ tableName: PERSON_TABLE, entityId }),
+	);
 }
 
 export async function syncAllPersons(): Promise<void> {
-	const list = await client.queryEntities<PersonRecord>(
-		{ tableName: PERSON_TABLE },
-		{ page: 1, pageSize: 1000 },
+	// Demo “sync”: mark queued items as synced with a timestamp. Real apps would push to the online provider here.
+	const list = await runWithClient("Load persons for sync", (c) =>
+		c.queryEntities<PersonRecord>(
+			{ tableName: PERSON_TABLE },
+			{ page: 1, pageSize: 1000 },
+		),
 	);
 	const now = new Date();
 	const operations: BatchWrite[] = list.items
@@ -168,11 +222,22 @@ export async function syncAllPersons(): Promise<void> {
 			},
 		}));
 	if (operations.length > 0) {
-		await client.batchWrites(operations);
+		await runWithClient("Sync persons", (c) => c.batchWrites(operations));
+	}
+}
+
+function describeError(error: unknown): string {
+	if (error instanceof Error) return error.message;
+	if (typeof error === "string") return error;
+	try {
+		return JSON.stringify(error);
+	} catch {
+		return "Unknown error";
 	}
 }
 
 export async function seedDemoPerson(): Promise<PersonRecord> {
+	// One-time seed so the demo UI shows data immediately.
 	const existing = await listPersons({ page: 1, pageSize: 1 });
 	if (existing.totalItems > 0) return existing.items[0];
 	return createPerson({

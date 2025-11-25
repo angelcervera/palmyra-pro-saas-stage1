@@ -20,6 +20,7 @@ import {
 	useSyncAllPersons,
 	useUpdatePerson,
 } from "./domains/person/use-persons";
+import { ToastHost } from "./components/toast";
 
 const queryClient = new QueryClient();
 const PAGE_SIZE = 5;
@@ -137,6 +138,7 @@ export default function App() {
 					<Route path=":entityId/edit" element={<EditPage />} />
 				</Routes>
 			</BrowserRouter>
+			<ToastHost />
 		</QueryClientProvider>
 	);
 }
