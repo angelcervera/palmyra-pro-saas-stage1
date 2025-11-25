@@ -9,7 +9,7 @@
 - Treat the OpenAPI specs in `contracts/` as the source of truth; shared schemas live in `contracts/common/` (ProblemDetails, Pagination, IAM, primitives).
 - Generated code under `generated/go|ts/<domain>/` is read-only; when contracts change, regenerate instead of patching artifacts.
 - Domain backend code sits in `domains/<domain>/be/{handler,service,repo,middleware,dto}` with test guidelines in `domains/<domain>/be/tests`.
-- Frontend modules mirror the same vertical layout in `domains/<domain>/fe`, while shared utilities belong in `platform/go` and `platform/ts`; `apps/api` composes the Chi router and `apps/web-admin` hosts the admin React 19 shell.
+- Frontend modules mirror the same vertical layout in `domains/<domain>/fe`, while shared utilities belong in `platform/go` and `platform/ts`; `apps/api` composes the Chi router and `apps/web-platform-admin` hosts the admin React 19 shell.
 - The shared persistence layer is implemented under `platform/go/persistence` and consumed by backend domains.
 
 ## Build, Test, and Development Commands
@@ -20,13 +20,13 @@
 - `pnpm install` — initializes the React workspace when frontend work resumes.
 
 ### Frontend Build Gate (must run after each FE change)
-- After any change under `apps/web-admin`, `domains/*/fe`, or the SDK in `packages/api-sdk`, build before proceeding and fix any TypeScript errors:
-  - Admin app: `pnpm build -C apps/web-admin`
+- After any change under `apps/web-platform-admin`, `domains/*/fe`, or the SDK in `packages/api-sdk`, build before proceeding and fix any TypeScript errors:
+  - Admin app: `pnpm build -C apps/web-platform-admin`
   - SDK (when contracts or generated clients change): `pnpm -F @zengateglobal/api-sdk build`
 - Do not submit changes with failing FE builds. Treat the build as a validation gate similar to `go test` for backend.
 
 ### Frontend Biome Gate (format → lint → check)
-- Whenever modifying frontend TypeScript or React files (`apps/web-admin`, `packages/api-sdk`, `packages/persistence-sdk`), run Biome from each affected package before building:
+- Whenever modifying frontend TypeScript or React files (`apps/web-platform-admin`, `packages/api-sdk`, `packages/persistence-sdk`), run Biome from each affected package before building:
   - `pnpm run format`
   - `pnpm run lint`
   - `pnpm run check`

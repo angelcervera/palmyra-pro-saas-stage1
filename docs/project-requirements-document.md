@@ -132,7 +132,7 @@ Each domain (e.g., `auth`, `users`, `schema-categories`, `schema-repository`, `e
   ts/                            # Shared frontend utilities, UI, form and auth helpers
   go/                            # Shared backend libraries (logging, config, middleware, persistence)
 /apps/
-  web-admin/                     # React 19 + Vite admin application shell
+  web-platform-admin/            # React 19 + Vite admin application shell
   api/                           # Go API entrypoint (Chi router)
 ```
 
@@ -206,7 +206,7 @@ Also, we will generate a Mock implementation using MSW (Mock Service Worker).
   versions.
 * **Caching:** Remote build caching reduces build times in CI.
 * **Validation:** Codegen, linting, and tests run per domain before merging.
-* **Deployment:** The backend (`apps/api`) and frontend (`apps/web-admin`) are packaged via Bazel and deployed to container or
+* **Deployment:** The backend (`apps/api`) and frontend (`apps/web-platform-admin`) are packaged via Bazel and deployed to container or
   static hosting targets.
 
 #### Benefits of This Approach
@@ -230,7 +230,7 @@ More information, at the [API.md](api/api.md) document.
 The frontend is a **React 19 + Vite SPA/PWA** designed for **offline-first operation** and **modular composition by
 domain**.
 
-Each domain exposes its own React components, stores, and hooks under `/domains/<domain>/fe`, while the `/apps/web-admin`
+Each domain exposes its own React components, stores, and hooks under `/domains/<domain>/fe`, while the `/apps/web-platform-admin`
 shell handles routing, layout, and PWA registration.
 
 The application leverages **VitePWA (Workbox)** for runtime caching, background sync, and auto-updates, achieving full

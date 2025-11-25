@@ -134,7 +134,7 @@ The repository is organized vertically by domain and separates generated artifac
     persistence/                 # Shared persistence (pgxpool, schema repository, schema categories store)
 
 /apps/
-  web-admin/                     # React 19 + Vite admin application shell
+  web-platform-admin/            # React 19 + Vite admin application shell
   api/                           # Go API entrypoint (Chi router) mounting domain routes
 
 /docs/
@@ -255,7 +255,7 @@ Optional Firebase integration:
 
 When running with `AUTH_PROVIDER=dev`, supply a bearer token containing unsigned JWT claims. The middleware does **not** verify signatures; instead it copies fields such as `email`, `name`, and `isAdmin` from the token payload. Set `isAdmin: true` in the JWT to simulate admin access.
 
-With the containers running, the admin frontend can target the API by setting `VITE_API_BASE_URL=http://localhost:3000/api/v1` and running `pnpm dev -C apps/web-admin`.
+With the containers running, the admin frontend can target the API by setting `VITE_API_BASE_URL=http://localhost:3000/api/v1` and running `pnpm dev -C apps/web-platform-admin`.
 
 See also [`docs/docker.md`](docs/docker.md) for a deeper explanation of the Docker setup and deployment considerations.
 

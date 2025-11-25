@@ -71,7 +71,7 @@ services:
     # volumes:
     #   - ./firebase/service-account.json:/app/firebase/service-account.json:ro
 
-  web-admin:
+  web-platform-admin:
     build:
       context: .
       dockerfile: apps/web-platform-admin/Dockerfile
