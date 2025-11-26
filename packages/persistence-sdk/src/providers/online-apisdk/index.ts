@@ -101,6 +101,32 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		}
 	}
 
+	async setMetadata(_snapshot: MetadataSnapshot): Promise<void> {
+		throw new Error("setMetadata is only supported by offline providers");
+	}
+
+	async listJournalEntries(): Promise<
+		{
+			changeId: number;
+			tableName: string;
+			entityId: string;
+			entityVersion: string;
+			schemaVersion: string;
+			changeType: "create" | "update" | "delete";
+			payload?: unknown;
+		}[]
+	> {
+		return [];
+	}
+
+	async clearJournalEntries(): Promise<void> {
+		return Promise.resolve();
+	}
+
+	async close(): Promise<void> {
+		return Promise.resolve();
+	}
+
 	async getEntity<TPayload>(
 		ref: EntityIdentifier,
 	): Promise<EntityRecord<TPayload>> {
@@ -336,10 +362,10 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 	}
 
 	private isNotFoundError(error: unknown): boolean {
-		const candidate = error && typeof error === "object" ? (error as any) : undefined;
-		if (!candidate) {
+		if (!error || typeof error !== "object") {
 			return false;
 		}
+		const candidate = error as { status?: unknown; cause?: unknown };
 		if (typeof candidate.status === "number") {
 			return candidate.status === 404;
 		}

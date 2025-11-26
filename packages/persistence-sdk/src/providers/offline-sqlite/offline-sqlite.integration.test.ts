@@ -4,7 +4,7 @@ import {
 	type MetadataSnapshot,
 	type SchemaDefinition,
 } from "../../index";
-import { createNodeSqlitePromiser } from "./node-sqlite-promiser";
+import { createNodeSqlitePromiser } from "./node-sqlite-promiser.testhelper";
 
 function buildMetadata(): MetadataSnapshot {
 	const definition: SchemaDefinition = {
