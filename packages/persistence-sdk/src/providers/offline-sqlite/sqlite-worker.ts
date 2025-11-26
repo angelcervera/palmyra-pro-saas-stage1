@@ -16,8 +16,8 @@ const printErr = (...parts: unknown[]) => {
 };
 
 sqlite3InitModule({
-    print,
-    printErr,
+	print,
+	printErr,
 })
 	.then(async (sqlite3) => {
 		try {
