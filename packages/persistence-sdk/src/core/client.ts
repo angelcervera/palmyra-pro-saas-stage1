@@ -69,6 +69,10 @@ export class PersistenceClient implements PersistenceProvider {
 		return this.resolveActiveProvider().getMetadata();
 	}
 
+	async setMetadata(snapshot: MetadataSnapshot): Promise<void> {
+		return this.resolveActiveProvider().setMetadata(snapshot);
+	}
+
 	async getEntity<TPayload = unknown>(
 		ref: EntityIdentifier,
 	): Promise<EntityRecord<TPayload>> {
@@ -94,5 +98,27 @@ export class PersistenceClient implements PersistenceProvider {
 
 	async batchWrites(operations: BatchWrite[]): Promise<void> {
 		return this.resolveActiveProvider().batchWrites(operations);
+	}
+
+	async listJournalEntries(): Promise<
+		{
+			changeId: number;
+			tableName: string;
+			entityId: string;
+			entityVersion: string;
+			schemaVersion: string;
+			changeType: "create" | "update" | "delete";
+			payload?: unknown;
+		}[]
+	> {
+		return this.resolveActiveProvider().listJournalEntries();
+	}
+
+	async clearJournalEntries(): Promise<void> {
+		return this.resolveActiveProvider().clearJournalEntries();
+	}
+
+	async close(): Promise<void> {
+		return this.resolveActiveProvider().close();
 	}
 }

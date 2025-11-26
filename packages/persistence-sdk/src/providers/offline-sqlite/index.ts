@@ -320,6 +320,10 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		await this.writeMetadataSnapshot(snapshot);
 	}
 
+	async setMetadata(snapshot: MetadataSnapshot): Promise<void> {
+		return this.replaceMetadata(snapshot);
+	}
+
 	async setActiveDatabase(name: string): Promise<void> {
 		if (!name) {
 			throw new Error("Database name must be provided");

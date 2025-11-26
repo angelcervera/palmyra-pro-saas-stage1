@@ -5,6 +5,7 @@ import type {
 	EntityRecord,
 	SaveEntityInput,
 } from "./entities";
+import type { JournalEntry } from "./journal";
 import type { PaginatedResult, PaginationQuery } from "./pagination";
 import type { MetadataSnapshot, SchemaIdentifier } from "./schemas";
 
@@ -24,6 +25,11 @@ export interface PersistenceProvider {
 	 * Returns the list of tenant tables/schemas and their available versions.
 	 */
 	getMetadata(): Promise<MetadataSnapshot>;
+
+	/**
+	 * Replaces the locally cached metadata snapshot (used by offline providers).
+	 */
+	setMetadata(snapshot: MetadataSnapshot): Promise<void>;
 
 	/**
 	 * Retrieves the latest version of the specified entity.
@@ -57,4 +63,21 @@ export interface PersistenceProvider {
 	 * Executes multiple save/delete operations in a single round-trip.
 	 */
 	batchWrites(operations: BatchWrite[]): Promise<void>;
+
+	/**
+	 * Returns pending journal entries, if the provider supports a change journal.
+	 * Providers that do not support journaling should return an empty array.
+	 */
+	listJournalEntries(): Promise<JournalEntry[]>;
+
+	/**
+	 * Clears pending journal entries, if the provider supports a change journal.
+	 * Providers without journaling should treat this as a no-op.
+	 */
+	clearJournalEntries(): Promise<void>;
+
+	/**
+	 * Releases any underlying resources (DB handles, workers, etc.).
+	 */
+	close(): Promise<void>;
 }

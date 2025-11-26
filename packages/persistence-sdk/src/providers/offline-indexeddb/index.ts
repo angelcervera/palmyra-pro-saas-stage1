@@ -4,6 +4,7 @@ import {
 	type DeleteEntityInput,
 	type EntityIdentifier,
 	type EntityRecord,
+	type JournalEntry,
 	type MetadataSnapshot,
 	type PaginatedResult,
 	type PaginationQuery,
@@ -357,7 +358,11 @@ export class OfflineIndexedDbProvider implements PersistenceProvider {
 		this.metadataCache = snapshot;
 	}
 
-	async listJournalEntries(): Promise<OfflineIndexedDbJournalEntry[]> {
+	async setMetadata(snapshot: MetadataSnapshot): Promise<void> {
+		return this.replaceMetadata(snapshot);
+	}
+
+	async listJournalEntries(): Promise<JournalEntry[]> {
 		await this.ensureDatabaseReady();
 		const db = await this.getDatabase([JOURNAL_STORE]);
 		const tx = db.transaction(JOURNAL_STORE, "readonly");

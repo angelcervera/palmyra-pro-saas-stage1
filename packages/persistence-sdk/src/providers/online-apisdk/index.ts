@@ -101,6 +101,32 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		}
 	}
 
+	async setMetadata(_snapshot: MetadataSnapshot): Promise<void> {
+		throw new Error("setMetadata is only supported by offline providers");
+	}
+
+	async listJournalEntries(): Promise<
+		{
+			changeId: number;
+			tableName: string;
+			entityId: string;
+			entityVersion: string;
+			schemaVersion: string;
+			changeType: "create" | "update" | "delete";
+			payload?: unknown;
+		}[]
+	> {
+		return [];
+	}
+
+	async clearJournalEntries(): Promise<void> {
+		return Promise.resolve();
+	}
+
+	async close(): Promise<void> {
+		return Promise.resolve();
+	}
+
 	async getEntity<TPayload>(
 		ref: EntityIdentifier,
 	): Promise<EntityRecord<TPayload>> {
