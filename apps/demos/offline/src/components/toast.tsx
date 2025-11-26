@@ -122,6 +122,7 @@ export function ToastHost() {
 							{toast.title}
 						</strong>
 						<button
+							type="button"
 							onClick={() => removeToast(toast.id)}
 							style={{
 								background: "transparent",
