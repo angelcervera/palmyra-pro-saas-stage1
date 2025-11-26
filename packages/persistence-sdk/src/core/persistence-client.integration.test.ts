@@ -74,9 +74,9 @@ const providers: ProviderHarness[] = [
 		build: async () => {
 			const metadata = buildMetadata();
 			const provider = createOfflineIndexedDbProvider({
-				tenantId: "tenant-test",
+				tenantId: `tenant-test-${crypto.randomUUID()}`,
+				appId: "persistence-client-int",
 				initialMetadata: metadata,
-				databaseName: `test-idb-${crypto.randomUUID()}`,
 			});
 			return {
 				provider,

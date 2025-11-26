@@ -1,15 +1,15 @@
-// Demo wiring for the persistence-sdk using the offline SQLite provider.
+// Demo wiring for the persistence-sdk using the offline IndexedDB provider.
 // Keep everything in one file so readers can copy/paste into their apps.
 import {
-	 type BatchWrite,
-	 type EntityRecord,
-	 type MetadataSnapshot,
-	 type PaginatedResult,
-	 PersistenceClient,
-	 type PersistenceProvider,
-	 type SchemaDefinition,
+	type BatchWrite,
+	type EntityRecord,
+	type MetadataSnapshot,
+	type PaginatedResult,
+	PersistenceClient,
+	type PersistenceProvider,
+	type SchemaDefinition,
 } from "@zengateglobal/persistence-sdk";
-import { createOfflineSqliteProvider } from "@zengateglobal/persistence-sdk";
+import { createOfflineIndexedDbProvider } from "@zengateglobal/persistence-sdk";
 import { pushToast } from "../../components/toast";
 
 export type Person = {
@@ -62,7 +62,9 @@ function buildMetadataSnapshot(): MetadataSnapshot {
 				{
 					tableName: PERSON_TABLE,
 					activeVersion: PERSON_SCHEMA_VERSION,
-					versions: new Map([[PERSON_SCHEMA_VERSION, PERSON_SCHEMA_DEFINITION]]),
+					versions: new Map([
+						[PERSON_SCHEMA_VERSION, PERSON_SCHEMA_DEFINITION],
+					]),
 				},
 			],
 		]),
@@ -70,27 +72,16 @@ function buildMetadataSnapshot(): MetadataSnapshot {
 	};
 }
 
-// Create the offline SQLite provider; fail fast with a helpful message if the browser blocks WASM workers.
-function createSqliteProvider(): PersistenceProvider {
-	if (typeof Worker === "undefined") {
-		throw new Error(
-			"Offline storage needs Web Workers; this browser or environment blocks them.",
-		);
-	}
-	try {
-		return createOfflineSqliteProvider({
-			// Shared demo DB within OPFS; adjust per-tenant if needed.
-			databaseName: "/offline/persons-demo.db",
-			initialMetadata: buildMetadataSnapshot(),
-		});
-	} catch (error) {
-		throw new Error(
-			`Offline SQLite initialization failed: ${describeError(error)}. Ensure WASM assets are served with Content-Type application/wasm and module workers are allowed.`,
-		);
-	}
+// Create the offline IndexedDB provider; this path avoids WASM/worker requirements.
+function createIndexedDbProvider(): PersistenceProvider {
+	return createOfflineIndexedDbProvider({
+		tenantId: "demo-tenant",
+		appId: "offline-demo",
+		initialMetadata: buildMetadataSnapshot(),
+	});
 }
 
-const provider = createSqliteProvider();
+const provider = createIndexedDbProvider();
 const client = new PersistenceClient([provider]);
 
 // Wrap calls so we can show clean, user-facing errors in the UI instead of noisy stack traces.
@@ -234,18 +225,4 @@ function describeError(error: unknown): string {
 	} catch {
 		return "Unknown error";
 	}
-}
-
-export async function seedDemoPerson(): Promise<PersonRecord> {
-	// One-time seed so the demo UI shows data immediately.
-	const existing = await listPersons({ page: 1, pageSize: 1 });
-	if (existing.totalItems > 0) return existing.items[0];
-	return createPerson({
-		name: "Ada",
-		surname: "Lovelace",
-		age: 36,
-		dob: "1815-12-10",
-		phoneNumber: "+447000000000",
-		photo: "https://avatars.githubusercontent.com/u/583231?v=4",
-	});
 }

@@ -11,7 +11,6 @@ import {
 
 import { PersonForm } from "./domains/person/components/PersonForm";
 import { PersonTable } from "./domains/person/components/PersonTable";
-import { seedDemoPerson } from "./domains/person/persistence";
 import {
 	useCreatePerson,
 	useDeletePerson,
@@ -37,7 +36,7 @@ function ListPage() {
 	const syncMutation = useSyncAllPersons();
 
 	useEffect(() => {
-		seedDemoPerson().then(() => refetch());
+		refetch();
 	}, [refetch]);
 
 	const handleDelete = async (id: string) => {

@@ -38,11 +38,12 @@ function buildMetadata(): MetadataSnapshot {
 describe("offline-indexeddb provider", () => {
 	test("creates, updates, deletes entities and records journal entries", async () => {
 		const metadata = buildMetadata();
-		const databaseName = `test-idb-${crypto.randomUUID()}`;
+		const tenantId = `tenant-${crypto.randomUUID()}`;
+		const appId = "test-app";
 		const provider = createOfflineIndexedDbProvider({
-			tenantId: "tenantA",
+			tenantId,
+			appId,
 			initialMetadata: metadata,
-			databaseName,
 		});
 
 		// create entity -> should create store and set version
@@ -55,7 +56,8 @@ describe("offline-indexeddb provider", () => {
 		expect(created.isDeleted).toBe(false);
 
 		// store exists with tenant prefix
-		const storeName = "tenantA::entities";
+		const storeName = `${tenantId}::entities`;
+		const databaseName = `${appId}-${tenantId}`;
 		const db = await new Promise<IDBDatabase>((resolve, reject) => {
 			const open = indexedDB.open(databaseName, undefined);
 			open.onsuccess = () => resolve(open.result);
