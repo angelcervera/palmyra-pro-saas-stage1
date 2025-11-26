@@ -34,6 +34,7 @@
 		"@zengateglobal/api-sdk": "workspace:*"
 	},
 	"devDependencies": {
+		"fake-indexeddb": "^6.0.1",
 		"typescript": "~5.9.3",
 		"vitest": "^2.1.9"
 	}

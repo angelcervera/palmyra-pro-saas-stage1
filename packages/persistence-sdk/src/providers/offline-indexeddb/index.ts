@@ -229,8 +229,12 @@ export class OfflineIndexedDbProvider implements PersistenceProvider {
 					`Entity ${input.entityId} not found in ${input.tableName}`,
 				);
 			}
+			const meta = await this.requireSchemaMetadata(input.tableName);
+			const entityVersion = this.generateEntityVersion();
 			const updated: EntityRow = {
 				...existing,
+				entityVersion,
+				schemaVersion: meta.activeVersion,
 				ts: Date.now(),
 				isDeleted: true,
 			};
@@ -238,8 +242,8 @@ export class OfflineIndexedDbProvider implements PersistenceProvider {
 			this.appendJournal(tx, {
 				changeType: "delete",
 				entityId: input.entityId,
-				entityVersion: existing.entityVersion,
-				schemaVersion: existing.schemaVersion,
+				entityVersion,
+				schemaVersion: meta.activeVersion,
 				tableName: input.tableName,
 				payload: existing.payload,
 			});
