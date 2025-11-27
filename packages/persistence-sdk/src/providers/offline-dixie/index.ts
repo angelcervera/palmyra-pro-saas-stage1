@@ -72,21 +72,30 @@ export class OfflineDixieProvider implements PersistenceProvider {
 
 	private constructor(
 		private dexie: Dexie,
-		readonly _options: OfflineDixieProviderOptions,
+		readonly options: OfflineDixieProviderOptions,
 	) {}
 
 	static async create(
 		options: OfflineDixieProviderOptions,
 	): Promise<OfflineDixieProvider> {
-		return new OfflineDixieProvider(initDexie(options), options);
+		const provider = new OfflineDixieProvider(initDexie(options), options);
+		await provider.dexie.open(); // Dexie does not create the database until open() is called.
+		return provider;
 	}
 
 	getMetadata(): Promise<MetadataSnapshot> {
 		throw new Error("Method not implemented.");
 	}
 
-	setMetadata(_snapshot: MetadataSnapshot): Promise<void> {
-		throw new Error("Method not implemented.");
+	setMetadata(snapshot: MetadataSnapshot): Promise<void> {
+		if (!this.dexie.hasBeenClosed()) {
+			this.dexie.close();
+		}
+
+		this.options.initialMetadata = snapshot;
+		this.dexie = initDexie(this.options);
+
+		return Promise.resolve();
 	}
 
 	getEntity<TPayload = unknown>(

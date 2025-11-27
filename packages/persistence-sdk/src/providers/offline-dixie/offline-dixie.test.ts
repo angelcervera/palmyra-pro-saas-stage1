@@ -71,23 +71,38 @@ const expectedStores = (metadata: MetadataSnapshot): string[] => {
 	return names;
 };
 
+const toDbName = (options: OfflineDixieProviderOptions): string =>
+	`${options.envKey}-${options.tenantId}-${options.appName}`;
+
+const getObjectStoreNames = async (
+	options: OfflineDixieProviderOptions,
+): Promise<string[]> =>
+	new Promise((resolve, reject) => {
+		const request = indexedDB.open(toDbName(options));
+		request.onerror = () =>
+			reject(request.error ?? new Error("failed to open"));
+		request.onsuccess = () => {
+			const stores = Array.from(request.result.objectStoreNames);
+			request.result.close();
+			resolve(stores);
+		};
+	});
+
 describe("offline-dixie provider", () => {
 	test("creates stores on first instantiation", async () => {
 		const metadata = buildMetadata();
 		const options = buildOptions(metadata);
 
 		const provider = await createOfflineDixieProvider(options);
-		const dexie: Dexie = provider.dexie;
-		await dexie.open();
 
-		const storeNames = dexie.tables.map((t) => t.name);
+		const storeNames = await getObjectStoreNames(provider.options);
 		const expected = expectedStores(metadata);
 
 		expect(storeNames.length).toBe(expected.length);
 		expect(storeNames).toEqual(expect.arrayContaining(expected));
 
-		dexie.close();
-		await Dexie.delete(dexie.name);
+		await provider.close();
+		await Dexie.delete(toDbName(provider.options));
 	});
 
 	test("retains stores across subsequent instantiations", async () => {
@@ -96,19 +111,15 @@ describe("offline-dixie provider", () => {
 		const expected = expectedStores(metadata);
 
 		const first = await createOfflineDixieProvider(options);
-		const firstDexie: Dexie = first.dexie;
-		await firstDexie.open();
-		await firstDexie.close();
+		await first.close();
 
 		const second = await createOfflineDixieProvider(options);
-		const secondDexie: Dexie = second.dexie;
-		await secondDexie.open();
 
-		const storeNames = secondDexie.tables.map((t) => t.name);
+		const storeNames = await getObjectStoreNames(second.options);
 		expect(storeNames.length).toBe(expected.length);
 		expect(storeNames).toEqual(expect.arrayContaining(expected));
 
-		secondDexie.close();
-		await Dexie.delete(secondDexie.name);
+		await second.close();
+		await Dexie.delete(toDbName(second.options));
 	});
 });
