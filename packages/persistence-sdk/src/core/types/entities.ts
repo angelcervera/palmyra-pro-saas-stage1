@@ -16,8 +16,9 @@ export interface EntityRecord<TPayload = unknown>
 	isDeleted: boolean;
 }
 
-export interface SaveEntityInput<TPayload = unknown> extends SchemaIdentifier {
-	entityId?: string;
+export interface SaveEntityInput<TPayload = unknown>
+	extends SchemaIdentifierVersioned,
+		EntityIdentifierVersioned {
 	payload: TPayload;
 }
 

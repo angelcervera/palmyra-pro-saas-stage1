@@ -121,7 +121,7 @@ export class OfflineDixieProvider implements PersistenceProvider {
 		throw new Error("Method not implemented.");
 	}
 
-	batchWrites(_operations: BatchWrite[]): Promise<void> {
+	batchWrites(operations: BatchWrite[]): Promise<void> {
 		throw new Error("Method not implemented.");
 	}
 
