@@ -122,10 +122,7 @@ export class OfflineDixieProvider implements PersistenceProvider {
 				}
 			});
 		} catch (error) {
-			if (
-				error instanceof Error &&
-				(error as { tableName?: string }).tableName !== undefined
-			) {
+			if (error instanceof BatchWriteError) {
 				throw error;
 			}
 
