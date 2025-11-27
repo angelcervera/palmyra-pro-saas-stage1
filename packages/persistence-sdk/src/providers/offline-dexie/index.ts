@@ -12,16 +12,16 @@ const DB_VERSION = 1;
 const SCHEMAS_STORE = "__schema-metadata";
 const JOURNAL_STORE = "__entity-journal";
 
-export type OfflineDixieProviderOptions = {
+export type OfflineDexieProviderOptions = {
 	tenantId: string;
 	envKey: string;
 	appName: string;
 	initialMetadata: MetadataSnapshot;
 };
 
-export const createOfflineDixieProvider = async (
-	options: OfflineDixieProviderOptions,
-): Promise<OfflineDixieProvider> => OfflineDixieProvider.create(options);
+export const createOfflineDexieProvider = async (
+	options: OfflineDexieProviderOptions,
+): Promise<OfflineDexieProvider> => OfflineDexieProvider.create(options);
 
 // Helpers
 
@@ -30,7 +30,7 @@ const deriveDBName = (envKey: string, tenantId: string, appName: string) =>
 
 const deriveActiveTableName = (tableName: string) => `active::${tableName}`;
 
-const dixieStoresBuilder = (metadata: MetadataSnapshot) => {
+const dexieStoresBuilder = (metadata: MetadataSnapshot) => {
 	const stores: { [tableName: string]: string | null } = {};
 
 	// Required stores for schema metadata and journal entries.
@@ -47,32 +47,32 @@ const dixieStoresBuilder = (metadata: MetadataSnapshot) => {
 	return stores;
 };
 
-const initDexie = (options: OfflineDixieProviderOptions): Dexie => {
+const initDexie = (options: OfflineDexieProviderOptions): Dexie => {
 	const databaseName = deriveDBName(
 		options.envKey,
 		options.tenantId,
 		options.appName,
 	);
 	const db = new Dexie(databaseName);
-	db.version(DB_VERSION).stores(dixieStoresBuilder(options.initialMetadata));
+	db.version(DB_VERSION).stores(dexieStoresBuilder(options.initialMetadata));
 	return db;
 };
 
 // Implementation
-export class OfflineDixieProvider implements PersistenceProvider {
-	readonly name: string = "Offline Dixie";
+export class OfflineDexieProvider implements PersistenceProvider {
+	readonly name: string = "Offline Dexie";
 	readonly description: string =
-		"A persistence provider that stores data locally using Dixie";
+		"A persistence provider that stores data locally using Dexie";
 
 	private constructor(
 		private dexie: Dexie,
-		readonly options: OfflineDixieProviderOptions,
+		readonly options: OfflineDexieProviderOptions,
 	) {}
 
 	static async create(
-		options: OfflineDixieProviderOptions,
-	): Promise<OfflineDixieProvider> {
-		const provider = new OfflineDixieProvider(initDexie(options), options);
+		options: OfflineDexieProviderOptions,
+	): Promise<OfflineDexieProvider> {
+		const provider = new OfflineDexieProvider(initDexie(options), options);
 		await provider.dexie.open(); // Dexie does not create the database until open() is called.
 		return provider;
 	}

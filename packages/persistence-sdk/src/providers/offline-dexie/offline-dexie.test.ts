@@ -9,8 +9,8 @@ import type {
 	SchemaDefinition,
 } from "../../core";
 import {
-	createOfflineDixieProvider,
-	type OfflineDixieProviderOptions,
+	createOfflineDexieProvider,
+	type OfflineDexieProviderOptions,
 } from "./index";
 
 const SCHEMAS_STORE = "__schema-metadata";
@@ -48,7 +48,7 @@ const buildMetadata = (): MetadataSnapshot => {
 
 const buildOptions = (
 	metadata: MetadataSnapshot,
-): OfflineDixieProviderOptions => {
+): OfflineDexieProviderOptions => {
 	const envKey = `env-${crypto.randomUUID()}`;
 	const tenantId = `tenant-${crypto.randomUUID()}`;
 	const appName = `app-${crypto.randomUUID()}`;
@@ -75,11 +75,11 @@ const expectedStores = (metadata: MetadataSnapshot): string[] => {
 	return names;
 };
 
-const toDbName = (options: OfflineDixieProviderOptions): string =>
+const toDbName = (options: OfflineDexieProviderOptions): string =>
 	`${options.envKey}-${options.tenantId}-${options.appName}`;
 
 const getObjectStoreNames = async (
-	options: OfflineDixieProviderOptions,
+	options: OfflineDexieProviderOptions,
 ): Promise<string[]> =>
 	new Promise((resolve, reject) => {
 		const request = indexedDB.open(toDbName(options));
@@ -93,7 +93,7 @@ const getObjectStoreNames = async (
 	});
 
 const readAllFromStore = async (
-	options: OfflineDixieProviderOptions,
+	options: OfflineDexieProviderOptions,
 	storeName: string,
 ): Promise<unknown[]> =>
 	new Promise((resolve, reject) => {
@@ -125,12 +125,12 @@ const buildEntity = (overrides?: Partial<EntityRecord>): EntityRecord => ({
 	...overrides,
 });
 
-describe("offline-dixie provider", () => {
+describe("offline-dexie provider", () => {
 	test("creates stores on first instantiation", async () => {
 		const metadata = buildMetadata();
 		const options = buildOptions(metadata);
 
-		const provider = await createOfflineDixieProvider(options);
+		const provider = await createOfflineDexieProvider(options);
 
 		const storeNames = await getObjectStoreNames(provider.options);
 		const expected = expectedStores(metadata);
@@ -147,10 +147,10 @@ describe("offline-dixie provider", () => {
 		const options = buildOptions(metadata);
 		const expected = expectedStores(metadata);
 
-		const first = await createOfflineDixieProvider(options);
+		const first = await createOfflineDexieProvider(options);
 		await first.close();
 
-		const second = await createOfflineDixieProvider(options);
+		const second = await createOfflineDexieProvider(options);
 
 		const storeNames = await getObjectStoreNames(second.options);
 		expect(storeNames.length).toBe(expected.length);
@@ -163,7 +163,7 @@ describe("offline-dixie provider", () => {
 	test("batchWrites saves entity and updates active store", async () => {
 		const metadata = buildMetadata();
 		const options = buildOptions(metadata);
-		const provider = await createOfflineDixieProvider(options);
+		const provider = await createOfflineDexieProvider(options);
 
 		const entity = buildEntity();
 		await provider.batchWrites([entity]);
@@ -186,7 +186,7 @@ describe("offline-dixie provider", () => {
 	test("batchWrites delete marks tombstone and active store", async () => {
 		const metadata = buildMetadata();
 		const options = buildOptions(metadata);
-		const provider = await createOfflineDixieProvider(options);
+		const provider = await createOfflineDexieProvider(options);
 
 		const entity = buildEntity();
 		const tombstone = buildEntity({
