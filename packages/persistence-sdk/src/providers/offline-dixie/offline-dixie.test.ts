@@ -3,7 +3,11 @@ import "fake-indexeddb/auto";
 import { Dexie } from "dexie";
 import { describe, expect, test } from "vitest";
 
-import type { MetadataSnapshot, SchemaDefinition } from "../../core";
+import type {
+	EntityRecord,
+	MetadataSnapshot,
+	SchemaDefinition,
+} from "../../core";
 import {
 	createOfflineDixieProvider,
 	type OfflineDixieProviderOptions,
@@ -88,6 +92,39 @@ const getObjectStoreNames = async (
 		};
 	});
 
+const readAllFromStore = async (
+	options: OfflineDixieProviderOptions,
+	storeName: string,
+): Promise<unknown[]> =>
+	new Promise((resolve, reject) => {
+		const request = indexedDB.open(toDbName(options));
+		request.onerror = () =>
+			reject(request.error ?? new Error("failed to open"));
+		request.onsuccess = () => {
+			const db = request.result;
+			const tx = db.transaction(storeName, "readonly");
+			const store = tx.objectStore(storeName);
+			const getAll = store.getAll();
+			getAll.onerror = () => reject(getAll.error ?? new Error("getAll failed"));
+			getAll.onsuccess = () => {
+				db.close();
+				resolve(getAll.result as unknown[]);
+			};
+		};
+	});
+
+const buildEntity = (overrides?: Partial<EntityRecord>): EntityRecord => ({
+	tableName: "entities",
+	entityId: crypto.randomUUID(),
+	entityVersion: "v1",
+	schemaVersion: "v1",
+	payload: { foo: "bar" },
+	ts: new Date(),
+	isDeleted: false,
+	isActive: true,
+	...overrides,
+});
+
 describe("offline-dixie provider", () => {
 	test("creates stores on first instantiation", async () => {
 		const metadata = buildMetadata();
@@ -121,5 +158,56 @@ describe("offline-dixie provider", () => {
 
 		await second.close();
 		await Dexie.delete(toDbName(second.options));
+	});
+
+	test("batchWrites saves entity and updates active store", async () => {
+		const metadata = buildMetadata();
+		const options = buildOptions(metadata);
+		const provider = await createOfflineDixieProvider(options);
+
+		const entity = buildEntity();
+		await provider.batchWrites([entity]);
+
+		const rows = await readAllFromStore(options, "entities");
+		const activeRows = await readAllFromStore(options, "active::entities");
+
+		expect(rows).toHaveLength(1);
+		expect((rows[0] as EntityRecord).entityId).toBe(entity.entityId);
+		expect((rows[0] as EntityRecord).isDeleted).toBe(false);
+		expect((rows[0] as EntityRecord).payload).toEqual({ foo: "bar" });
+
+		expect(activeRows).toHaveLength(1);
+		expect((activeRows[0] as EntityRecord).entityId).toBe(entity.entityId);
+
+		await provider.close();
+		await Dexie.delete(toDbName(options));
+	});
+
+	test("batchWrites delete marks tombstone and active store", async () => {
+		const metadata = buildMetadata();
+		const options = buildOptions(metadata);
+		const provider = await createOfflineDixieProvider(options);
+
+		const entity = buildEntity();
+		const tombstone = buildEntity({
+			entityId: entity.entityId,
+			entityVersion: "v2",
+			isDeleted: true,
+			isActive: true,
+		});
+		await provider.batchWrites([entity, tombstone]);
+
+		const rows = await readAllFromStore(options, "entities");
+		const activeRows = await readAllFromStore(options, "active::entities");
+
+		expect(rows).toHaveLength(1);
+		expect((rows[0] as EntityRecord).isDeleted).toBe(true);
+		expect((rows[0] as EntityRecord).entityId).toBe(entity.entityId);
+
+		expect(activeRows).toHaveLength(1);
+		expect((activeRows[0] as EntityRecord).isDeleted).toBe(true);
+
+		await provider.close();
+		await Dexie.delete(toDbName(options));
 	});
 });
