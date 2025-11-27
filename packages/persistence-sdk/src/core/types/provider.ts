@@ -1,13 +1,5 @@
-import type {
-	BatchWrite,
-	DeleteEntityInput,
-	EntityIdentifier,
-	EntityRecord,
-	SaveEntityInput,
-} from "./entities";
-import type { JournalEntry } from "./journal";
-import type { PaginatedResult, PaginationQuery } from "./pagination";
-import type { MetadataSnapshot, SchemaIdentifier } from "./schemas";
+import type { BatchWrite } from "./entities";
+import type { MetadataSnapshot } from "./schemas";
 
 /**
  * Defines the contract between the SDK client and any persistence provider.
@@ -32,49 +24,50 @@ export interface PersistenceProvider {
 	setMetadata(snapshot: MetadataSnapshot): Promise<void>;
 
 	/**
-	 * Retrieves the latest version of the specified entity.
-	 */
-	getEntity<TPayload = unknown>(
-		ref: EntityIdentifier,
-	): Promise<EntityRecord<TPayload>>;
-
-	/**
-	 * Lists the latest versions of entities in a table
-	 */
-	queryEntities<TPayload = unknown>(
-		// TODO: Add filtering support
-		scope: SchemaIdentifier,
-		pagination?: PaginationQuery,
-	): Promise<PaginatedResult<EntityRecord<TPayload>>>;
-
-	/**
-	 * Upserts an entity using the latest schema version for the table.
-	 */
-	saveEntity<TPayload = unknown>(
-		input: SaveEntityInput<TPayload>,
-	): Promise<EntityRecord<TPayload>>;
-
-	/**
-	 * Soft-deletes an entity (marks the latest version as deleted).
-	 */
-	deleteEntity(input: DeleteEntityInput): Promise<void>;
-
-	/**
 	 * Executes multiple save/delete operations in a single round-trip.
+	 * It keeps the order, so asume that the latest active is the one actually active.
 	 */
-	batchWrites(operations: BatchWrite[]): Promise<void>;
+	batchWrites(operations: BatchWrite): Promise<void>;
 
-	/**
-	 * Returns pending journal entries, if the provider supports a change journal.
-	 * Providers that do not support journaling should return an empty array.
-	 */
-	listJournalEntries(): Promise<JournalEntry[]>;
-
-	/**
-	 * Clears pending journal entries, if the provider supports a change journal.
-	 * Providers without journaling should treat this as a no-op.
-	 */
-	clearJournalEntries(): Promise<void>;
+	// /**
+	//  * Retrieves the latest version of the specified entity.
+	//  */
+	// getEntity<TPayload = unknown>(
+	// 	ref: EntityIdentifier,
+	// ): Promise<EntityRecord<TPayload>>;
+	//
+	// /**
+	//  * Lists the latest versions of entities in a table
+	//  */
+	// queryEntities<TPayload = unknown>(
+	// 	// TODO: Add filtering support
+	// 	scope: SchemaIdentifier,
+	// 	pagination?: PaginationQuery,
+	// ): Promise<PaginatedResult<EntityRecord<TPayload>>>;
+	//
+	// /**
+	//  * Upserts an entity using the latest schema version for the table.
+	//  */
+	// saveEntity<TPayload = unknown>(
+	// 	input: SaveEntityInput<TPayload>,
+	// ): Promise<EntityRecord<TPayload>>;
+	//
+	// /**
+	//  * Soft-deletes an entity (marks the latest version as deleted).
+	//  */
+	// deleteEntity(input: DeleteEntityInput): Promise<void>;
+	//
+	// /**
+	//  * Returns pending journal entries, if the provider supports a change journal.
+	//  * Providers that do not support journaling should return an empty array.
+	//  */
+	// listJournalEntries(): Promise<JournalEntry[]>;
+	//
+	// /**
+	//  * Clears pending journal entries, if the provider supports a change journal.
+	//  * Providers without journaling should treat this as a no-op.
+	//  */
+	// clearJournalEntries(): Promise<void>;
 
 	/**
 	 * Releases any underlying resources (DB handles, workers, etc.).

@@ -14,27 +14,30 @@ export interface EntityRecord<TPayload = unknown>
 	payload: TPayload;
 	ts: Date;
 	isDeleted: boolean;
+	isActive: boolean;
 }
 
-export interface SaveEntityInput<TPayload = unknown>
-	extends SchemaIdentifierVersioned,
-		EntityIdentifierVersioned {
-	payload: TPayload;
-}
+export type BatchWrite = EntityRecord[];
 
-export interface DeleteEntityInput extends EntityIdentifier {}
-
-export type BatchWrite =
-	| { type: "save"; data: SaveEntityInput }
-	| { type: "delete"; data: DeleteEntityInput };
+// export interface SaveEntityInput<TPayload = unknown>
+// 	extends SchemaIdentifierVersioned,
+// 		EntityIdentifierVersioned {
+// 	payload: TPayload;
+// }
+//
+// export interface DeleteEntityInput extends EntityIdentifier {}
+//
+// export type BatchWrite =
+// 	| { type: "save"; data: SaveEntityInput }
+// 	| { type: "delete"; data: DeleteEntityInput };
 
 export class BatchWriteError extends Error {
 	readonly tableName: string;
-	readonly entityId?: string;
+	readonly entityId: string;
 
 	constructor(params: {
 		tableName: string;
-		entityId?: string;
+		entityId: string;
 		reason: string;
 	}) {
 		super(params.reason);

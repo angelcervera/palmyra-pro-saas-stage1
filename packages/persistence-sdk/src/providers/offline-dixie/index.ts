@@ -1,17 +1,11 @@
 import { Dexie } from "dexie";
 
-import type {
-	BatchWrite,
-	DeleteEntityInput,
-	EntityIdentifier,
-	EntityRecord,
-	JournalEntry,
-	MetadataSnapshot,
-	PaginatedResult,
-	PaginationQuery,
-	PersistenceProvider,
-	SaveEntityInput,
-	SchemaIdentifier,
+import {
+	type BatchWrite,
+	BatchWriteError,
+	type EntityRecord,
+	type MetadataSnapshot,
+	type PersistenceProvider,
 } from "../../core";
 
 const DB_VERSION = 1;
@@ -41,13 +35,13 @@ const dixieStoresBuilder = (metadata: MetadataSnapshot) => {
 
 	// Required stores for schema metadata and journal entries.
 	stores[SCHEMAS_STORE] = "tableName, schemaVersion";
-	stores[deriveActiveTableName(SCHEMAS_STORE)] = "tableName";
+	stores[deriveActiveTableName(SCHEMAS_STORE)] = "tableName"; // TODO: Instead of having one table for active schemas, we can have an index on SCHEMAS_STORE. But no idea how to do it in Dexie.
 	stores[JOURNAL_STORE] = "++changeId";
 
 	// Entity tables (one store per versioned entity table plus an active index).
 	for (const [tableName] of metadata.tables) {
 		stores[tableName] = "entityId, entityVersion";
-		stores[deriveActiveTableName(tableName)] = "entityId";
+		stores[deriveActiveTableName(tableName)] = "entityId"; // TODO: Instead of having one table for active schemas, we can have an index on the entity table. But no idea how to do it in Dexie.
 	}
 
 	return stores;
@@ -98,40 +92,82 @@ export class OfflineDixieProvider implements PersistenceProvider {
 		return Promise.resolve();
 	}
 
-	getEntity<TPayload = unknown>(
-		_ref: EntityIdentifier,
-	): Promise<EntityRecord<TPayload>> {
-		throw new Error("Method not implemented.");
+	async batchWrites(entities: BatchWrite): Promise<void> {
+		if (entities.length === 0) {
+			return;
+		}
+
+		const storeNames = new Set<string>();
+		for (const entity of entities) {
+			storeNames.add(entity.tableName);
+			if (entity.isActive) {
+				storeNames.add(deriveActiveTableName(entity.tableName));
+			}
+		}
+
+		let lastRecord = 0;
+		try {
+			await this.dexie.transaction("rw", [...storeNames], async () => {
+				for (const entity of entities) {
+					lastRecord++;
+					const table = this.dexie.table<EntityRecord>(entity.tableName);
+					const activeTable = this.dexie.table(
+						deriveActiveTableName(entity.tableName),
+					);
+
+					await table.put(entity);
+					if (entity.isActive) {
+						await activeTable.put(entity);
+					}
+				}
+			});
+		} catch (error) {
+			if (
+				error instanceof Error &&
+				(error as { tableName?: string }).tableName !== undefined
+			) {
+				throw error;
+			}
+
+			const last = entities[lastRecord];
+			throw new BatchWriteError({
+				tableName: last.tableName,
+				entityId: last.entityId,
+				reason: error instanceof Error ? error.message : String(error),
+			});
+		}
 	}
 
-	queryEntities<TPayload = unknown>(
-		_scope: SchemaIdentifier,
-		_pagination?: PaginationQuery,
-	): Promise<PaginatedResult<EntityRecord<TPayload>>> {
-		throw new Error("Method not implemented.");
-	}
-
-	saveEntity<TPayload = unknown>(
-		_input: SaveEntityInput<TPayload>,
-	): Promise<EntityRecord<TPayload>> {
-		throw new Error("Method not implemented.");
-	}
-
-	deleteEntity(_input: DeleteEntityInput): Promise<void> {
-		throw new Error("Method not implemented.");
-	}
-
-	batchWrites(operations: BatchWrite[]): Promise<void> {
-		throw new Error("Method not implemented.");
-	}
-
-	listJournalEntries(): Promise<JournalEntry[]> {
-		throw new Error("Method not implemented.");
-	}
-
-	clearJournalEntries(): Promise<void> {
-		throw new Error("Method not implemented.");
-	}
+	// getEntity<TPayload = unknown>(
+	//     _ref: EntityIdentifier,
+	// ): Promise<EntityRecord<TPayload>> {
+	//     throw new Error("Method not implemented.");
+	// }
+	//
+	// queryEntities<TPayload = unknown>(
+	//     _scope: SchemaIdentifier,
+	//     _pagination?: PaginationQuery,
+	// ): Promise<PaginatedResult<EntityRecord<TPayload>>> {
+	//     throw new Error("Method not implemented.");
+	// }
+	//
+	// saveEntity<TPayload = unknown>(
+	//     _input: SaveEntityInput<TPayload>,
+	// ): Promise<EntityRecord<TPayload>> {
+	//     throw new Error("Method not implemented.");
+	// }
+	//
+	// deleteEntity(_input: DeleteEntityInput): Promise<void> {
+	//     throw new Error("Method not implemented.");
+	// }
+	//
+	// listJournalEntries(): Promise<JournalEntry[]> {
+	// 	throw new Error("Method not implemented.");
+	// }
+	//
+	// clearJournalEntries(): Promise<void> {
+	// 	throw new Error("Method not implemented.");
+	// }
 
 	async close(): Promise<void> {
 		this.dexie.close();
