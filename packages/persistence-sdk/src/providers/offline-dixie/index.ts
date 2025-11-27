@@ -124,7 +124,7 @@ export class OfflineDixieProvider implements PersistenceProvider {
 		throw new Error("Method not implemented.");
 	}
 
-	close(): Promise<void> {
-		throw new Error("Method not implemented.");
+	async close(): Promise<void> {
+		this.dexie.close();
 	}
 }

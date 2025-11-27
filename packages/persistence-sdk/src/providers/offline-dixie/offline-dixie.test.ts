@@ -64,54 +64,35 @@ const expectedStores = (metadata: MetadataSnapshot): string[] => {
 		JOURNAL_STORE,
 	];
 
-	const tables =
-		metadata.tables instanceof Map
-			? metadata.tables
-			: new Map(Object.entries(metadata.tables ?? {}));
-
-	for (const [tableName] of tables) {
+	for (const [tableName] of metadata.tables) {
 		names.push(tableName, deriveActiveTableName(tableName));
 	}
 
 	return names;
 };
 
-const getObjectStoreNames = async (dbName: string): Promise<string[]> => {
-	const db = await new Promise<IDBDatabase>((resolve, reject) => {
-		const request = indexedDB.open(dbName);
-		request.onerror = () =>
-			reject(request.error ?? new Error("failed to open db"));
-		request.onsuccess = () => resolve(request.result);
-	});
-
-	const stores = Array.from(db.objectStoreNames);
-	db.close();
-	return stores;
-};
-
 describe("offline-dixie provider", () => {
 	test("creates stores on first instantiation", async () => {
 		const metadata = buildMetadata();
 		const options = buildOptions(metadata);
-		const dbName = `${options.envKey}-${options.tenantId}-${options.appName}`;
 
 		const provider = await createOfflineDixieProvider(options);
 		const dexie: Dexie = provider.dexie;
 		await dexie.open();
 
-		const storeNames = await getObjectStoreNames(dbName);
+		const storeNames = dexie.tables.map((t) => t.name);
 		const expected = expectedStores(metadata);
 
 		expect(storeNames.length).toBe(expected.length);
 		expect(storeNames).toEqual(expect.arrayContaining(expected));
 
-		await Dexie.delete(dbName);
+		dexie.close();
+		await Dexie.delete(dexie.name);
 	});
 
 	test("retains stores across subsequent instantiations", async () => {
 		const metadata = buildMetadata();
 		const options = buildOptions(metadata);
-		const dbName = `${options.envKey}-${options.tenantId}-${options.appName}`;
 		const expected = expectedStores(metadata);
 
 		const first = await createOfflineDixieProvider(options);
@@ -123,11 +104,11 @@ describe("offline-dixie provider", () => {
 		const secondDexie: Dexie = second.dexie;
 		await secondDexie.open();
 
-		const storeNames = await getObjectStoreNames(dbName);
+		const storeNames = secondDexie.tables.map((t) => t.name);
 		expect(storeNames.length).toBe(expected.length);
 		expect(storeNames).toEqual(expect.arrayContaining(expected));
 
-		await secondDexie.close();
-		await Dexie.delete(dbName);
+		secondDexie.close();
+		await Dexie.delete(secondDexie.name);
 	});
 });
