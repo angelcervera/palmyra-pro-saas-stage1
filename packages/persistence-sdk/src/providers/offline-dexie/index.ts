@@ -3,9 +3,11 @@ import { Dexie } from "dexie";
 import {
 	type BatchWrite,
 	BatchWriteError,
+	type EntityIdentifier,
 	type EntityRecord,
 	type MetadataSnapshot,
 	type PersistenceProvider,
+	type SaveEntityInput,
 } from "../../core";
 
 const DB_VERSION = 1;
@@ -135,22 +137,22 @@ export class OfflineDexieProvider implements PersistenceProvider {
 		}
 	}
 
-	// getEntity<TPayload = unknown>(
-	//     _ref: EntityIdentifier,
-	// ): Promise<EntityRecord<TPayload>> {
-	//     throw new Error("Method not implemented.");
-	// }
-	//
+	getEntity<TPayload = unknown>(
+		ref: EntityIdentifier,
+	): Promise<EntityRecord<TPayload>> {
+		throw new Error("Method not implemented.");
+	}
+
+	saveEntity<TPayload = unknown>(
+		input: SaveEntityInput<TPayload>,
+	): Promise<EntityRecord<TPayload>> {
+		throw new Error("Method not implemented.");
+	}
+
 	// queryEntities<TPayload = unknown>(
 	//     _scope: SchemaIdentifier,
 	//     _pagination?: PaginationQuery,
 	// ): Promise<PaginatedResult<EntityRecord<TPayload>>> {
-	//     throw new Error("Method not implemented.");
-	// }
-	//
-	// saveEntity<TPayload = unknown>(
-	//     _input: SaveEntityInput<TPayload>,
-	// ): Promise<EntityRecord<TPayload>> {
 	//     throw new Error("Method not implemented.");
 	// }
 	//

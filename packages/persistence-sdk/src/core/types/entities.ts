@@ -19,12 +19,13 @@ export interface EntityRecord<TPayload = unknown>
 
 export type BatchWrite = EntityRecord[];
 
-// export interface SaveEntityInput<TPayload = unknown>
-// 	extends SchemaIdentifierVersioned,
-// 		EntityIdentifierVersioned {
-// 	payload: TPayload;
-// }
-//
+// Represent an entity following the active schema version.
+// When the `entityId` is not present, it means that it is new.
+export interface SaveEntityInput<TPayload = unknown> extends SchemaIdentifier {
+	entityId?: string;
+	payload: TPayload;
+}
+
 // export interface DeleteEntityInput extends EntityIdentifier {}
 //
 // export type BatchWrite =

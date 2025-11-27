@@ -1,4 +1,9 @@
-import type { BatchWrite } from "./entities";
+import type {
+	BatchWrite,
+	EntityIdentifier,
+	EntityRecord,
+	SaveEntityInput,
+} from "./entities";
 import type { MetadataSnapshot } from "./schemas";
 
 /**
@@ -29,13 +34,21 @@ export interface PersistenceProvider {
 	 */
 	batchWrites(operations: BatchWrite): Promise<void>;
 
-	// /**
-	//  * Retrieves the latest version of the specified entity.
-	//  */
-	// getEntity<TPayload = unknown>(
-	// 	ref: EntityIdentifier,
-	// ): Promise<EntityRecord<TPayload>>;
-	//
+	/**
+	 * Upserts an entity using the latest schema version for the table.
+	 * If entityId is not provided, a new unique identifier will be generated.
+	 */
+	saveEntity<TPayload = unknown>(
+		input: SaveEntityInput<TPayload>,
+	): Promise<EntityRecord<TPayload>>;
+
+	/**
+	 * Retrieves the latest version of the specified entity.
+	 */
+	getEntity<TPayload = unknown>(
+		ref: EntityIdentifier,
+	): Promise<EntityRecord<TPayload>>;
+
 	// /**
 	//  * Lists the latest versions of entities in a table
 	//  */
@@ -44,14 +57,6 @@ export interface PersistenceProvider {
 	// 	scope: SchemaIdentifier,
 	// 	pagination?: PaginationQuery,
 	// ): Promise<PaginatedResult<EntityRecord<TPayload>>>;
-	//
-	// /**
-	//  * Upserts an entity using the latest schema version for the table.
-	//  */
-	// saveEntity<TPayload = unknown>(
-	// 	input: SaveEntityInput<TPayload>,
-	// ): Promise<EntityRecord<TPayload>>;
-	//
 	// /**
 	//  * Soft-deletes an entity (marks the latest version as deleted).
 	//  */
