@@ -22,5 +22,4 @@ export interface SchemaMetadata extends SchemaIdentifier {
 export interface MetadataSnapshot {
 	// tableName -> SchemaMetadata
 	tables: Map<string, SchemaMetadata>;
-	fetchedAt: Date;
 }
