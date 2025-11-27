@@ -27,8 +27,7 @@ export type OfflineDixieProviderOptions = {
 
 export const createOfflineDixieProvider = async (
 	options: OfflineDixieProviderOptions,
-): Promise<OfflineDixieProvider> =>
-	new OfflineDixieProvider(initDexie(options), options);
+): Promise<OfflineDixieProvider> => OfflineDixieProvider.create(options);
 
 // Helpers
 
@@ -72,9 +71,15 @@ export class OfflineDixieProvider implements PersistenceProvider {
 		"A persistence provider that stores data locally using Dixie";
 
 	private constructor(
-		readonly dexie: Dexie,
+		private dexie: Dexie,
 		readonly _options: OfflineDixieProviderOptions,
 	) {}
+
+	static async create(
+		options: OfflineDixieProviderOptions,
+	): Promise<OfflineDixieProvider> {
+		return new OfflineDixieProvider(initDexie(options), options);
+	}
 
 	getMetadata(): Promise<MetadataSnapshot> {
 		throw new Error("Method not implemented.");
