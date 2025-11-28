@@ -35,7 +35,7 @@ const deriveActiveTableName = (tableName: string) => `active::${tableName}`;
 
 const dexieStoresBuilder = (schemas: Schema[]) => {
 	const stores: { [tableName: string]: string | null } = {};
-	const entititesTableNames = [...schemas.values()].map(
+	const entitiesTableNames = [...schemas.values()].map(
 		(schema) => schema.tableName,
 	);
 
@@ -45,7 +45,7 @@ const dexieStoresBuilder = (schemas: Schema[]) => {
 	stores[JOURNAL_STORE] = "++changeId";
 
 	// Entity tables (one store per versioned entity table plus an active index).
-	for (const tableName of entititesTableNames) {
+	for (const tableName of entitiesTableNames) {
 		stores[tableName] = "entityId, entityVersion";
 		stores[deriveActiveTableName(tableName)] = "entityId"; // TODO: Instead of having one table for active schemas, we can have an index on the entity table. But no idea how to do it in Dexie.
 	}
@@ -162,7 +162,7 @@ export class OfflineDexieProvider implements PersistenceProvider {
 
 	async batchWrites(
 		entities: BatchWrite,
-		writeInJournal: boolean,
+		writeInJournal: boolean = true,
 	): Promise<void> {
 		if (entities.length === 0) {
 			return;
@@ -376,10 +376,12 @@ export class OfflineDexieProvider implements PersistenceProvider {
 	}
 
 	private async appendJournal(entity: EntityRecord): Promise<void> {
-		const journalEntry = {
+		type JournalRow = Omit<JournalEntry, "changeId"> & { changeId?: number };
+
+		const journalEntry: JournalRow = {
 			...entity,
 			changeDate: new Date(),
 		};
-		await this.dexie.table<JournalEntry>(JOURNAL_STORE).add(journalEntry);
+		await this.dexie.table<JournalRow>(JOURNAL_STORE).add(journalEntry);
 	}
 }
