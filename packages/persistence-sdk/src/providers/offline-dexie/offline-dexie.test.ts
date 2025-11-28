@@ -78,7 +78,10 @@ const expectedStores = (schemas: Schema[]): string[] => {
 
 describe("offline-dexie provider", () => {
 	test("creates object stores for provided schemas", async () => {
-		const schemas = [buildSchema("entities"), buildSchema("orders")];
+		const schemas = [
+			buildSchema("entities"),
+			{ ...buildSchema("orders"), isActive: false },
+		];
 		const options = buildOptions(schemas);
 
 		const provider = await createOfflineDexieProvider(options);
@@ -96,6 +99,13 @@ describe("offline-dexie provider", () => {
 
 		expect(stores).toEqual(expect.arrayContaining(expectedStores(schemas)));
 		expect(stores.length).toBe(expectedStores(schemas).length);
+
+		// Active schema store should only contain active schemas.
+		const activeSchemas = await readAll<Schema>(
+			options,
+			deriveActiveTableName(SCHEMAS_STORE),
+		);
+		expect(activeSchemas.map((s) => s.tableName)).toEqual(["entities"]);
 
 		await provider.close();
 		await Dexie.delete(dbName(options));
