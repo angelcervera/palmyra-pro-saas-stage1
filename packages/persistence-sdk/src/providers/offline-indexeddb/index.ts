@@ -577,9 +577,7 @@ export class OfflineIndexedDbProvider implements PersistenceProvider {
 		return `${this.tenantId}::${tableName}`;
 	}
 
-	private async requireSchemaMetadata(
-		tableName: string,
-	): Promise<Schema> {
+	private async requireSchemaMetadata(tableName: string): Promise<Schema> {
 		const metadata = await this.getMetadata();
 		const entry = metadata.tables.get(tableName);
 		if (!entry) {

@@ -602,9 +602,7 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		this.metadataCache = snapshot;
 	}
 
-	private async requireSchemaMetadata(
-		tableName: string,
-	): Promise<Schema> {
+	private async requireSchemaMetadata(tableName: string): Promise<Schema> {
 		const metadata = await this.getMetadata();
 		const entry = metadata.tables.get(tableName);
 		if (!entry) {
