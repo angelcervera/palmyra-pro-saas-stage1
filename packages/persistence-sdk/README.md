@@ -40,3 +40,13 @@ packages/persistence-sdk/
 
 Additional build config files (tsconfig, package.json, etc.) are already in place so this package
 can be built and consumed locally via `pnpm run build -C packages/persistence-sdk`.
+
+## Providers.
+
+- [X] In-memory offline provider
+- [X] Dexie offline provider
+- [X] api-sdk online provider
+- [ ] Pure indexedDB offline provider
+- [ ] CouchDB offline provider
+- [ ] SQLite offline provider
+- [ ] PgLite offline provider

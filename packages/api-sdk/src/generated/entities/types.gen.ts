@@ -26,7 +26,7 @@ export type EntityDocument = {
     /**
      * Logical delete flag; true when this document version should be hidden from default queries.
      */
-    isSoftDeleted: boolean;
+    isDeleted: boolean;
 };
 
 export type CreateEntityDocumentRequest = {

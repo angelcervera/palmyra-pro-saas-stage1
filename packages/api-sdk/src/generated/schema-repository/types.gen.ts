@@ -27,7 +27,7 @@ export type SchemaVersion = {
     /**
      * Logical delete flag; true when the schema version is hidden from default consumers.
      */
-    isSoftDeleted: boolean;
+    isDeleted: boolean;
 };
 
 /**
