@@ -219,9 +219,46 @@ export class OfflineDexieProvider implements PersistenceProvider {
 	// Delete an entity.
 	// It is a soft deletion, so we will create a version with isDeleted on.
 	async deleteEntity(input: DeleteEntityInput): Promise<void> {
-		// AI TODO:
-		//  To understand what to do, read the comment of the function.
-		//  Remember that is generating a new version of the file, so maybe we can reuse getEntity and saveEntity.
+		const activeEntityTableName = deriveActiveTableName(input.tableName);
+		const tableNames = [activeEntityTableName, input.tableName];
+
+		const existing = await this.getEntity({
+			tableName: input.tableName,
+			entityId: input.entityId,
+		});
+
+		if (!existing) {
+			throw new Error(
+				`Entity ${input.entityId} not found in ${input.tableName}`,
+			);
+		}
+
+		await this.dexie.transaction("rw", tableNames, async () => {
+			const entityTable = this.dexie.table<EntityRecord>(input.tableName);
+			const activeTable = this.dexie.table<EntityRecord>(activeEntityTableName);
+
+			// Mark the previous active record as inactive and drop it from the active table.
+			existing.isActive = false;
+			await entityTable.put(existing);
+			await activeTable.delete(existing.entityId);
+
+			// Store a new version flagged as deleted.
+			const deletedRecord: EntityRecord = {
+				...existing,
+				entityVersion: updateEntityVersion(
+					existing.entityVersion,
+					existing.schemaVersion,
+					existing.schemaVersion,
+				),
+				schemaVersion: existing.schemaVersion,
+				ts: new Date(),
+				isDeleted: true,
+				isActive: true,
+			};
+
+			await entityTable.put(deletedRecord);
+			await activeTable.put(deletedRecord);
+		});
 	}
 
 	async saveEntity<TPayload = unknown>(
