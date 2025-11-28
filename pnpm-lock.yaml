@@ -42,6 +42,9 @@ importers:
       '@biomejs/biome':
         specifier: 2.3.5
         version: 2.3.5
+      '@playwright/test':
+        specifier: ^1.49.0
+        version: 1.57.0
       '@types/node':
         specifier: ^24.10.0
         version: 24.10.0
@@ -1026,6 +1029,11 @@ packages:
 
   '@open-draft/until@2.1.0':
     resolution: {integrity: sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg==}
+
+  '@playwright/test@1.57.0':
+    resolution: {integrity: sha512-6TyEnHgd6SArQO8UO2OMTxshln3QMWBtPGrOCgs3wVEmQmwyuNtB10IZMfmYDE0riwNR1cu4q+pPcxMVtaG3TA==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
@@ -3184,13 +3192,13 @@ packages:
     resolution: {integrity: sha512-ueGLflrrnvwB3xuo/uGob5pd5FN7l0MsLf0Z87o/UQmRtwjvfylfc9MurIxRAWywCYTgrvpXBcqjV4OfCYGCIQ==}
     engines: {node: '>=16.20.0'}
 
-  playwright-core@1.56.1:
-    resolution: {integrity: sha512-hutraynyn31F+Bifme+Ps9Vq59hKuUCz7H1kDOcBs+2oGguKkWTU50bBWrtz34OUWmIwpBTWDxaRPXrIXkgvmQ==}
+  playwright-core@1.57.0:
+    resolution: {integrity: sha512-agTcKlMw/mjBWOnD6kFZttAAGHgi/Nw0CZ2o6JqWSbMlI219lAFLZZCyqByTsvVAJq5XA5H8cA6PrvBRpBWEuQ==}
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright@1.56.1:
-    resolution: {integrity: sha512-aFi5B0WovBHTEvpM3DzXTUaeN6eN0qWnTkKx4NQaH4Wvcmc153PdaY2UBdSYKaGYw+UyWXSVyxDUg5DoPEttjw==}
+  playwright@1.57.0:
+    resolution: {integrity: sha512-ilYQj1s8sr2ppEJ2YVadYBN0Mb3mdo9J0wQ+UuDhzYqURwSoW4n1Xs5vs7ORwgDGmyEh33tRMeS8KhdkMoLXQw==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -4651,6 +4659,10 @@ snapshots:
 
   '@open-draft/until@2.1.0': {}
 
+  '@playwright/test@1.57.0':
+    dependencies:
+      playwright: 1.57.0
+
   '@polka/url@1.0.0-next.29':
     optional: true
 
@@ -5484,7 +5496,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/browser@2.1.9(@types/node@24.10.0)(playwright@1.56.1)(typescript@5.9.3)(vite@5.4.21(@types/node@24.10.0)(lightningcss@1.30.2))(vitest@2.1.9)':
+  '@vitest/browser@2.1.9(@types/node@24.10.0)(playwright@1.57.0)(typescript@5.9.3)(vite@5.4.21(@types/node@24.10.0)(lightningcss@1.30.2))(vitest@2.1.9)':
     dependencies:
       '@testing-library/dom': 10.4.1
       '@testing-library/user-event': 14.6.1(@testing-library/dom@10.4.1)
@@ -5497,7 +5509,7 @@ snapshots:
       vitest: 2.1.9(@types/node@24.10.0)(@vitest/browser@2.1.9)(lightningcss@1.30.2)(msw@2.12.0(@types/node@24.10.0)(typescript@5.9.3))
       ws: 8.18.3
     optionalDependencies:
-      playwright: 1.56.1
+      playwright: 1.57.0
     transitivePeerDependencies:
       - '@types/node'
       - bufferutil
@@ -6701,15 +6713,13 @@ snapshots:
 
   pkce-challenge@5.0.0: {}
 
-  playwright-core@1.56.1:
-    optional: true
+  playwright-core@1.57.0: {}
 
-  playwright@1.56.1:
+  playwright@1.57.0:
     dependencies:
-      playwright-core: 1.56.1
+      playwright-core: 1.57.0
     optionalDependencies:
       fsevents: 2.3.2
-    optional: true
 
   postcss@8.5.6:
     dependencies:
@@ -7367,7 +7377,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 24.10.0
-      '@vitest/browser': 2.1.9(@types/node@24.10.0)(playwright@1.56.1)(typescript@5.9.3)(vite@5.4.21(@types/node@24.10.0)(lightningcss@1.30.2))(vitest@2.1.9)
+      '@vitest/browser': 2.1.9(@types/node@24.10.0)(playwright@1.57.0)(typescript@5.9.3)(vite@5.4.21(@types/node@24.10.0)(lightningcss@1.30.2))(vitest@2.1.9)
     transitivePeerDependencies:
       - less
       - lightningcss
