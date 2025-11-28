@@ -9,6 +9,7 @@ import type {
 	SyncReport,
 	SyncRequest,
 } from "./types";
+import type { JournalEntry } from "./types/journal";
 
 /**
  * Concrete persistence client that orchestrates the configured providers.
@@ -98,23 +99,13 @@ export class PersistenceClient implements PersistenceProvider {
 
 	// }
 
-	// async listJournalEntries(): Promise<
-	// 	{
-	// 		changeId: number;
-	// 		tableName: string;
-	// 		entityId: string;
-	// 		entityVersion: string;
-	// 		schemaVersion: string;
-	// 		changeType: "create" | "update" | "delete";
-	// 		payload?: unknown;
-	// 	}[]
-	// > {
-	// 	return this.resolveActiveProvider().listJournalEntries();
-	// }
-	//
-	// async clearJournalEntries(): Promise<void> {
-	// 	return this.resolveActiveProvider().clearJournalEntries();
-	// }
+	async listJournalEntries(): Promise<JournalEntry[]> {
+		return await this.resolveActiveProvider().listJournalEntries();
+	}
+
+	async clearJournalEntries(): Promise<void> {
+		return await this.resolveActiveProvider().clearJournalEntries();
+	}
 
 	async close(): Promise<void> {
 		return await this.resolveActiveProvider().close();

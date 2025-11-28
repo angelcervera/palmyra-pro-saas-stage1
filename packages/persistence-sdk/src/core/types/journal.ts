@@ -1,11 +1,9 @@
+import type { EntityRecord } from "./entities";
+
 export type JournalChangeType = "create" | "update" | "delete";
 
-export interface JournalEntry {
+export interface JournalEntry extends EntityRecord {
 	changeId: number;
-	tableName: string;
-	entityId: string;
-	entityVersion: string;
-	schemaVersion: string;
+	changeDate: Date;
 	changeType: JournalChangeType;
-	payload?: unknown;
 }

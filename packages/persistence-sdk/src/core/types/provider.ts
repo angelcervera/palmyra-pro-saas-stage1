@@ -5,6 +5,7 @@ import type {
 	EntityRecord,
 	SaveEntityInput,
 } from "./entities";
+import type { JournalEntry } from "./journal";
 import type { Schema } from "./schemas";
 
 /**
@@ -65,17 +66,17 @@ export interface PersistenceProvider {
 	// 	pagination?: PaginationQuery,
 	// ): Promise<PaginatedResult<EntityRecord<TPayload>>>;
 
-	// /**
-	//  * Returns pending journal entries, if the provider supports a change journal.
-	//  * Providers that do not support journaling should return an empty array.
-	//  */
-	// listJournalEntries(): Promise<JournalEntry[]>;
-	//
-	// /**
-	//  * Clears pending journal entries, if the provider supports a change journal.
-	//  * Providers without journaling should treat this as a no-op.
-	//  */
-	// clearJournalEntries(): Promise<void>;
+	/**
+	 * Returns pending journal entries, if the provider supports a change journal.
+	 * Providers that do not support journaling should return an empty array.
+	 */
+	listJournalEntries(): Promise<JournalEntry[]>;
+
+	/**
+	 * Clears pending journal entries, if the provider supports a change journal.
+	 * Providers without journaling should treat this as a no-op.
+	 */
+	clearJournalEntries(): Promise<void>;
 
 	/**
 	 * Releases any underlying resources (DB handles, workers, etc.).

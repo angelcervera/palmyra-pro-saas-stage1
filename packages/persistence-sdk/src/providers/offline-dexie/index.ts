@@ -6,6 +6,7 @@ import {
 	type DeleteEntityInput,
 	type EntityIdentifier,
 	type EntityRecord,
+	type JournalEntry,
 	type PersistenceProvider,
 	type SaveEntityInput,
 	type Schema,
@@ -355,13 +356,13 @@ export class OfflineDexieProvider implements PersistenceProvider {
 	//     throw new Error("Method not implemented.");
 	// }
 
-	// listJournalEntries(): Promise<JournalEntry[]> {
-	// 	throw new Error("Method not implemented.");
-	// }
-	//
-	// clearJournalEntries(): Promise<void> {
-	// 	throw new Error("Method not implemented.");
-	// }
+	listJournalEntries(): Promise<JournalEntry[]> {
+		throw new Error("Method not implemented.");
+	}
+
+	clearJournalEntries(): Promise<void> {
+		throw new Error("Method not implemented.");
+	}
 
 	async close(): Promise<void> {
 		this.dexie.close();

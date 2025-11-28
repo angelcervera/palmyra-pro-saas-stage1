@@ -28,10 +28,6 @@ export interface SaveEntityInput<TPayload = unknown> extends SchemaIdentifier {
 
 export interface DeleteEntityInput extends EntityIdentifier {}
 
-// export type BatchWrite =
-// 	| { type: "save"; data: SaveEntityInput }
-// 	| { type: "delete"; data: DeleteEntityInput };
-
 export class BatchWriteError extends Error {
 	readonly tableName: string;
 	readonly entityId: string;
