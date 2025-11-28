@@ -65,7 +65,7 @@ export interface PersistenceProvider {
 	 * later include filter DSL expressions.
 	 */
 	queryEntities<TPayload = unknown>(
-		scope: SchemaIdentifier,
+		tableName: SchemaIdentifier,
 		options?: QueryOptions,
 	): Promise<PaginatedResult<EntityRecord<TPayload>>>;
 
