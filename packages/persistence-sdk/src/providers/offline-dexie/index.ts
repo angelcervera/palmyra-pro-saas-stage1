@@ -216,8 +216,12 @@ export class OfflineDexieProvider implements PersistenceProvider {
 		);
 	}
 
+	// Delete an entity.
+	// It is a soft deletion, so we will create a version with isDeleted on.
 	async deleteEntity(input: DeleteEntityInput): Promise<void> {
-		throw new Error("Method not implemented.");
+		// AI TODO:
+		//  To understand what to do, read the comment of the function.
+		//  Remember that is generating a new version of the file, so maybe we can reuse getEntity and saveEntity.
 	}
 
 	async saveEntity<TPayload = unknown>(

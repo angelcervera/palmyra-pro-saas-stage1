@@ -17,6 +17,6 @@ export interface Schema extends SchemaIdentifierVersioned {
 	schemaDefinition: SchemaDefinition;
 	categoryId: string;
 	createdAt: Date;
+	isDeleted: boolean;
 	isActive: boolean;
-	isSoftDeleted: boolean;
 }
