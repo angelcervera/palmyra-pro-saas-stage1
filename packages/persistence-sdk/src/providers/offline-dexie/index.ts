@@ -3,6 +3,7 @@ import { Dexie } from "dexie";
 import {
 	type BatchWrite,
 	BatchWriteError,
+	type DeleteEntityInput,
 	type EntityIdentifier,
 	type EntityRecord,
 	type PersistenceProvider,
@@ -215,6 +216,10 @@ export class OfflineDexieProvider implements PersistenceProvider {
 		);
 	}
 
+	async deleteEntity(input: DeleteEntityInput): Promise<void> {
+		throw new Error("Method not implemented.");
+	}
+
 	async saveEntity<TPayload = unknown>(
 		input: SaveEntityInput<TPayload>,
 	): Promise<EntityRecord<TPayload>> {
@@ -296,22 +301,19 @@ export class OfflineDexieProvider implements PersistenceProvider {
 				await entityTable.put(entityRecord);
 				await activeTable.put(entityRecord);
 
+				// TODO: Write in the journal table.
+
 				return entityRecord;
 			},
 		);
 	}
-
 	// queryEntities<TPayload = unknown>(
 	//     _scope: SchemaIdentifier,
 	//     _pagination?: PaginationQuery,
 	// ): Promise<PaginatedResult<EntityRecord<TPayload>>> {
 	//     throw new Error("Method not implemented.");
 	// }
-	//
-	// deleteEntity(_input: DeleteEntityInput): Promise<void> {
-	//     throw new Error("Method not implemented.");
-	// }
-	//
+
 	// listJournalEntries(): Promise<JournalEntry[]> {
 	// 	throw new Error("Method not implemented.");
 	// }

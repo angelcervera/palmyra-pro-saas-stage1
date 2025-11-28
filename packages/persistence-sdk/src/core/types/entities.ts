@@ -26,8 +26,8 @@ export interface SaveEntityInput<TPayload = unknown> extends SchemaIdentifier {
 	payload: TPayload;
 }
 
-// export interface DeleteEntityInput extends EntityIdentifier {}
-//
+export interface DeleteEntityInput extends EntityIdentifier {}
+
 // export type BatchWrite =
 // 	| { type: "save"; data: SaveEntityInput }
 // 	| { type: "delete"; data: DeleteEntityInput };

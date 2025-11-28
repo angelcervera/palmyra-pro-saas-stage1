@@ -1,5 +1,6 @@
 import type {
 	BatchWrite,
+	DeleteEntityInput,
 	EntityIdentifier,
 	EntityRecord,
 	PersistenceProvider,
@@ -84,17 +85,19 @@ export class PersistenceClient implements PersistenceProvider {
 	): Promise<EntityRecord<TPayload> | undefined> {
 		return await this.resolveActiveProvider().getEntity(ref);
 	}
+
+	async deleteEntity(input: DeleteEntityInput): Promise<void> {
+		return await this.resolveActiveProvider().deleteEntity(input);
+	}
+
 	// async queryEntities<TPayload = unknown>(
 	// 	scope: SchemaIdentifier,
 	// 	pagination?: PaginationQuery,
 	// ): Promise<PaginatedResult<EntityRecord<TPayload>>> {
 	// 	return this.resolveActiveProvider().queryEntities(scope, pagination);
+
 	// }
 
-	// async deleteEntity(input: DeleteEntityInput): Promise<void> {
-	// 	return this.resolveActiveProvider().deleteEntity(input);
-	// }
-	//
 	// async listJournalEntries(): Promise<
 	// 	{
 	// 		changeId: number;

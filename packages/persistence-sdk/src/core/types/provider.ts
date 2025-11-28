@@ -1,5 +1,6 @@
 import type {
 	BatchWrite,
+	DeleteEntityInput,
 	EntityIdentifier,
 	EntityRecord,
 	SaveEntityInput,
@@ -50,6 +51,11 @@ export interface PersistenceProvider {
 		ref: EntityIdentifier,
 	): Promise<EntityRecord<TPayload> | undefined>;
 
+	/**
+	 * Soft-deletes an entity (marks the latest version as deleted).
+	 */
+	deleteEntity(input: DeleteEntityInput): Promise<void>;
+
 	// /**
 	//  * Lists the latest versions of entities in a table
 	//  */
@@ -58,11 +64,7 @@ export interface PersistenceProvider {
 	// 	scope: SchemaIdentifier,
 	// 	pagination?: PaginationQuery,
 	// ): Promise<PaginatedResult<EntityRecord<TPayload>>>;
-	// /**
-	//  * Soft-deletes an entity (marks the latest version as deleted).
-	//  */
-	// deleteEntity(input: DeleteEntityInput): Promise<void>;
-	//
+
 	// /**
 	//  * Returns pending journal entries, if the provider supports a change journal.
 	//  * Providers that do not support journaling should return an empty array.
