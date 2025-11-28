@@ -57,7 +57,7 @@ const buildOptions = (
 		envKey,
 		tenantId,
 		appName,
-		initialMetadata: metadata,
+		metadata: metadata,
 	};
 };
 

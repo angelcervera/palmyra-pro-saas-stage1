@@ -13,13 +13,10 @@ export type SchemaDefinition = {
 	[key: string]: unknown;
 };
 
-export interface SchemaMetadata extends SchemaIdentifier {
-	// version -> jsonSchema
-	versions: Map<string, SchemaDefinition>;
-	activeVersion: string;
-}
-
-export interface MetadataSnapshot {
-	// tableName -> SchemaMetadata
-	tables: Map<string, SchemaMetadata>;
+export interface Schema extends SchemaIdentifierVersioned {
+	schemaDefinition: SchemaDefinition;
+	categoryId: string;
+	createdAt: Date;
+	isActive: boolean;
+	isSoftDeleted: boolean;
 }

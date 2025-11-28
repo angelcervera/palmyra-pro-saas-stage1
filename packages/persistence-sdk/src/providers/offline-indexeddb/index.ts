@@ -12,7 +12,7 @@ import {
 	type SaveEntityInput,
 	type SchemaDefinition,
 	type SchemaIdentifier,
-	type SchemaMetadata,
+	type Schema,
 } from "../../core";
 import { describeProviderError, wrapProviderError } from "../../shared/errors";
 import { fromWireJson, type JsonValue, toWireJson } from "../../shared/json";
@@ -523,7 +523,7 @@ export class OfflineIndexedDbProvider implements PersistenceProvider {
 	}
 
 	private buildSnapshotFromRows(rows: MetadataRow[]): MetadataSnapshot {
-		const tables = new Map<string, SchemaMetadata>();
+		const tables = new Map<string, Schema>();
 		let fetchedAt = 0;
 		for (const row of rows) {
 			const versions = new Map<string, SchemaDefinition>();
@@ -579,7 +579,7 @@ export class OfflineIndexedDbProvider implements PersistenceProvider {
 
 	private async requireSchemaMetadata(
 		tableName: string,
-	): Promise<SchemaMetadata> {
+	): Promise<Schema> {
 		const metadata = await this.getMetadata();
 		const entry = metadata.tables.get(tableName);
 		if (!entry) {

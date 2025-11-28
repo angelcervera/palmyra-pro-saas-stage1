@@ -4,7 +4,7 @@ import type {
 	EntityRecord,
 	SaveEntityInput,
 } from "./entities";
-import type { MetadataSnapshot } from "./schemas";
+import type { Schema } from "./schemas";
 
 /**
  * Defines the contract between the SDK client and any persistence provider.
@@ -21,12 +21,12 @@ export interface PersistenceProvider {
 	/**
 	 * Returns the list of tenant tables/schemas and their available versions.
 	 */
-	getMetadata(): Promise<MetadataSnapshot>;
+	getMetadata(): Promise<Schema[]>;
 
 	/**
 	 * Replaces the locally cached metadata snapshot (used by offline providers).
 	 */
-	setMetadata(snapshot: MetadataSnapshot): Promise<void>;
+	setMetadata(snapshot: Schema[]): Promise<void>;
 
 	/**
 	 * Executes multiple save/delete operations in a single round-trip.
@@ -47,7 +47,7 @@ export interface PersistenceProvider {
 	 */
 	getEntity<TPayload = unknown>(
 		ref: EntityIdentifier,
-	): Promise<EntityRecord<TPayload>>;
+	): Promise<EntityRecord<TPayload> | undefined>;
 
 	// /**
 	//  * Lists the latest versions of entities in a table

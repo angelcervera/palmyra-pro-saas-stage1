@@ -19,7 +19,7 @@ import {
 	type SaveEntityInput,
 	type SchemaDefinition,
 	type SchemaIdentifier,
-	type SchemaMetadata,
+	type Schema,
 } from "../../core";
 import { describeProviderError, wrapProviderError } from "../../shared/errors";
 import { fromWireJson, type JsonValue, toJsonObject } from "../../shared/json";
@@ -307,7 +307,7 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 	private buildMetadataSnapshot(
 		schemas: SchemaRepository.SchemaVersionList,
 	): MetadataSnapshot {
-		const tables = new Map<string, SchemaMetadata>();
+		const tables = new Map<string, Schema>();
 		for (const schema of schemas.items ?? []) {
 			let entry = tables.get(schema.tableName);
 			if (!entry) {
