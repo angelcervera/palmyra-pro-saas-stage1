@@ -265,3 +265,43 @@ test("getEntity returns undefined when entity is missing", async () => {
 	await provider.close();
 	await Dexie.delete(dbName(options));
 });
+
+test("journal captures create, update, delete and can be cleared", async () => {
+	const schemas = [buildSchema("entities")];
+	const options = buildOptions(schemas);
+	const provider = await createOfflineDexieProvider(options);
+	await seedSchemas(options, schemas);
+
+	const created = await provider.saveEntity({
+		tableName: "entities",
+		payload: { foo: "bar" },
+	});
+
+	await provider.saveEntity({
+		tableName: "entities",
+		entityId: created.entityId,
+		payload: { foo: "baz" },
+	});
+
+	await provider.deleteEntity({
+		tableName: "entities",
+		entityId: created.entityId,
+	});
+
+	const entries = await provider.listJournalEntries();
+	expect(entries.map((e) => e.changeType)).toEqual([
+		"create",
+		"update",
+		"delete",
+	]);
+	expect(entries[0].entityId).toBe(created.entityId);
+	expect(entries[0].tableName).toBe("entities");
+	expect(entries[0].changeDate).toBeInstanceOf(Date);
+
+	await provider.clearJournalEntries();
+	const cleared = await provider.listJournalEntries();
+	expect(cleared).toHaveLength(0);
+
+	await provider.close();
+	await Dexie.delete(dbName(options));
+});

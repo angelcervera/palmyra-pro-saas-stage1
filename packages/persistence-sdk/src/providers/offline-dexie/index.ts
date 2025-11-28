@@ -160,12 +160,15 @@ export class OfflineDexieProvider implements PersistenceProvider {
 		return Promise.resolve();
 	}
 
-	async batchWrites(entities: BatchWrite): Promise<void> {
+	async batchWrites(
+		entities: BatchWrite,
+		writeInJournal: boolean,
+	): Promise<void> {
 		if (entities.length === 0) {
 			return;
 		}
 
-		const storeNames = new Set<string>();
+		const storeNames = new Set<string>([JOURNAL_STORE]);
 		for (const entity of entities) {
 			storeNames.add(entity.tableName);
 			if (entity.isActive) {
@@ -187,6 +190,8 @@ export class OfflineDexieProvider implements PersistenceProvider {
 					if (entity.isActive) {
 						await activeTable.put(entity);
 					}
+
+					if (writeInJournal) await this.appendJournal(entity);
 				}
 			});
 		} catch (error) {
@@ -221,7 +226,7 @@ export class OfflineDexieProvider implements PersistenceProvider {
 	// It is a soft deletion, so we will create a version with isDeleted on.
 	async deleteEntity(input: DeleteEntityInput): Promise<void> {
 		const activeEntityTableName = deriveActiveTableName(input.tableName);
-		const tableNames = [activeEntityTableName, input.tableName];
+		const tableNames = [activeEntityTableName, input.tableName, JOURNAL_STORE];
 
 		const existing = await this.getEntity({
 			tableName: input.tableName,
@@ -259,6 +264,7 @@ export class OfflineDexieProvider implements PersistenceProvider {
 
 			await entityTable.put(deletedRecord);
 			await activeTable.put(deletedRecord);
+			await this.appendJournal(deletedRecord);
 		});
 	}
 
@@ -271,6 +277,7 @@ export class OfflineDexieProvider implements PersistenceProvider {
 			activeEntityTableName,
 			activeSchemasTableName,
 			input.tableName,
+			JOURNAL_STORE,
 		];
 
 		// If it exists, we need the older one to updated it.
@@ -343,7 +350,7 @@ export class OfflineDexieProvider implements PersistenceProvider {
 				await entityTable.put(entityRecord);
 				await activeTable.put(entityRecord);
 
-				// TODO: Write in the journal table.
+				await this.appendJournal(entityRecord);
 
 				return entityRecord;
 			},
@@ -356,15 +363,23 @@ export class OfflineDexieProvider implements PersistenceProvider {
 	//     throw new Error("Method not implemented.");
 	// }
 
-	listJournalEntries(): Promise<JournalEntry[]> {
-		throw new Error("Method not implemented.");
+	async listJournalEntries(): Promise<JournalEntry[]> {
+		return this.dexie.table<JournalEntry>(JOURNAL_STORE).toArray();
 	}
 
-	clearJournalEntries(): Promise<void> {
-		throw new Error("Method not implemented.");
+	async clearJournalEntries(): Promise<void> {
+		return this.dexie.table(JOURNAL_STORE).clear();
 	}
 
 	async close(): Promise<void> {
-		this.dexie.close();
+		return this.dexie.close();
+	}
+
+	private async appendJournal(entity: EntityRecord): Promise<void> {
+		const journalEntry = {
+			...entity,
+			changeDate: new Date(),
+		};
+		await this.dexie.table<JournalEntry>(JOURNAL_STORE).add(journalEntry);
 	}
 }
