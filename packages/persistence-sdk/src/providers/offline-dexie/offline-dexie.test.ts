@@ -3,11 +3,7 @@ import "fake-indexeddb/auto";
 import { Dexie } from "dexie";
 import { describe, expect, test } from "vitest";
 
-import type {
-	EntityRecord,
-	MetadataSnapshot,
-	SchemaDefinition,
-} from "../../core";
+import type { EntityRecord, Schema } from "../../core";
 import {
 	createOfflineDexieProvider,
 	type OfflineDexieProviderOptions,
@@ -17,197 +13,255 @@ const SCHEMAS_STORE = "__schema-metadata";
 const JOURNAL_STORE = "__entity-journal";
 const deriveActiveTableName = (tableName: string) => `active::${tableName}`;
 
-const buildMetadata = (): MetadataSnapshot => {
-	const definition: SchemaDefinition = {
-		type: "object",
-		properties: { foo: { type: "string" } },
-		required: ["foo"],
-	};
+const buildSchema = (tableName: string, version = "1.0.0"): Schema => ({
+	tableName,
+	schemaVersion: version,
+	schemaDefinition: { type: "object" },
+	categoryId: crypto.randomUUID(),
+	createdAt: new Date(),
+	isDeleted: false,
+	isActive: true,
+});
 
-	return {
-		tables: new Map([
-			[
-				"entities",
-				{
-					tableName: "entities",
-					activeVersion: "v1",
-					versions: new Map([["v1", definition]]),
-				},
-			],
-			[
-				"orders",
-				{
-					tableName: "orders",
-					activeVersion: "v1",
-					versions: new Map([["v1", definition]]),
-				},
-			],
-		]),
-	};
+const buildOptions = (schemas: Schema[]): OfflineDexieProviderOptions => ({
+	envKey: `env-${crypto.randomUUID()}`,
+	tenantId: `tenant-${crypto.randomUUID()}`,
+	appName: `app-${crypto.randomUUID()}`,
+	schemas,
+});
+
+const dbName = (options: OfflineDexieProviderOptions) =>
+	`${options.envKey}-${options.tenantId}-${options.appName}`;
+
+const readAll = async <T>(
+	options: OfflineDexieProviderOptions,
+	store: string,
+): Promise<T[]> => {
+	const db = new Dexie(dbName(options));
+	await db.open();
+	try {
+		return await db.table<T>(store).toArray();
+	} finally {
+		db.close();
+	}
 };
 
-const buildOptions = (
-	metadata: MetadataSnapshot,
-): OfflineDexieProviderOptions => {
-	const envKey = `env-${crypto.randomUUID()}`;
-	const tenantId = `tenant-${crypto.randomUUID()}`;
-	const appName = `app-${crypto.randomUUID()}`;
-
-	return {
-		envKey,
-		tenantId,
-		appName,
-		metadata: metadata,
-	};
+const seedSchemas = async (
+	options: OfflineDexieProviderOptions,
+	schemas: Schema[],
+): Promise<void> => {
+	const db = new Dexie(dbName(options));
+	await db.open();
+	try {
+		const metadata = db.table<Schema>(SCHEMAS_STORE);
+		const active = db.table<Schema>(deriveActiveTableName(SCHEMAS_STORE));
+		await metadata.clear();
+		await active.clear();
+		await metadata.bulkPut(schemas);
+		await active.bulkPut(schemas);
+	} finally {
+		db.close();
+	}
 };
 
-const expectedStores = (metadata: MetadataSnapshot): string[] => {
+const expectedStores = (schemas: Schema[]): string[] => {
 	const names = [
 		SCHEMAS_STORE,
 		deriveActiveTableName(SCHEMAS_STORE),
 		JOURNAL_STORE,
 	];
-
-	for (const [tableName] of metadata.tables) {
-		names.push(tableName, deriveActiveTableName(tableName));
+	for (const schema of schemas) {
+		names.push(schema.tableName, deriveActiveTableName(schema.tableName));
 	}
-
 	return names;
 };
 
-const toDbName = (options: OfflineDexieProviderOptions): string =>
-	`${options.envKey}-${options.tenantId}-${options.appName}`;
+describe("offline-dexie provider", () => {
+	test("creates object stores for provided schemas", async () => {
+		const schemas = [buildSchema("entities"), buildSchema("orders")];
+		const options = buildOptions(schemas);
 
-const getObjectStoreNames = async (
-	options: OfflineDexieProviderOptions,
-): Promise<string[]> =>
-	new Promise((resolve, reject) => {
-		const request = indexedDB.open(toDbName(options));
-		request.onerror = () =>
-			reject(request.error ?? new Error("failed to open"));
-		request.onsuccess = () => {
-			const stores = Array.from(request.result.objectStoreNames);
-			request.result.close();
-			resolve(stores);
-		};
-	});
+		const provider = await createOfflineDexieProvider(options);
 
-const readAllFromStore = async (
-	options: OfflineDexieProviderOptions,
-	storeName: string,
-): Promise<unknown[]> =>
-	new Promise((resolve, reject) => {
-		const request = indexedDB.open(toDbName(options));
-		request.onerror = () =>
-			reject(request.error ?? new Error("failed to open"));
-		request.onsuccess = () => {
-			const db = request.result;
-			const tx = db.transaction(storeName, "readonly");
-			const store = tx.objectStore(storeName);
-			const getAll = store.getAll();
-			getAll.onerror = () => reject(getAll.error ?? new Error("getAll failed"));
-			getAll.onsuccess = () => {
-				db.close();
-				resolve(getAll.result as unknown[]);
+		const stores = await new Promise<string[]>((resolve, reject) => {
+			const openReq = indexedDB.open(dbName(options));
+			openReq.onerror = () =>
+				reject(openReq.error ?? new Error("failed to open db"));
+			openReq.onsuccess = () => {
+				const names = Array.from(openReq.result.objectStoreNames);
+				openReq.result.close();
+				resolve(names);
 			};
-		};
-	});
+		});
 
-const buildEntity = (overrides?: Partial<EntityRecord>): EntityRecord => ({
-	tableName: "entities",
-	entityId: crypto.randomUUID(),
-	entityVersion: "v1",
-	schemaVersion: "v1",
-	payload: { foo: "bar" },
-	ts: new Date(),
-	isDeleted: false,
-	isActive: true,
-	...overrides,
+		expect(stores).toEqual(expect.arrayContaining(expectedStores(schemas)));
+		expect(stores.length).toBe(expectedStores(schemas).length);
+
+		await provider.close();
+		await Dexie.delete(dbName(options));
+	});
 });
 
-describe("offline-dexie provider", () => {
-	test("creates stores on first instantiation", async () => {
-		const metadata = buildMetadata();
-		const options = buildOptions(metadata);
+test("batchWrites persists records and active copies", async () => {
+	const schemas = [buildSchema("entities")];
+	const options = buildOptions(schemas);
+	const provider = await createOfflineDexieProvider(options);
 
-		const provider = await createOfflineDexieProvider(options);
+	const entity: EntityRecord = {
+		tableName: "entities",
+		entityId: crypto.randomUUID(),
+		entityVersion: "1.0.0",
+		schemaVersion: "1.0.0",
+		payload: { foo: "bar" },
+		ts: new Date(),
+		isDeleted: false,
+		isActive: true,
+	};
 
-		const storeNames = await getObjectStoreNames(provider.options);
-		const expected = expectedStores(metadata);
+	await provider.batchWrites([entity]);
 
-		expect(storeNames.length).toBe(expected.length);
-		expect(storeNames).toEqual(expect.arrayContaining(expected));
+	const all = await readAll<EntityRecord>(options, "entities");
+	const active = await readAll<EntityRecord>(
+		options,
+		deriveActiveTableName("entities"),
+	);
 
-		await provider.close();
-		await Dexie.delete(toDbName(provider.options));
+	expect(all).toHaveLength(1);
+	expect(all[0].entityId).toBe(entity.entityId);
+	expect(active).toHaveLength(1);
+	expect(active[0].entityId).toBe(entity.entityId);
+
+	await provider.close();
+	await Dexie.delete(dbName(options));
+});
+
+test("saveEntity creates and updates with bumped versions", async () => {
+	const schemas = [buildSchema("entities", "1.0.0")];
+	const options = buildOptions(schemas);
+	const provider = await createOfflineDexieProvider(options);
+	await seedSchemas(options, schemas);
+
+	const created = await provider.saveEntity({
+		tableName: "entities",
+		payload: { foo: "bar" },
 	});
 
-	test("retains stores across subsequent instantiations", async () => {
-		const metadata = buildMetadata();
-		const options = buildOptions(metadata);
-		const expected = expectedStores(metadata);
+	expect(created.entityVersion).toBe("1.0.0");
+	expect(created.isDeleted).toBe(false);
 
-		const first = await createOfflineDexieProvider(options);
-		await first.close();
-
-		const second = await createOfflineDexieProvider(options);
-
-		const storeNames = await getObjectStoreNames(second.options);
-		expect(storeNames.length).toBe(expected.length);
-		expect(storeNames).toEqual(expect.arrayContaining(expected));
-
-		await second.close();
-		await Dexie.delete(toDbName(second.options));
+	const updated = await provider.saveEntity({
+		tableName: "entities",
+		entityId: created.entityId,
+		payload: { foo: "baz" },
 	});
 
-	test("batchWrites saves entity and updates active store", async () => {
-		const metadata = buildMetadata();
-		const options = buildOptions(metadata);
-		const provider = await createOfflineDexieProvider(options);
+	expect(updated.entityVersion).toBe("1.0.1");
+	expect(updated.payload).toEqual({ foo: "baz" });
 
-		const entity = buildEntity();
-		await provider.batchWrites([entity]);
+	const active = await provider.getEntity<{ foo: string }>({
+		tableName: "entities",
+		entityId: created.entityId,
+	});
+	expect(active?.entityVersion).toBe("1.0.1");
+	expect(active?.payload).toEqual({ foo: "baz" });
 
-		const rows = await readAllFromStore(options, "entities");
-		const activeRows = await readAllFromStore(options, "active::entities");
+	const all = await readAll<EntityRecord>(options, "entities");
+	expect(all).toHaveLength(1);
+	expect(all[0].entityVersion).toBe("1.0.1");
 
-		expect(rows).toHaveLength(1);
-		expect((rows[0] as EntityRecord).entityId).toBe(entity.entityId);
-		expect((rows[0] as EntityRecord).isDeleted).toBe(false);
-		expect((rows[0] as EntityRecord).payload).toEqual({ foo: "bar" });
+	await provider.close();
+	await Dexie.delete(dbName(options));
+});
 
-		expect(activeRows).toHaveLength(1);
-		expect((activeRows[0] as EntityRecord).entityId).toBe(entity.entityId);
+test("deleteEntity soft deletes and bumps version", async () => {
+	const schemas = [buildSchema("entities", "1.0.0")];
+	const options = buildOptions(schemas);
+	const provider = await createOfflineDexieProvider(options);
+	await seedSchemas(options, schemas);
 
-		await provider.close();
-		await Dexie.delete(toDbName(options));
+	const created = await provider.saveEntity({
+		tableName: "entities",
+		payload: { foo: "bar" },
 	});
 
-	test("batchWrites delete marks tombstone and active store", async () => {
-		const metadata = buildMetadata();
-		const options = buildOptions(metadata);
-		const provider = await createOfflineDexieProvider(options);
-
-		const entity = buildEntity();
-		const tombstone = buildEntity({
-			entityId: entity.entityId,
-			entityVersion: "v2",
-			isDeleted: true,
-			isActive: true,
-		});
-		await provider.batchWrites([entity, tombstone]);
-
-		const rows = await readAllFromStore(options, "entities");
-		const activeRows = await readAllFromStore(options, "active::entities");
-
-		expect(rows).toHaveLength(1);
-		expect((rows[0] as EntityRecord).isDeleted).toBe(true);
-		expect((rows[0] as EntityRecord).entityId).toBe(entity.entityId);
-
-		expect(activeRows).toHaveLength(1);
-		expect((activeRows[0] as EntityRecord).isDeleted).toBe(true);
-
-		await provider.close();
-		await Dexie.delete(toDbName(options));
+	await provider.deleteEntity({
+		tableName: "entities",
+		entityId: created.entityId,
 	});
+
+	const active = await provider.getEntity<{ foo: string }>({
+		tableName: "entities",
+		entityId: created.entityId,
+	});
+
+	expect(active?.isDeleted).toBe(true);
+	expect(active?.entityVersion).toBe("1.0.1");
+
+	const all = await readAll<EntityRecord>(options, "entities");
+	expect(all).toHaveLength(1);
+	expect(all[0].isDeleted).toBe(true);
+	expect(all[0].entityVersion).toBe("1.0.1");
+
+	const activeRows = await readAll<EntityRecord>(
+		options,
+		deriveActiveTableName("entities"),
+	);
+	expect(activeRows).toHaveLength(1);
+	expect(activeRows[0].isDeleted).toBe(true);
+
+	await provider.close();
+	await Dexie.delete(dbName(options));
+});
+
+test("setMetadata reinitializes stores for new schemas", async () => {
+	const initial = [buildSchema("entities")];
+	const options = buildOptions(initial);
+	const provider = await createOfflineDexieProvider(options);
+
+	const storesBefore = await new Promise<string[]>((resolve, reject) => {
+		const req = indexedDB.open(dbName(options));
+		req.onerror = () => reject(req.error ?? new Error("failed to open"));
+		req.onsuccess = () => {
+			const names = Array.from(req.result.objectStoreNames);
+			req.result.close();
+			resolve(names);
+		};
+	});
+	expect(storesBefore).toEqual(expect.arrayContaining(expectedStores(initial)));
+
+	const nextSchemas = [...initial, buildSchema("orders")];
+	await provider.setMetadata(nextSchemas);
+
+	const storesAfter = await new Promise<string[]>((resolve, reject) => {
+		const req = indexedDB.open(dbName(options));
+		req.onerror = () => reject(req.error ?? new Error("failed to open"));
+		req.onsuccess = () => {
+			const names = Array.from(req.result.objectStoreNames);
+			req.result.close();
+			resolve(names);
+		};
+	});
+
+	expect(storesAfter).toEqual(
+		expect.arrayContaining(expectedStores(nextSchemas)),
+	);
+
+	await provider.close();
+	await Dexie.delete(dbName(options));
+});
+
+test("getEntity returns undefined when entity is missing", async () => {
+	const schemas = [buildSchema("entities")];
+	const options = buildOptions(schemas);
+	const provider = await createOfflineDexieProvider(options);
+
+	const result = await provider.getEntity({
+		tableName: "entities",
+		entityId: crypto.randomUUID(),
+	});
+
+	expect(result).toBeUndefined();
+
+	await provider.close();
+	await Dexie.delete(dbName(options));
 });
