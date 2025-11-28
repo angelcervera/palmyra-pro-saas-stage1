@@ -8,7 +8,6 @@ type Props = {
 	queuedOnly: boolean;
 	onToggleQueuedOnly(value: boolean): void;
 	onDelete(id: string): void;
-	onSyncAll(): void;
 	onSelectPage(delta: number): void;
 	page: number;
 	totalPages: number;
@@ -20,7 +19,6 @@ export function PersonTable({
 	queuedOnly,
 	onToggleQueuedOnly,
 	onDelete,
-	onSyncAll,
 	onSelectPage,
 	page,
 	totalPages,
@@ -38,14 +36,6 @@ export function PersonTable({
 					<label htmlFor="queued-filter">Show only queued for sync</label>
 				</div>
 				<div className="toolbar" style={{ gap: 8 }}>
-					<button
-						className="btn"
-						type="button"
-						onClick={onSyncAll}
-						disabled={isLoading}
-					>
-						Sync all
-					</button>
 					<Link className="btn primary" to="/new">
 						New person
 					</Link>

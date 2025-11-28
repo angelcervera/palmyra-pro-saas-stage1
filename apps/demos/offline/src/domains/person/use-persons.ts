@@ -6,7 +6,6 @@ import {
 	listPersons,
 	type Person,
 	type PersonRecord,
-	syncAllPersons,
 	updatePerson,
 } from "./persistence";
 
@@ -59,14 +58,6 @@ export function useDeletePerson() {
 	const qc = useQueryClient();
 	return useMutation({
 		mutationFn: (entityId: string) => deletePerson(entityId),
-		onSuccess: () => qc.invalidateQueries({ queryKey: PERSON_LIST_KEY }),
-	});
-}
-
-export function useSyncAllPersons() {
-	const qc = useQueryClient();
-	return useMutation({
-		mutationFn: () => syncAllPersons(),
 		onSuccess: () => qc.invalidateQueries({ queryKey: PERSON_LIST_KEY }),
 	});
 }

@@ -9,6 +9,7 @@ import {
 	useParams,
 } from "react-router-dom";
 
+import { ToastHost } from "./components/toast";
 import { PersonForm } from "./domains/person/components/PersonForm";
 import { PersonTable } from "./domains/person/components/PersonTable";
 import {
@@ -16,10 +17,8 @@ import {
 	useDeletePerson,
 	usePerson,
 	usePersonList,
-	useSyncAllPersons,
 	useUpdatePerson,
 } from "./domains/person/use-persons";
-import { ToastHost } from "./components/toast";
 
 const queryClient = new QueryClient();
 const PAGE_SIZE = 5;
@@ -33,7 +32,6 @@ function ListPage() {
 		queuedOnly,
 	});
 	const deleteMutation = useDeletePerson();
-	const syncMutation = useSyncAllPersons();
 
 	useEffect(() => {
 		refetch();
@@ -49,7 +47,7 @@ function ListPage() {
 			<h1 style={{ marginTop: 0 }}>Person Demo</h1>
 			<p style={{ color: "#475569", maxWidth: 720 }}>
 				Local-only CRUD using the persistence-sdk demo provider. Create, update,
-				delete, filter queued records, and run a manual sync.
+				delete, and filter queued records while offline.
 			</p>
 			<PersonTable
 				items={data?.items ?? []}
@@ -60,7 +58,6 @@ function ListPage() {
 					setPage(1);
 				}}
 				onDelete={handleDelete}
-				onSyncAll={() => syncMutation.mutateAsync()}
 				onSelectPage={(delta) =>
 					setPage((p) =>
 						Math.max(1, Math.min(data?.totalPages ?? 1, p + delta)),

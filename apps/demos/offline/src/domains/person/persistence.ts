@@ -1,15 +1,13 @@
-// Demo wiring for the persistence-sdk using the offline IndexedDB provider.
+// Demo wiring for the persistence-sdk using the offline Dexie provider.
 // Keep everything in one file so readers can copy/paste into their apps.
 import {
-	type BatchWrite,
+	createOfflineDexieProvider,
 	type EntityRecord,
-	type MetadataSnapshot,
 	type PaginatedResult,
 	PersistenceClient,
-	type PersistenceProvider,
+	type Schema,
 	type SchemaDefinition,
 } from "@zengateglobal/persistence-sdk";
-import { createOfflineIndexedDbProvider } from "@zengateglobal/persistence-sdk";
 import { pushToast } from "../../components/toast";
 
 export type Person = {
@@ -53,36 +51,27 @@ const PERSON_SCHEMA_DEFINITION: SchemaDefinition = {
 	},
 };
 
-// Minimal schema metadata seeded locally so the offline provider knows the table and version to use.
-function buildMetadataSnapshot(): MetadataSnapshot {
-	return {
-		tables: new Map([
-			[
-				PERSON_TABLE,
-				{
-					tableName: PERSON_TABLE,
-					activeVersion: PERSON_SCHEMA_VERSION,
-					versions: new Map([
-						[PERSON_SCHEMA_VERSION, PERSON_SCHEMA_DEFINITION],
-					]),
-				},
-			],
-		]),
-		fetchedAt: new Date(),
-	};
-}
+const PERSON_SCHEMA: Schema = {
+	tableName: PERSON_TABLE,
+	schemaVersion: PERSON_SCHEMA_VERSION,
+	schemaDefinition: PERSON_SCHEMA_DEFINITION,
+	categoryId: PERSON_SCHEMA_ID,
+	createdAt: new Date(),
+	isDeleted: false,
+	isActive: true,
+};
 
-// Create the offline IndexedDB provider; this path avoids WASM/worker requirements.
-function createIndexedDbProvider(): PersistenceProvider {
-	return createOfflineIndexedDbProvider({
+async function createDexieClient(): Promise<PersistenceClient> {
+	const provider = await createOfflineDexieProvider({
+		envKey: "demo",
 		tenantId: "demo-tenant",
-		appId: "offline-demo",
-		initialMetadata: buildMetadataSnapshot(),
+		appName: "offline-demo",
+		schemas: [PERSON_SCHEMA],
 	});
+	return new PersistenceClient([provider]);
 }
 
-const provider = createIndexedDbProvider();
-const client = new PersistenceClient([provider]);
+const clientPromise = createDexieClient();
 
 // Wrap calls so we can show clean, user-facing errors in the UI instead of noisy stack traces.
 async function runWithClient<T>(
@@ -90,6 +79,7 @@ async function runWithClient<T>(
 	fn: (c: PersistenceClient) => Promise<T>,
 ): Promise<T> {
 	try {
+		const client = await clientPromise;
 		return await fn(client);
 	} catch (error) {
 		const message = `${opLabel} failed: ${describeError(error)}`;
@@ -114,7 +104,7 @@ export async function listPersons(options: {
 	const result = await runWithClient("List persons", (c) =>
 		c.queryEntities<PersonRecord>(
 			{ tableName: PERSON_TABLE },
-			{ page: 1, pageSize: 1000 },
+			{ pagination: { page: 1, pageSize: 1000 }, onlyActive: true },
 		),
 	);
 	const filteredItems = options.queuedOnly
@@ -186,35 +176,6 @@ export async function deletePerson(entityId: string): Promise<void> {
 	await runWithClient("Delete person", (c) =>
 		c.deleteEntity({ tableName: PERSON_TABLE, entityId }),
 	);
-}
-
-export async function syncAllPersons(): Promise<void> {
-	// Demo “sync”: mark queued items as synced with a timestamp. Real apps would push to the online provider here.
-	const list = await runWithClient("Load persons for sync", (c) =>
-		c.queryEntities<PersonRecord>(
-			{ tableName: PERSON_TABLE },
-			{ page: 1, pageSize: 1000 },
-		),
-	);
-	const now = new Date();
-	const operations: BatchWrite[] = list.items
-		.filter((row) => !row.payload.lastSynced || row.payload.queuedForSync)
-		.map((row) => ({
-			type: "save",
-			data: {
-				tableName: PERSON_TABLE,
-				entityId: row.entityId,
-				payload: {
-					...row.payload,
-					queuedForSync: false,
-					lastSynced: now,
-					lastSyncError: null,
-				},
-			},
-		}));
-	if (operations.length > 0) {
-		await runWithClient("Sync persons", (c) => c.batchWrites(operations));
-	}
 }
 
 function describeError(error: unknown): string {
