@@ -104,6 +104,29 @@ const initDexie = async (
 	const db = new Dexie(databaseName);
 	db.version(version).stores(dexieStoresBuilder(schemas));
 	await db.open(); // Dexie does not create the database until open() is called.
+
+	// Ensure schema metadata stores contain the current schemas.
+	if (options.schemas.length > 0) {
+		const activeSchemasTableName = deriveActiveTableName(SCHEMAS_STORE);
+		await db.transaction(
+			"rw",
+			[SCHEMAS_STORE, activeSchemasTableName],
+			async () => {
+				const schemasTable = db.table<Schema>(SCHEMAS_STORE);
+				const activeTable = db.table<Schema>(activeSchemasTableName);
+				await schemasTable.clear();
+				await activeTable.clear();
+
+				await schemasTable.bulkPut(schemas);
+
+				const activeSchemas = schemas.filter((schema) => schema.isActive);
+				if (activeSchemas.length > 0) {
+					await activeTable.bulkPut(activeSchemas);
+				}
+			},
+		);
+	}
+
 	return db;
 };
 
