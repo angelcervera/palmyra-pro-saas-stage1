@@ -105,6 +105,20 @@ const initDexie = async (
 	return db;
 };
 
+const updateEntityVersion = (
+	currentVersion: string,
+	_oldSchemaVersion: string,
+	_newSchemaVersion: string,
+): string => {
+	// TODO: If the schema version is different, we need to check if both versions are compatible and bump the entity version accordingly.
+
+	const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(currentVersion.trim());
+	if (!match) throw new Error(`Invalid semver: ${currentVersion}`);
+
+	const [major, minor, patch] = match.slice(1).map(Number);
+	return `${major}.${minor}.${patch + 1}`;
+};
+
 // Implementation
 export class OfflineDexieProvider implements PersistenceProvider {
 	readonly name: string = "Offline Dexie";
@@ -236,14 +250,20 @@ export class OfflineDexieProvider implements PersistenceProvider {
 
 				// TODO: Add json schema validation for the payload.
 
-				const entityVersion = "1.0.0";
+				let entityVersion = "1.0.0";
 
-				// If it exists, we need the older one to updated it.
+				// If it exists, we need the older one to update it.
 				if (oldActiveEntityRecord) {
 					oldActiveEntityRecord.isActive = false;
 					// AI TODO: Set oldActiveEntityRecord in dexie
 
 					// AI TODO: set entityVersion as one more semantic version patch that oldActiveEntityRecord.entityVersion
+
+					entityVersion = updateEntityVersion(
+						oldActiveEntityRecord.entityVersion,
+						oldActiveEntityRecord.schemaVersion,
+						schema.schemaVersion,
+					);
 				}
 
 				const entityId = input.entityId ?? globalThis.crypto.randomUUID();
