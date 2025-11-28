@@ -1,7 +1,10 @@
 import type {
 	BatchWrite,
-	MetadataSnapshot,
+	EntityIdentifier,
+	EntityRecord,
 	PersistenceProvider,
+	SaveEntityInput,
+	Schema,
 	SyncReport,
 	SyncRequest,
 } from "./types";
@@ -58,37 +61,36 @@ export class PersistenceClient implements PersistenceProvider {
 		return this.resolveActiveProvider().description;
 	}
 
-	async getMetadata(): Promise<MetadataSnapshot> {
-		return this.resolveActiveProvider().getMetadata();
+	async getMetadata(): Promise<Schema[]> {
+		return await this.resolveActiveProvider().getMetadata();
 	}
 
-	async setMetadata(snapshot: MetadataSnapshot): Promise<void> {
-		return this.resolveActiveProvider().setMetadata(snapshot);
+	async setMetadata(snapshot: Schema[]): Promise<void> {
+		return await this.resolveActiveProvider().setMetadata(snapshot);
 	}
 
 	async batchWrites(entities: BatchWrite): Promise<void> {
-		return this.resolveActiveProvider().batchWrites(entities);
+		return await this.resolveActiveProvider().batchWrites(entities);
 	}
 
-	// async getEntity<TPayload = unknown>(
-	// 	ref: EntityIdentifier,
-	// ): Promise<EntityRecord<TPayload>> {
-	// 	return this.resolveActiveProvider().getEntity(ref);
-	// }
-	//
+	async saveEntity<TPayload = unknown>(
+		input: SaveEntityInput<TPayload>,
+	): Promise<EntityRecord<TPayload>> {
+		return await this.resolveActiveProvider().saveEntity(input);
+	}
+
+	async getEntity<TPayload = unknown>(
+		ref: EntityIdentifier,
+	): Promise<EntityRecord<TPayload> | undefined> {
+		return await this.resolveActiveProvider().getEntity(ref);
+	}
 	// async queryEntities<TPayload = unknown>(
 	// 	scope: SchemaIdentifier,
 	// 	pagination?: PaginationQuery,
 	// ): Promise<PaginatedResult<EntityRecord<TPayload>>> {
 	// 	return this.resolveActiveProvider().queryEntities(scope, pagination);
 	// }
-	//
-	// async saveEntity<TPayload = unknown>(
-	// 	input: SaveEntityInput<TPayload>,
-	// ): Promise<EntityRecord<TPayload>> {
-	// 	return this.resolveActiveProvider().saveEntity(input);
-	// }
-	//
+
 	// async deleteEntity(input: DeleteEntityInput): Promise<void> {
 	// 	return this.resolveActiveProvider().deleteEntity(input);
 	// }
@@ -112,6 +114,6 @@ export class PersistenceClient implements PersistenceProvider {
 	// }
 
 	async close(): Promise<void> {
-		return this.resolveActiveProvider().close();
+		return await this.resolveActiveProvider().close();
 	}
 }

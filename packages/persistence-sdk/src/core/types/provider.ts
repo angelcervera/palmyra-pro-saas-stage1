@@ -44,6 +44,7 @@ export interface PersistenceProvider {
 
 	/**
 	 * Retrieves the latest version of the specified entity.
+	 * If the entity does not exist, returns undefined.
 	 */
 	getEntity<TPayload = unknown>(
 		ref: EntityIdentifier,
