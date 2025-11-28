@@ -8,11 +8,8 @@ import {
 	type PersistenceProvider,
 	type SaveEntityInput,
 	type Schema,
-	type SchemaDefinition,
 } from "../../core";
-import { fromWireJson, toWireJson } from "../../shared/json";
 
-const DB_VERSION = 1; // WARNING: Changing this value will result in a database migration and possible loss of data. Investigate behavior!
 const SCHEMAS_STORE = "__schema-metadata";
 const JOURNAL_STORE = "__entity-journal";
 
@@ -25,7 +22,7 @@ export type OfflineDexieProviderOptions = {
 
 export const createOfflineDexieProvider = async (
 	options: OfflineDexieProviderOptions,
-): Promise<OfflineDexieProvider> => OfflineDexieProvider.create(options);
+): Promise<OfflineDexieProvider> => await OfflineDexieProvider.create(options);
 
 // Helpers
 
@@ -54,38 +51,57 @@ const dexieStoresBuilder = (schemas: Schema[]) => {
 	return stores;
 };
 
-// recoverSchemas attempts to recover the schema metadata from the latest database.
-// If the database does not exist, it returns an empty metadata snapshot.
-// If the database exists but the metadata table is empty, it returns an empty metadata snapshot.
-// If the database exists and the metadata table is not empty, it returns the metadata snapshot from the database.
-const recoverSchemas = async (databaseName: string): Promise<Schema[]> => {
-	// Create temporary Dexie instance to read the metadata table.
-	const db = new Dexie(databaseName);
-	db.version(DB_VERSION).stores(dexieStoresBuilder([]));
+// Attempts to recover schema metadata and the current DB version without altering the schema.
+// If the database does not exist, it returns empty schemas with version 0.
+// If the database exists, it opens the latest version as-is and reads the metadata table.
+const recoverSchemas = async (
+	databaseName: string,
+): Promise<{ schemas: Schema[]; currentVersion: number }> => {
+	if (!(await Dexie.exists(databaseName))) {
+		return { schemas: [], currentVersion: 0 };
+	}
 
-	// Open, read anc close.
+	// Open, read and close.
+	const db = new Dexie(databaseName);
 	try {
 		await db.open();
-		return await db.table<Schema>(SCHEMAS_STORE).toArray();
-	} catch (error) {
-		throw error instanceof Error ? error : new Error(String(error));
+		const currentVersion = db.verno;
+		const schemas = await db.table<Schema>(SCHEMAS_STORE).toArray();
+		return { schemas, currentVersion };
 	} finally {
 		db.close();
 	}
 };
 
-const initDexie = (options: OfflineDexieProviderOptions): Dexie => {
+const areSchemasCompatible = (a: Schema[], b: Schema[]): boolean =>
+	new Set(a).size === new Set(b).size &&
+	new Set([...a, ...b]).size === new Set(a).size;
+
+// Initialize a Dexie instance using either provided schemas or ones recovered from disk.
+const initDexie = async (
+	options: OfflineDexieProviderOptions,
+): Promise<Dexie> => {
 	const databaseName = deriveDBName(
 		options.envKey,
 		options.tenantId,
 		options.appName,
 	);
 
-	// if `metadata.tables` is not empty, try to recover the schema from the latest database.
+	// Recover the latest version of the database, so: It will work offline and upgrade to new schemas.
+	const latestVersion = await recoverSchemas(databaseName);
 
+	// If schemas provided are not compatible with the latest version, we need to bump the DB version.
+	const schemas =
+		options.schemas.length === 0 ? latestVersion.schemas : options.schemas;
+	let version = latestVersion.currentVersion;
+	if (!areSchemasCompatible(schemas, latestVersion.schemas)) {
+		version += 1;
+	}
+
+	// Finally, create the Dexie instance.
 	const db = new Dexie(databaseName);
-	db.version(DB_VERSION).stores(dexieStoresBuilder(options.metadata));
-
+	db.version(version).stores(dexieStoresBuilder(schemas));
+	await db.open(); // Dexie does not create the database until open() is called.
 	return db;
 };
 
@@ -103,22 +119,27 @@ export class OfflineDexieProvider implements PersistenceProvider {
 	static async create(
 		options: OfflineDexieProviderOptions,
 	): Promise<OfflineDexieProvider> {
-		const provider = new OfflineDexieProvider(initDexie(options), options);
-		await provider.dexie.open(); // Dexie does not create the database until open() is called.
-		return provider;
+		// Check platform.
+		if (!globalThis.crypto?.randomUUID) {
+			throw new Error("Random UUID generation is required for entity IDs.");
+		}
+
+		// Create the Dexie instance.
+		const dixie = await initDexie(options);
+		return new OfflineDexieProvider(dixie, options);
 	}
 
 	getMetadata(): Promise<Schema[]> {
 		throw new Error("Method not implemented.");
 	}
 
-	setMetadata(snapshot: Schema[]): Promise<void> {
+	async setMetadata(snapshot: Schema[]): Promise<void> {
 		if (!this.dexie.hasBeenClosed()) {
 			this.dexie.close();
 		}
 
-		this.options.metadata = snapshot;
-		this.dexie = initDexie(this.options);
+		this.options.schemas = snapshot;
+		this.dexie = await initDexie(this.options);
 
 		return Promise.resolve();
 	}
@@ -200,14 +221,18 @@ export class OfflineDexieProvider implements PersistenceProvider {
 			});
 		}
 
-		return this.dexie.transaction<EntityRecord<TPayload> | undefined>(
+		return this.dexie.transaction<EntityRecord<TPayload>>(
 			"rw",
 			tableNames,
 			async () => {
 				// Search metadata and validate the json schema.
 				const schema = await this.dexie
-					.table<SchemaDefinition<TPayload>>(activeSchemasTableName)
+					.table<Schema>(activeSchemasTableName)
 					.get(input.tableName);
+
+				if (!schema) {
+					throw new Error(`Schema not found for table: ${input.tableName}`);
+				}
 
 				// TODO: Add json schema validation for the payload.
 
@@ -221,16 +246,13 @@ export class OfflineDexieProvider implements PersistenceProvider {
 					// AI TODO: set entityVersion as one more semantic version patch that oldActiveEntityRecord.entityVersion
 				}
 
-				const entityId =
-					input.entityId ?? globalThis.crypto?.randomUUID?.() ?? undefined;
-
-				if (!entityId) throw new Error("Entity ID generation failed");
-
+				const entityId = input.entityId ?? globalThis.crypto.randomUUID();
 				const entityRecord: EntityRecord<TPayload> = {
-					entityId,
 					tableName: input.tableName,
-					payload: input.payload,
+					schemaVersion: schema.schemaVersion,
+					entityId,
 					entityVersion,
+					payload: input.payload,
 					isActive: true,
 					ts: new Date(),
 					isDeleted: false,
@@ -241,66 +263,6 @@ export class OfflineDexieProvider implements PersistenceProvider {
 				return entityRecord;
 			},
 		);
-
-		if (input.payload === undefined) {
-		} else {
-		}
-
-		const metadata = this.options.metadata.tables.get(input.tableName);
-		if (!metadata) {
-			throw new Error(
-				`Schema metadata missing for table ${input.tableName}. Did you seed metadata first?`,
-			);
-		}
-
-		const entityId =
-			input.entityId ??
-			globalThis.crypto?.randomUUID?.() ??
-			`ent_${Math.random().toString(36).slice(2, 11)}`;
-		const entityVersion = `${Date.now()}-${Math.random()
-			.toString(36)
-			.slice(2, 8)}`;
-		const ts = new Date();
-		const wirePayload = toWireJson(input.payload);
-
-		const storedRecord: EntityRecord = {
-			tableName: input.tableName,
-			entityId,
-			entityVersion,
-			schemaVersion: metadata.activeVersion,
-			payload: wirePayload as unknown as TPayload,
-			ts,
-			isDeleted: false,
-			isActive: true,
-		};
-
-		return this.dexie
-			.transaction(
-				"rw",
-				[input.tableName, deriveActiveTableName(input.tableName)],
-				async () => {
-					const table = this.dexie.table<EntityRecord>(input.tableName);
-					const activeTable = this.dexie.table<EntityRecord>(
-						deriveActiveTableName(input.tableName),
-					);
-
-					await table.put({ ...storedRecord, payload: wirePayload });
-					await activeTable.put({ ...storedRecord, payload: wirePayload });
-
-					return {
-						...storedRecord,
-						payload: fromWireJson<TPayload>(wirePayload),
-					};
-				},
-			)
-			.catch((error) => {
-				if (error instanceof Error) {
-					throw new Error(
-						`Failed to persist entity in ${input.tableName}: ${error.message}`,
-					);
-				}
-				throw new Error(`Failed to persist entity in ${input.tableName}`);
-			});
 	}
 
 	// queryEntities<TPayload = unknown>(
