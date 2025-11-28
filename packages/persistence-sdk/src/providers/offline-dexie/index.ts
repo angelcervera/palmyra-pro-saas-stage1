@@ -145,8 +145,8 @@ export class OfflineDexieProvider implements PersistenceProvider {
 		return new OfflineDexieProvider(dixie, options);
 	}
 
-	getMetadata(): Promise<Schema[]> {
-		throw new Error("Method not implemented.");
+	async getMetadata(): Promise<Schema[]> {
+		return this.dexie.table<Schema>(SCHEMAS_STORE).toArray();
 	}
 
 	async setMetadata(snapshot: Schema[]): Promise<void> {
