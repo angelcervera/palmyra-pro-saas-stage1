@@ -255,10 +255,18 @@ export class OfflineDexieProvider implements PersistenceProvider {
 				// If it exists, we need the older one to update it.
 				if (oldActiveEntityRecord) {
 					oldActiveEntityRecord.isActive = false;
-					// AI TODO: Set oldActiveEntityRecord in dexie
 
-					// AI TODO: set entityVersion as one more semantic version patch that oldActiveEntityRecord.entityVersion
+					// Persist the previous active record as inactive and drop it from the active table.
+					const entityTable = this.dexie.table<EntityRecord<TPayload>>(
+						input.tableName,
+					);
+					const activeTable = this.dexie.table<EntityRecord<TPayload>>(
+						activeEntityTableName,
+					);
+					await entityTable.put(oldActiveEntityRecord);
+					await activeTable.delete(oldActiveEntityRecord.entityId);
 
+					// Because it is an update, we need to bump the entity version.
 					entityVersion = updateEntityVersion(
 						oldActiveEntityRecord.entityVersion,
 						oldActiveEntityRecord.schemaVersion,
@@ -266,6 +274,7 @@ export class OfflineDexieProvider implements PersistenceProvider {
 					);
 				}
 
+				// Store a new version of the entity.
 				const entityId = input.entityId ?? globalThis.crypto.randomUUID();
 				const entityRecord: EntityRecord<TPayload> = {
 					tableName: input.tableName,
@@ -278,7 +287,14 @@ export class OfflineDexieProvider implements PersistenceProvider {
 					isDeleted: false,
 				};
 
-				// AI TODO: Store entityRecord in activeEntityTableName and input.tableName
+				const entityTable = this.dexie.table<EntityRecord<TPayload>>(
+					input.tableName,
+				);
+				const activeTable = this.dexie.table<EntityRecord<TPayload>>(
+					activeEntityTableName,
+				);
+				await entityTable.put(entityRecord);
+				await activeTable.put(entityRecord);
 
 				return entityRecord;
 			},
