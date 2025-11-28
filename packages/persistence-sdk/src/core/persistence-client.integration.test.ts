@@ -82,7 +82,7 @@ class InMemoryProvider implements PersistenceProvider {
 			entityVersion: `${nextVersion}`,
 			schemaVersion: "1.0.0",
 			payload: input.payload,
-			ts: now(),
+			createdAt: now(),
 			isDeleted: false,
 			isActive: true,
 		};
@@ -156,7 +156,7 @@ class InMemoryProvider implements PersistenceProvider {
 			entityVersion: `${nextVersion}`,
 			schemaVersion: current.record.schemaVersion,
 			payload: current.record.payload,
-			ts: now(),
+			createdAt: now(),
 			isDeleted: true,
 			isActive: true,
 		};
@@ -196,7 +196,6 @@ class InMemoryProvider implements PersistenceProvider {
 		return {
 			...record,
 			changeId: this.changeId++,
-			changeDate: now(),
 		};
 	}
 }
@@ -254,7 +253,7 @@ describe("PersistenceClient with InMemoryProvider", () => {
 				entityVersion: "1",
 				schemaVersion: "1.0.0",
 				payload: { value: 3 },
-				ts: now(),
+				createdAt: now(),
 				isDeleted: false,
 				isActive: true,
 			},

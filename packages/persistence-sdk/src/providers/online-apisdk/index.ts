@@ -316,7 +316,7 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 			tableName,
 			schemaVersion: document.schemaVersion,
 			payload: fromWireJson<TPayload>(document.payload as JsonValue),
-			ts: new Date(document.createdAt),
+			createdAt: new Date(document.createdAt),
 			isDeleted: Boolean(document.isDeleted),
 			isActive: Boolean(document.isActive),
 		};

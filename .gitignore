@@ -8,6 +8,7 @@ packages/api-sdk/dist
 packages/api-sdk/*.build.tsbuildinfo
 packages/persistence-sdk/dist
 packages/persistence-sdk/*.build.tsbuildinfo
+packages/persistence-sdk/tsconfig.tsbuildinfo
 openapi-ts-error-*.log
 .pnpm-store
 .env
