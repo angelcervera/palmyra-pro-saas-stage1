@@ -54,20 +54,24 @@ const dexieStoresBuilder = (schemas: Schema[]) => {
 	return stores;
 };
 
-// recoverMetadata attempts to recover the schema metadata from the latest database.
+// recoverSchemas attempts to recover the schema metadata from the latest database.
 // If the database does not exist, it returns an empty metadata snapshot.
 // If the database exists but the metadata table is empty, it returns an empty metadata snapshot.
 // If the database exists and the metadata table is not empty, it returns the metadata snapshot from the database.
-const recoverMetadata = (databaseName: string): Schema[] => {
+const recoverSchemas = async (databaseName: string): Promise<Schema[]> => {
+	// Create temporary Dexie instance to read the metadata table.
 	const db = new Dexie(databaseName);
 	db.version(DB_VERSION).stores(dexieStoresBuilder([]));
 
-	// AI TODO:
-	//  Implement metadata recovery logic. Consider using Dexie's transaction and query capabilities to fetch the latest schema metadata from the database.
-	// The name of the table is at SCHEMAS_STORE
-
-	db.close();
-	return [];
+	// Open, read anc close.
+	try {
+		await db.open();
+		return await db.table<Schema>(SCHEMAS_STORE).toArray();
+	} catch (error) {
+		throw error instanceof Error ? error : new Error(String(error));
+	} finally {
+		db.close();
+	}
 };
 
 const initDexie = (options: OfflineDexieProviderOptions): Dexie => {
