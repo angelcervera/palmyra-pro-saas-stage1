@@ -1,16 +1,18 @@
 import { describe, expect, test } from "vitest";
-
+import { PersistenceClient } from "./client";
 import type {
 	BatchWrite,
 	DeleteEntityInput,
 	EntityIdentifier,
 	EntityRecord,
 	JournalEntry,
+	PaginatedResult,
 	PersistenceProvider,
+	QueryOptions,
 	SaveEntityInput,
 	Schema,
+	SchemaIdentifier,
 } from "./types";
-import { PersistenceClient } from "./client";
 
 const now = () => new Date();
 
@@ -62,7 +64,7 @@ class InMemoryProvider implements PersistenceProvider {
 		for (const op of operations) {
 			this.applyWrite(op);
 			if (writeInJournal) {
-				this.journal.push(this.toJournalEntry(op, "update"));
+				this.journal.push(this.toJournalEntry(op));
 			}
 		}
 	}
@@ -80,7 +82,7 @@ class InMemoryProvider implements PersistenceProvider {
 			entityVersion: `${nextVersion}`,
 			schemaVersion: "1.0.0",
 			payload: input.payload,
-			ts: now(),
+			createdAt: now(),
 			isDeleted: false,
 			isActive: true,
 		};
@@ -89,9 +91,7 @@ class InMemoryProvider implements PersistenceProvider {
 			table.set(entityId, { version: current.version, record: current.record });
 		}
 		table.set(entityId, { version: nextVersion, record });
-		this.journal.push(
-			this.toJournalEntry(record, current ? "update" : "create"),
-		);
+		this.journal.push(this.toJournalEntry(record));
 		return record;
 	}
 
@@ -101,6 +101,41 @@ class InMemoryProvider implements PersistenceProvider {
 		const table = this.store.get(ref.tableName);
 		const entry = table?.get(ref.entityId);
 		return entry?.record as EntityRecord<TPayload> | undefined;
+	}
+
+	async queryEntities<TPayload = unknown>(
+		scope: SchemaIdentifier,
+		options?: QueryOptions,
+	): Promise<PaginatedResult<EntityRecord<TPayload>>> {
+		const table = this.store.get(scope.tableName);
+		const page =
+			options?.pagination?.page && options.pagination.page > 0
+				? options.pagination.page
+				: 1;
+		const pageSize =
+			options?.pagination?.pageSize && options.pagination.pageSize > 0
+				? options.pagination.pageSize
+				: 20;
+
+		if (!table) {
+			return {
+				items: [],
+				page,
+				pageSize,
+				totalItems: 0,
+				totalPages: 0,
+			};
+		}
+
+		const records = Array.from(table.values()).map(
+			(entry) => entry.record as EntityRecord<TPayload>,
+		);
+		const totalItems = records.length;
+		const offset = (page - 1) * pageSize;
+		const items = records.slice(offset, offset + pageSize);
+		const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize);
+
+		return { items, page, pageSize, totalItems, totalPages };
 	}
 
 	async deleteEntity(input: DeleteEntityInput): Promise<void> {
@@ -121,12 +156,12 @@ class InMemoryProvider implements PersistenceProvider {
 			entityVersion: `${nextVersion}`,
 			schemaVersion: current.record.schemaVersion,
 			payload: current.record.payload,
-			ts: now(),
+			createdAt: now(),
 			isDeleted: true,
 			isActive: true,
 		};
 		table.set(input.entityId, { version: nextVersion, record: deleted });
-		this.journal.push(this.toJournalEntry(deleted, "delete"));
+		this.journal.push(this.toJournalEntry(deleted));
 	}
 
 	async listJournalEntries(): Promise<JournalEntry[]> {
@@ -144,10 +179,12 @@ class InMemoryProvider implements PersistenceProvider {
 
 	// Helpers
 	private ensureTable(tableName: string) {
-		if (!this.store.has(tableName)) {
-			this.store.set(tableName, new Map());
+		let table = this.store.get(tableName);
+		if (!table) {
+			table = new Map();
+			this.store.set(tableName, table);
 		}
-		return this.store.get(tableName)!;
+		return table;
 	}
 
 	private applyWrite(op: EntityRecord): void {
@@ -155,15 +192,10 @@ class InMemoryProvider implements PersistenceProvider {
 		table.set(op.entityId, { version: Number(op.entityVersion), record: op });
 	}
 
-	private toJournalEntry(
-		record: EntityRecord,
-		changeType: "create" | "update" | "delete",
-	): JournalEntry {
+	private toJournalEntry(record: EntityRecord): JournalEntry {
 		return {
 			...record,
 			changeId: this.changeId++,
-			changeDate: now(),
-			changeType,
 		};
 	}
 }
@@ -209,11 +241,7 @@ describe("PersistenceClient with InMemoryProvider", () => {
 
 		// journal + clear
 		const journal = await client.listJournalEntries();
-		expect(journal.map((j) => j.changeType)).toEqual([
-			"create",
-			"update",
-			"delete",
-		]);
+		expect(journal).toHaveLength(3);
 		await client.clearJournalEntries();
 		expect(await client.listJournalEntries()).toHaveLength(0);
 
@@ -225,7 +253,7 @@ describe("PersistenceClient with InMemoryProvider", () => {
 				entityVersion: "1",
 				schemaVersion: "1.0.0",
 				payload: { value: 3 },
-				ts: now(),
+				createdAt: now(),
 				isDeleted: false,
 				isActive: true,
 			},

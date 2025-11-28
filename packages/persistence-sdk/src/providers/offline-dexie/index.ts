@@ -7,9 +7,12 @@ import {
 	type EntityIdentifier,
 	type EntityRecord,
 	type JournalEntry,
+	type PaginatedResult,
 	type PersistenceProvider,
+	type QueryOptions,
 	type SaveEntityInput,
 	type Schema,
+	type SchemaIdentifier,
 } from "../../core";
 
 const SCHEMAS_STORE = "__schema-metadata";
@@ -40,14 +43,14 @@ const dexieStoresBuilder = (schemas: Schema[]) => {
 	);
 
 	// Required stores for schema metadata and journal entries.
-	stores[SCHEMAS_STORE] = "tableName, schemaVersion";
-	stores[deriveActiveTableName(SCHEMAS_STORE)] = "tableName"; // TODO: Instead of having one table for active schemas, we can have an index on SCHEMAS_STORE. But no idea how to do it in Dexie.
-	stores[JOURNAL_STORE] = "++changeId";
+	stores[SCHEMAS_STORE] = "tableName, schemaVersion, createdAt";
+	stores[deriveActiveTableName(SCHEMAS_STORE)] = "tableName, createdAt"; // TODO: Instead of having one table for active schemas, we can have an index on SCHEMAS_STORE. But no idea how to do it in Dexie.
+	stores[JOURNAL_STORE] = "++changeId, createdAt";
 
 	// Entity tables (one store per versioned entity table plus an active index).
 	for (const tableName of entitiesTableNames) {
-		stores[tableName] = "entityId, entityVersion";
-		stores[deriveActiveTableName(tableName)] = "entityId"; // TODO: Instead of having one table for active schemas, we can have an index on the entity table. But no idea how to do it in Dexie.
+		stores[tableName] = "entityId, entityVersion, createdAt";
+		stores[deriveActiveTableName(tableName)] = "entityId, createdAt"; // TODO: Instead of having one table for active schemas, we can have an index on the entity table. But no idea how to do it in Dexie.
 	}
 
 	return stores;
@@ -154,6 +157,49 @@ export class OfflineDexieProvider implements PersistenceProvider {
 		private dexie: Dexie,
 		readonly options: OfflineDexieProviderOptions,
 	) {}
+
+	queryEntities<TPayload = unknown>(
+		tableName: SchemaIdentifier,
+		options?: QueryOptions,
+	): Promise<PaginatedResult<EntityRecord<TPayload>>> {
+		const page =
+			options?.pagination?.page && options.pagination.page > 0
+				? options.pagination.page
+				: 1;
+		const pageSize =
+			options?.pagination?.pageSize && options.pagination.pageSize > 0
+				? options.pagination.pageSize
+				: 20;
+
+		const useActive = options?.onlyActive !== false;
+		const includeDeleted = options?.includeDeleted === true;
+		const targetTableName = useActive
+			? deriveActiveTableName(tableName.tableName)
+			: tableName.tableName;
+
+		return this.dexie.transaction<PaginatedResult<EntityRecord<TPayload>>>(
+			"r",
+			[targetTableName],
+			async () => {
+				const table = this.dexie.table<EntityRecord<TPayload>>(targetTableName);
+				let collection = table.orderBy("createdAt").reverse();
+				// NOTE: We keep using `filter` instead of `where` so we can preserve the
+				// existing orderBy and avoid adding an index on isDeleted. Revisit if we
+				// introduce an index and want a fully indexed cursor in the future.
+				if (!includeDeleted) {
+					collection = collection.filter((record) => !record.isDeleted);
+				}
+
+				const totalItems = await collection.count();
+				const totalPages =
+					totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize);
+				const offset = (page - 1) * pageSize;
+				const items = await collection.offset(offset).limit(pageSize).toArray();
+
+				return { items, page, pageSize, totalItems, totalPages };
+			},
+		);
+	}
 
 	static async create(
 		options: OfflineDexieProviderOptions,
@@ -280,7 +326,7 @@ export class OfflineDexieProvider implements PersistenceProvider {
 					existing.schemaVersion,
 				),
 				schemaVersion: existing.schemaVersion,
-				ts: new Date(),
+				createdAt: new Date(),
 				isDeleted: true,
 				isActive: true,
 			};
@@ -360,7 +406,7 @@ export class OfflineDexieProvider implements PersistenceProvider {
 					entityVersion,
 					payload: input.payload,
 					isActive: true,
-					ts: new Date(),
+					createdAt: new Date(),
 					isDeleted: false,
 				};
 
@@ -403,7 +449,6 @@ export class OfflineDexieProvider implements PersistenceProvider {
 
 		const journalEntry: JournalRow = {
 			...entity,
-			changeDate: new Date(),
 		};
 		await this.dexie.table<JournalRow>(JOURNAL_STORE).add(journalEntry);
 	}

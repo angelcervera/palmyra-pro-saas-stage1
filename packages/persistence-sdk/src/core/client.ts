@@ -3,9 +3,12 @@ import type {
 	DeleteEntityInput,
 	EntityIdentifier,
 	EntityRecord,
+	PaginatedResult,
 	PersistenceProvider,
+	QueryOptions,
 	SaveEntityInput,
 	Schema,
+	SchemaIdentifier,
 	SyncReport,
 	SyncRequest,
 } from "./types";
@@ -97,13 +100,12 @@ export class PersistenceClient implements PersistenceProvider {
 		return await this.resolveActiveProvider().deleteEntity(input);
 	}
 
-	// async queryEntities<TPayload = unknown>(
-	// 	scope: SchemaIdentifier,
-	// 	pagination?: PaginationQuery,
-	// ): Promise<PaginatedResult<EntityRecord<TPayload>>> {
-	// 	return this.resolveActiveProvider().queryEntities(scope, pagination);
-
-	// }
+	async queryEntities<TPayload = unknown>(
+		tableName: SchemaIdentifier,
+		options?: QueryOptions,
+	): Promise<PaginatedResult<EntityRecord<TPayload>>> {
+		return this.resolveActiveProvider().queryEntities(tableName, options);
+	}
 
 	async listJournalEntries(): Promise<JournalEntry[]> {
 		return await this.resolveActiveProvider().listJournalEntries();

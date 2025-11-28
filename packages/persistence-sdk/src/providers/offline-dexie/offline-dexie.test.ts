@@ -123,7 +123,7 @@ test("batchWrites persists records and active copies", async () => {
 		entityVersion: "1.0.0",
 		schemaVersion: "1.0.0",
 		payload: { foo: "bar" },
-		ts: new Date(),
+		createdAt: new Date(),
 		isDeleted: false,
 		isActive: true,
 	};
@@ -140,6 +140,137 @@ test("batchWrites persists records and active copies", async () => {
 	expect(all[0].entityId).toBe(entity.entityId);
 	expect(active).toHaveLength(1);
 	expect(active[0].entityId).toBe(entity.entityId);
+
+	await provider.close();
+	await Dexie.delete(dbName(options));
+});
+
+test("queryEntities paginates and sorts by ts descending using active table", async () => {
+	const schemas = [buildSchema("entities")];
+	const options = buildOptions(schemas);
+	const provider = await createOfflineDexieProvider(options);
+
+	const baseTs = new Date("2025-01-01T00:00:00.000Z").getTime();
+	const records: EntityRecord[] = Array.from({ length: 5 }, (_, i) => ({
+		tableName: "entities",
+		entityId: `e${i}`,
+		entityVersion: "1.0.0",
+		schemaVersion: "1.0.0",
+		payload: { value: i },
+		createdAt: new Date(baseTs + i * 1000),
+		isDeleted: false,
+		isActive: true,
+	}));
+
+	await provider.batchWrites(records, false);
+
+	const page1 = await provider.queryEntities(
+		{ tableName: "entities" },
+		{ pagination: { page: 1, pageSize: 2 } },
+	);
+	const page2 = await provider.queryEntities(
+		{ tableName: "entities" },
+		{ pagination: { page: 2, pageSize: 2 } },
+	);
+	const page3 = await provider.queryEntities(
+		{ tableName: "entities" },
+		{ pagination: { page: 3, pageSize: 2 } },
+	);
+
+	expect(page1.items.map((r) => r.entityId)).toEqual(["e4", "e3"]);
+	expect(page2.items.map((r) => r.entityId)).toEqual(["e2", "e1"]);
+	expect(page3.items.map((r) => r.entityId)).toEqual(["e0"]);
+	expect(page1.totalItems).toBe(5);
+	expect(page1.totalPages).toBe(3);
+
+	await provider.close();
+	await Dexie.delete(dbName(options));
+});
+
+test("queryEntities can include inactive rows when onlyActive is false", async () => {
+	const schemas = [buildSchema("entities")];
+	const options = buildOptions(schemas);
+	const provider = await createOfflineDexieProvider(options);
+
+	const baseTs = new Date("2025-01-01T00:00:00.000Z").getTime();
+	const actives: EntityRecord[] = Array.from({ length: 3 }, (_, i) => ({
+		tableName: "entities",
+		entityId: `a${i}`,
+		entityVersion: "1.0.0",
+		schemaVersion: "1.0.0",
+		payload: { value: i },
+		createdAt: new Date(baseTs + i * 1000),
+		isDeleted: false,
+		isActive: true,
+	}));
+
+	const inactive: EntityRecord = {
+		tableName: "entities",
+		entityId: "inactive",
+		entityVersion: "1.0.0",
+		schemaVersion: "1.0.0",
+		payload: { value: "inactive" },
+		createdAt: new Date(baseTs + 10_000),
+		isDeleted: false,
+		isActive: false,
+	};
+
+	await provider.batchWrites([...actives, inactive], false);
+
+	const result = await provider.queryEntities(
+		{ tableName: "entities" },
+		{ onlyActive: false, pagination: { page: 1, pageSize: 10 } },
+	);
+
+	expect(result.items.map((r) => r.entityId)).toEqual([
+		"inactive",
+		"a2",
+		"a1",
+		"a0",
+	]);
+	expect(result.totalItems).toBe(4);
+
+	await provider.close();
+	await Dexie.delete(dbName(options));
+});
+
+test("queryEntities excludes deleted by default and can include them", async () => {
+	const schemas = [buildSchema("entities")];
+	const options = buildOptions(schemas);
+	const provider = await createOfflineDexieProvider(options);
+
+	const kept = await provider.saveEntity({
+		tableName: "entities",
+		payload: { foo: "kept" },
+	});
+
+	const toDelete = await provider.saveEntity({
+		tableName: "entities",
+		payload: { foo: "gone" },
+	});
+
+	await provider.deleteEntity({
+		tableName: "entities",
+		entityId: toDelete.entityId,
+	});
+
+	const defaultResult = await provider.queryEntities(
+		{ tableName: "entities" },
+		{ pagination: { page: 1, pageSize: 10 } },
+	);
+
+	const withDeleted = await provider.queryEntities(
+		{ tableName: "entities" },
+		{ includeDeleted: true, pagination: { page: 1, pageSize: 10 } },
+	);
+
+	expect(defaultResult.items.map((r) => r.entityId)).toEqual([kept.entityId]);
+	expect(defaultResult.totalItems).toBe(1);
+	expect(withDeleted.items.map((r) => r.entityId)).toEqual([
+		toDelete.entityId,
+		kept.entityId,
+	]);
+	expect(withDeleted.totalItems).toBe(2);
 
 	await provider.close();
 	await Dexie.delete(dbName(options));
@@ -301,7 +432,6 @@ test("journal captures create, update, delete and can be cleared", async () => {
 	const entries = await provider.listJournalEntries();
 	expect(entries[0].entityId).toBe(created.entityId);
 	expect(entries[0].tableName).toBe("entities");
-	expect(entries[0].changeDate).toBeInstanceOf(Date);
 
 	await provider.clearJournalEntries();
 	const cleared = await provider.listJournalEntries();

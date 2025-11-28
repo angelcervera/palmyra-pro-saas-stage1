@@ -12,7 +12,7 @@ export interface EntityRecord<TPayload = unknown>
 	extends SchemaIdentifierVersioned,
 		EntityIdentifierVersioned {
 	payload: TPayload;
-	ts: Date;
+	createdAt: Date;
 	isDeleted: boolean;
 	isActive: boolean;
 }

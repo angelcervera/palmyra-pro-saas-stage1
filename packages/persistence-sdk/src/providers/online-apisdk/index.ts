@@ -6,22 +6,21 @@ import {
 	type SchemaRepository,
 	type SchemaRepositoryClient,
 } from "@zengateglobal/api-sdk";
-import {
-	type BatchWrite,
-	BatchWriteError,
-	type DeleteEntityInput,
-	type EntityIdentifier,
-	type EntityRecord,
-	type JournalEntry,
-	type PaginatedResult,
-	type PaginationQuery,
-	type PersistenceProvider,
-	type SaveEntityInput,
-	type Schema,
-	type SchemaDefinition,
-	type SchemaIdentifier,
+import type {
+	BatchWrite,
+	DeleteEntityInput,
+	EntityIdentifier,
+	EntityRecord,
+	JournalEntry,
+	PaginatedResult,
+	PaginationQuery,
+	PersistenceProvider,
+	QueryOptions,
+	SaveEntityInput,
+	Schema,
+	SchemaIdentifier,
 } from "../../core";
-import { describeProviderError, wrapProviderError } from "../../shared/errors";
+import { wrapProviderError } from "../../shared/errors";
 import { fromWireJson, type JsonValue, toJsonObject } from "../../shared/json";
 
 const BEARER_SECURITY = Object.freeze([
@@ -152,9 +151,9 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		}
 	}
 
-	async queryEntities<TPayload>(
+	async queryEntities<TPayload = unknown>(
 		scope: SchemaIdentifier,
-		pagination?: PaginationQuery,
+		options?: QueryOptions,
 	): Promise<PaginatedResult<EntityRecord<TPayload>>> {
 		try {
 			const response = await this.entitiesClient.get<
@@ -165,7 +164,8 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 			>({
 				url: "/entities/{tableName}/documents",
 				path: { tableName: scope.tableName },
-				query: this.toPaginationQuery(pagination),
+				// TODO: includeDeleted is ignored until the backend listDocuments endpoint supports it.
+				query: this.toPaginationQuery(options?.pagination),
 				security: BEARER_SECURITY,
 			});
 
@@ -317,7 +317,7 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 			tableName,
 			schemaVersion: document.schemaVersion,
 			payload: fromWireJson<TPayload>(document.payload as JsonValue),
-			ts: new Date(document.createdAt),
+			createdAt: new Date(document.createdAt),
 			isDeleted: Boolean(document.isDeleted),
 			isActive: Boolean(document.isActive),
 		};
