@@ -183,6 +183,9 @@ export class OfflineDexieProvider implements PersistenceProvider {
 			async () => {
 				const table = this.dexie.table<EntityRecord<TPayload>>(targetTableName);
 				let collection = table.orderBy("createdAt").reverse();
+				// NOTE: We keep using `filter` instead of `where` so we can preserve the
+				// existing orderBy and avoid adding an index on isDeleted. Revisit if we
+				// introduce an index and want a fully indexed cursor in the future.
 				if (!includeDeleted) {
 					collection = collection.filter((record) => !record.isDeleted);
 				}
