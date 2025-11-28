@@ -71,8 +71,14 @@ export class PersistenceClient implements PersistenceProvider {
 		return await this.resolveActiveProvider().setMetadata(snapshot);
 	}
 
-	async batchWrites(entities: BatchWrite): Promise<void> {
-		return await this.resolveActiveProvider().batchWrites(entities);
+	async batchWrites(
+		entities: BatchWrite,
+		writeInJournal: boolean = false,
+	): Promise<void> {
+		return await this.resolveActiveProvider().batchWrites(
+			entities,
+			writeInJournal,
+		);
 	}
 
 	async saveEntity<TPayload = unknown>(

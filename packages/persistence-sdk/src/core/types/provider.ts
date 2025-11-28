@@ -33,8 +33,9 @@ export interface PersistenceProvider {
 	/**
 	 * Executes multiple save/delete operations in a single round-trip.
 	 * It keeps the order, so asume that the latest active is the one actually active.
+	 * By default, this operation must not write in the journal.
 	 */
-	batchWrites(operations: BatchWrite): Promise<void>;
+	batchWrites(operations: BatchWrite, writeInJournal: boolean): Promise<void>;
 
 	/**
 	 * Upserts an entity using the latest schema version for the table.
