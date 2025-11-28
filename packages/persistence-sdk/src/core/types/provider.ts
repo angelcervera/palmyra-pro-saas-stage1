@@ -6,7 +6,8 @@ import type {
 	SaveEntityInput,
 } from "./entities";
 import type { JournalEntry } from "./journal";
-import type { Schema } from "./schemas";
+import type { PaginatedResult, QueryOptions } from "./pagination";
+import type { Schema, SchemaIdentifier } from "./schemas";
 
 /**
  * Defines the contract between the SDK client and any persistence provider.
@@ -58,14 +59,15 @@ export interface PersistenceProvider {
 	 */
 	deleteEntity(input: DeleteEntityInput): Promise<void>;
 
-	// /**
-	//  * Lists the latest versions of entities in a table
-	//  */
-	// queryEntities<TPayload = unknown>(
-	// 	// TODO: Add filtering support
-	// 	scope: SchemaIdentifier,
-	// 	pagination?: PaginationQuery,
-	// ): Promise<PaginatedResult<EntityRecord<TPayload>>>;
+	/**
+	 * Lists the latest versions of entities in a table.
+	 * `QueryOptions` currently carries pagination and active-only flags and will
+	 * later include filter DSL expressions.
+	 */
+	queryEntities<TPayload = unknown>(
+		scope: SchemaIdentifier,
+		options?: QueryOptions,
+	): Promise<PaginatedResult<EntityRecord<TPayload>>>;
 
 	/**
 	 * Returns pending journal entries, if the provider supports a change journal.
