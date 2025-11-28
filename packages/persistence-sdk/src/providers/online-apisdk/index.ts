@@ -12,14 +12,14 @@ import {
 	type DeleteEntityInput,
 	type EntityIdentifier,
 	type EntityRecord,
-	type MetadataSnapshot,
+	type JournalEntry,
 	type PaginatedResult,
 	type PaginationQuery,
 	type PersistenceProvider,
 	type SaveEntityInput,
+	type Schema,
 	type SchemaDefinition,
 	type SchemaIdentifier,
-	type Schema,
 } from "../../core";
 import { describeProviderError, wrapProviderError } from "../../shared/errors";
 import { fromWireJson, type JsonValue, toJsonObject } from "../../shared/json";
@@ -82,7 +82,7 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		this.schemaRepositoryClient = createSchemaRepositoryClient(sharedConfig);
 	}
 
-	async getMetadata(): Promise<MetadataSnapshot> {
+	async getMetadata(): Promise<Schema[]> {
 		try {
 			const response = await this.schemaRepositoryClient.get<
 				SchemaRepository.ListAllSchemaVersionsResponses,
@@ -95,27 +95,25 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 				security: BEARER_SECURITY,
 			});
 
-			return this.buildMetadataSnapshot(response);
+			return response.items.map((item) => ({
+				tableName: item.tableName,
+				schemaVersion: item.schemaVersion,
+				schemaDefinition: item.schemaDefinition,
+				categoryId: item.categoryId,
+				createdAt: new Date((item as any).createdAt ?? 0), // FIXME: Why this is a string and not a Date?
+				isDeleted: item.isDeleted,
+				isActive: item.isActive,
+			}));
 		} catch (error) {
 			throw wrapProviderError("Failed to load schema metadata", error);
 		}
 	}
 
-	async setMetadata(_snapshot: MetadataSnapshot): Promise<void> {
+	async setMetadata(_snapshot: Schema[]): Promise<void> {
 		throw new Error("setMetadata is only supported by offline providers");
 	}
 
-	async listJournalEntries(): Promise<
-		{
-			changeId: number;
-			tableName: string;
-			entityId: string;
-			entityVersion: string;
-			schemaVersion: string;
-			changeType: "create" | "update" | "delete";
-			payload?: unknown;
-		}[]
-	> {
+	async listJournalEntries(): Promise<JournalEntry[]> {
 		return [];
 	}
 
@@ -278,22 +276,11 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		}
 	}
 
-	async batchWrites(operations: BatchWrite[]): Promise<void> {
-		for (const operation of operations) {
-			try {
-				if (operation.type === "save") {
-					await this.saveEntity(operation.data);
-					continue;
-				}
-				await this.deleteEntity(operation.data);
-			} catch (error) {
-				throw new BatchWriteError({
-					tableName: operation.data.tableName,
-					entityId: operation.data.entityId,
-					reason: describeProviderError(error),
-				});
-			}
-		}
+	async batchWrites(
+		operations: BatchWrite,
+		writeInJournal: boolean = false,
+	): Promise<void> {
+		throw new Error("batchWrites is not implementaed. WIP");
 	}
 
 	private async resolveToken(): Promise<string | undefined> {
@@ -302,32 +289,6 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		}
 		const token = this.tokenSupplier();
 		return token instanceof Promise ? await token : token;
-	}
-
-	private buildMetadataSnapshot(
-		schemas: SchemaRepository.SchemaVersionList,
-	): MetadataSnapshot {
-		const tables = new Map<string, Schema>();
-		for (const schema of schemas.items ?? []) {
-			let entry = tables.get(schema.tableName);
-			if (!entry) {
-				entry = {
-					tableName: schema.tableName,
-					versions: new Map<string, SchemaDefinition>(),
-					activeVersion: schema.schemaVersion,
-				};
-				tables.set(schema.tableName, entry);
-			}
-			entry.versions.set(schema.schemaVersion, schema.schemaDefinition ?? {});
-			if (schema.isActive) {
-				entry.activeVersion = schema.schemaVersion;
-			}
-		}
-
-		return {
-			tables,
-			fetchedAt: new Date(),
-		};
 	}
 
 	private toPaginationQuery(
@@ -351,13 +312,14 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		document: Entities.EntityDocument,
 	): EntityRecord<TPayload> {
 		return {
-			tableName,
 			entityId: document.entityId,
 			entityVersion: document.entityVersion,
+			tableName,
 			schemaVersion: document.schemaVersion,
 			payload: fromWireJson<TPayload>(document.payload as JsonValue),
 			ts: new Date(document.createdAt),
-			isDeleted: Boolean(document.isSoftDeleted),
+			isDeleted: Boolean(document.isDeleted),
+			isActive: Boolean(document.isActive),
 		};
 	}
 

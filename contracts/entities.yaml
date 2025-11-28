@@ -149,7 +149,7 @@ components:
     EntityDocument:
       type: object
       description: Immutable record representing a JSON document plus metadata.
-      required: [entityId, entityVersion, schemaId, schemaVersion, payload, createdAt, isActive, isSoftDeleted]
+      required: [entityId, entityVersion, schemaId, schemaVersion, payload, createdAt, isActive, isDeleted]
       properties:
         entityId:
           $ref: "./common/primitives.yaml#/components/schemas/EntityIdentifier"
@@ -169,7 +169,7 @@ components:
         isActive:
           type: boolean
           description: Indicates whether this is the active record version.
-        isSoftDeleted:
+        isDeleted:
           type: boolean
           description: Logical delete flag; true when this document version should be hidden from default queries.
 

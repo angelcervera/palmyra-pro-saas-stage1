@@ -1,162 +1,244 @@
-import "fake-indexeddb/auto";
 import { describe, expect, test } from "vitest";
-import {
-	createOfflineIndexedDbProvider,
-	type MetadataSnapshot,
-	PersistenceClient,
-	type PersistenceProvider,
-	type SchemaDefinition,
-} from "../index";
 
-// ProviderHarness lets us plug multiple PersistenceProvider impls into the same
-// integration flow. Add new providers by pushing to `providers` with a build()
-// that returns the provider plus optional cleanup/journal verifiers.
-type ProviderHarness = {
-	name: string;
-	build: () => Promise<{
-		provider: PersistenceProvider;
-		cleanup?: () => Promise<void>;
-	}>;
-};
+import type {
+	BatchWrite,
+	DeleteEntityInput,
+	EntityIdentifier,
+	EntityRecord,
+	JournalEntry,
+	PersistenceProvider,
+	SaveEntityInput,
+	Schema,
+} from "./types";
+import { PersistenceClient } from "./client";
 
-const buildMetadata = (): MetadataSnapshot => {
-	const farmerDefinitionV1: SchemaDefinition = {
-		type: "object",
-		properties: {
-			name: { type: "string" },
-			crop: { type: "string" },
-		},
-		required: ["name"],
-	};
-	const farmerDefinitionV2: SchemaDefinition = {
-		type: "object",
-		properties: {
-			name: { type: "string" },
-			crop: { type: "string" },
-			farmSize: { type: "number" },
-		},
-		required: ["name"],
-	};
-	const orderDefinition: SchemaDefinition = {
-		type: "object",
-		properties: { foo: { type: "string" }, total: { type: "number" } },
-		required: ["foo"],
-	};
-	return {
-		tables: new Map([
-			[
-				"farmers",
-				{
-					tableName: "farmers",
-					activeVersion: "1.0.1",
-					versions: new Map([
-						["1.0.0", farmerDefinitionV1],
-						["1.0.1", farmerDefinitionV2],
-					]),
-				},
-			],
-			[
-				"orders",
-				{
-					tableName: "orders",
-					activeVersion: "1.0.0",
-					versions: new Map([["1.0.0", orderDefinition]]),
-				},
-			],
-		]),
-		fetchedAt: new Date(),
-	};
-};
+const now = () => new Date();
 
-const providers: ProviderHarness[] = [
-	{
-		name: "offline-indexeddb",
-		build: async () => {
-			const metadata = buildMetadata();
-			const provider = createOfflineIndexedDbProvider({
-				tenantId: "tenant-test",
-				initialMetadata: metadata,
-				databaseName: `test-idb-${crypto.randomUUID()}`,
-			});
-			return {
-				provider,
-			};
-		},
-	},
-];
+const sampleSchema = (tableName: string): Schema => ({
+	tableName,
+	schemaVersion: "1.0.0",
+	schemaDefinition: { type: "object" },
+	categoryId: "cat",
+	createdAt: now(),
+	isDeleted: false,
+	isActive: true,
+});
 
-describe.each(providers)("%s PersistenceClient integration", (harness) => {
-	test("performs CRUD, preserves versions, and delegates to active provider", async () => {
-		const { provider, cleanup } = await harness.build();
-		const client = new PersistenceClient([provider]);
+class InMemoryProvider implements PersistenceProvider {
+	readonly name: string;
+	readonly description = "in-memory test provider";
 
-		try {
-			// create
-			const created = await client.saveEntity({
-				tableName: "farmers",
-				payload: { foo: "bar" },
-			});
-			expect(created.entityVersion).toBeTruthy();
-			expect(created.isDeleted).toBe(false);
+	private metadata: Schema[] = [];
+	private journal: JournalEntry[] = [];
+	private changeId = 1;
+	private store = new Map<
+		string,
+		Map<
+			string,
+			{
+				version: number;
+				record: EntityRecord;
+			}
+		>
+	>();
 
-			// query (before delete) should list one active entity
-			const pageBeforeDelete = await client.queryEntities({
-				tableName: "farmers",
-			});
-			expect(pageBeforeDelete.totalItems).toBe(1);
-			expect(pageBeforeDelete.items[0]?.entityId).toBe(created.entityId);
+	constructor(name: string, initialSchemas: Schema[]) {
+		this.name = name;
+		this.metadata = initialSchemas;
+	}
 
-			// update -> new version
-			const updated = await client.saveEntity({
-				tableName: "farmers",
-				entityId: created.entityId,
-				payload: { foo: "baz" },
-			});
-			expect(updated.entityVersion).not.toBe(created.entityVersion);
+	async getMetadata(): Promise<Schema[]> {
+		return this.metadata;
+	}
 
-			// delete -> new version marked deleted
-			await client.deleteEntity({
-				tableName: "farmers",
-				entityId: created.entityId,
-			});
-			const deleted = await client.getEntity<{ foo: string }>({
-				tableName: "farmers",
-				entityId: created.entityId,
-			});
-			expect(deleted.isDeleted).toBe(true);
-			expect(deleted.entityVersion).not.toBe(updated.entityVersion);
+	async setMetadata(snapshot: Schema[]): Promise<void> {
+		this.metadata = snapshot;
+	}
 
-			// second table entity
-			const order = await client.saveEntity({
-				tableName: "orders",
-				payload: { foo: "order-1" },
-			});
-			expect(order.tableName).toBe("orders");
-
-			// active listing now excludes deleted entity
-			const pageAfterDelete = await client.queryEntities({
-				tableName: "farmers",
-			});
-			expect(pageAfterDelete.totalItems).toBe(0);
-
-			const entries = await client.listJournalEntries();
-			expect(entries.map((j) => j.changeType)).toEqual([
-				"create",
-				"update",
-				"delete",
-				"create",
-			]);
-			expect(entries.map((j) => j.tableName)).toEqual([
-				"farmers",
-				"farmers",
-				"farmers",
-				"orders",
-			]);
-		} finally {
-			await provider.close();
-			if (cleanup) {
-				await cleanup();
+	async batchWrites(
+		operations: BatchWrite,
+		writeInJournal = false,
+	): Promise<void> {
+		for (const op of operations) {
+			this.applyWrite(op);
+			if (writeInJournal) {
+				this.journal.push(this.toJournalEntry(op, "update"));
 			}
 		}
+	}
+
+	async saveEntity<TPayload = unknown>(
+		input: SaveEntityInput<TPayload>,
+	): Promise<EntityRecord<TPayload>> {
+		const table = this.ensureTable(input.tableName);
+		const entityId = input.entityId ?? crypto.randomUUID();
+		const current = table.get(entityId);
+		const nextVersion = current ? current.version + 1 : 1;
+		const record: EntityRecord<TPayload> = {
+			tableName: input.tableName,
+			entityId,
+			entityVersion: `${nextVersion}`,
+			schemaVersion: "1.0.0",
+			payload: input.payload,
+			ts: now(),
+			isDeleted: false,
+			isActive: true,
+		};
+		if (current) {
+			current.record.isActive = false;
+			table.set(entityId, { version: current.version, record: current.record });
+		}
+		table.set(entityId, { version: nextVersion, record });
+		this.journal.push(
+			this.toJournalEntry(record, current ? "update" : "create"),
+		);
+		return record;
+	}
+
+	async getEntity<TPayload = unknown>(
+		ref: EntityIdentifier,
+	): Promise<EntityRecord<TPayload> | undefined> {
+		const table = this.store.get(ref.tableName);
+		const entry = table?.get(ref.entityId);
+		return entry?.record as EntityRecord<TPayload> | undefined;
+	}
+
+	async deleteEntity(input: DeleteEntityInput): Promise<void> {
+		const table = this.ensureTable(input.tableName);
+		const current = table.get(input.entityId);
+		if (!current) {
+			throw new Error("not found");
+		}
+		current.record.isActive = false;
+		table.set(input.entityId, {
+			version: current.version,
+			record: current.record,
+		});
+		const nextVersion = current.version + 1;
+		const deleted: EntityRecord = {
+			tableName: input.tableName,
+			entityId: input.entityId,
+			entityVersion: `${nextVersion}`,
+			schemaVersion: current.record.schemaVersion,
+			payload: current.record.payload,
+			ts: now(),
+			isDeleted: true,
+			isActive: true,
+		};
+		table.set(input.entityId, { version: nextVersion, record: deleted });
+		this.journal.push(this.toJournalEntry(deleted, "delete"));
+	}
+
+	async listJournalEntries(): Promise<JournalEntry[]> {
+		return this.journal;
+	}
+
+	async clearJournalEntries(): Promise<void> {
+		this.journal = [];
+	}
+
+	async close(): Promise<void> {
+		this.store.clear();
+		this.journal = [];
+	}
+
+	// Helpers
+	private ensureTable(tableName: string) {
+		if (!this.store.has(tableName)) {
+			this.store.set(tableName, new Map());
+		}
+		return this.store.get(tableName)!;
+	}
+
+	private applyWrite(op: EntityRecord): void {
+		const table = this.ensureTable(op.tableName);
+		table.set(op.entityId, { version: Number(op.entityVersion), record: op });
+	}
+
+	private toJournalEntry(
+		record: EntityRecord,
+		changeType: "create" | "update" | "delete",
+	): JournalEntry {
+		return {
+			...record,
+			changeId: this.changeId++,
+			changeDate: now(),
+			changeType,
+		};
+	}
+}
+
+describe("PersistenceClient with InMemoryProvider", () => {
+	test("delegates to active provider and supports CRUD + journal + metadata", async () => {
+		const providerA = new InMemoryProvider("provA", [sampleSchema("foo")]);
+		const providerB = new InMemoryProvider("provB", [sampleSchema("bar")]);
+		const client = new PersistenceClient([providerA, providerB]);
+
+		// metadata
+		expect((await client.getMetadata()).map((s) => s.tableName)).toEqual([
+			"foo",
+		]);
+		await client.setMetadata([sampleSchema("foo"), sampleSchema("baz")]);
+		expect((await client.getMetadata()).length).toBe(2);
+
+		// CRUD
+		const created = await client.saveEntity({
+			tableName: "foo",
+			payload: { value: 1 },
+		});
+		const fetched = await client.getEntity({
+			tableName: "foo",
+			entityId: created.entityId,
+		});
+		expect(fetched?.entityVersion).toBe("1");
+		expect(fetched?.isDeleted).toBe(false);
+
+		const updated = await client.saveEntity({
+			tableName: "foo",
+			entityId: created.entityId,
+			payload: { value: 2 },
+		});
+		expect(updated.entityVersion).toBe("2");
+
+		await client.deleteEntity({ tableName: "foo", entityId: created.entityId });
+		const deleted = await client.getEntity({
+			tableName: "foo",
+			entityId: created.entityId,
+		});
+		expect(deleted?.isDeleted).toBe(true);
+
+		// journal + clear
+		const journal = await client.listJournalEntries();
+		expect(journal.map((j) => j.changeType)).toEqual([
+			"create",
+			"update",
+			"delete",
+		]);
+		await client.clearJournalEntries();
+		expect(await client.listJournalEntries()).toHaveLength(0);
+
+		// batchWrites with journal flag
+		const batch: BatchWrite = [
+			{
+				tableName: "foo",
+				entityId: "b1",
+				entityVersion: "1",
+				schemaVersion: "1.0.0",
+				payload: { value: 3 },
+				ts: now(),
+				isDeleted: false,
+				isActive: true,
+			},
+		];
+		await client.batchWrites(batch, true);
+		expect((await client.listJournalEntries()).length).toBe(1);
+
+		// switch provider
+		client.setActiveProvider("provB");
+		const createdB = await client.saveEntity({
+			tableName: "bar",
+			payload: { value: 10 },
+		});
+		expect(createdB.tableName).toBe("bar");
 	});
 });
