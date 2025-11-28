@@ -14,8 +14,13 @@ export interface EntityRecord<TPayload = unknown>
 	payload: TPayload;
 	ts: Date;
 	isDeleted: boolean;
+	isActive: boolean;
 }
 
+export type BatchWrite = EntityRecord[];
+
+// Represent an entity following the active schema version.
+// When the `entityId` is not present, it means that it is new.
 export interface SaveEntityInput<TPayload = unknown> extends SchemaIdentifier {
 	entityId?: string;
 	payload: TPayload;
@@ -23,17 +28,13 @@ export interface SaveEntityInput<TPayload = unknown> extends SchemaIdentifier {
 
 export interface DeleteEntityInput extends EntityIdentifier {}
 
-export type BatchWrite =
-	| { type: "save"; data: SaveEntityInput }
-	| { type: "delete"; data: DeleteEntityInput };
-
 export class BatchWriteError extends Error {
 	readonly tableName: string;
-	readonly entityId?: string;
+	readonly entityId: string;
 
 	constructor(params: {
 		tableName: string;
-		entityId?: string;
+		entityId: string;
 		reason: string;
 	}) {
 		super(params.reason);

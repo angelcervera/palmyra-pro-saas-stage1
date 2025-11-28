@@ -10,7 +10,7 @@ import {
 	type PersistenceProvider,
 	type SaveEntityInput,
 	type SchemaIdentifier,
-	type SchemaMetadata,
+	type Schema,
 } from "../../core";
 import { describeProviderError, wrapProviderError } from "../../shared/errors";
 import { fromWireJson, type JsonValue, toJsonObject } from "../../shared/json";
@@ -152,7 +152,7 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 			LEFT JOIN schema_versions v ON v.table_name = m.table_name
 			ORDER BY m.table_name, v.schema_version`,
 		);
-		const tables = new Map<string, SchemaMetadata>();
+		const tables = new Map<string, Schema>();
 		let fetchedAtEpoch = 0;
 		for (const row of rows) {
 			let entry = tables.get(row.table_name);
@@ -602,9 +602,7 @@ export class OfflineSqliteProvider implements PersistenceProvider {
 		this.metadataCache = snapshot;
 	}
 
-	private async requireSchemaMetadata(
-		tableName: string,
-	): Promise<SchemaMetadata> {
+	private async requireSchemaMetadata(tableName: string): Promise<Schema> {
 		const metadata = await this.getMetadata();
 		const entry = metadata.tables.get(tableName);
 		if (!entry) {

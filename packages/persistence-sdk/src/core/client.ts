@@ -3,15 +3,13 @@ import type {
 	DeleteEntityInput,
 	EntityIdentifier,
 	EntityRecord,
-	MetadataSnapshot,
-	PaginatedResult,
-	PaginationQuery,
 	PersistenceProvider,
 	SaveEntityInput,
-	SchemaIdentifier,
+	Schema,
 	SyncReport,
 	SyncRequest,
 } from "./types";
+import type { JournalEntry } from "./types/journal";
 
 /**
  * Concrete persistence client that orchestrates the configured providers.
@@ -65,60 +63,57 @@ export class PersistenceClient implements PersistenceProvider {
 		return this.resolveActiveProvider().description;
 	}
 
-	async getMetadata(): Promise<MetadataSnapshot> {
-		return this.resolveActiveProvider().getMetadata();
+	async getMetadata(): Promise<Schema[]> {
+		return await this.resolveActiveProvider().getMetadata();
 	}
 
-	async setMetadata(snapshot: MetadataSnapshot): Promise<void> {
-		return this.resolveActiveProvider().setMetadata(snapshot);
+	async setMetadata(snapshot: Schema[]): Promise<void> {
+		return await this.resolveActiveProvider().setMetadata(snapshot);
 	}
 
-	async getEntity<TPayload = unknown>(
-		ref: EntityIdentifier,
-	): Promise<EntityRecord<TPayload>> {
-		return this.resolveActiveProvider().getEntity(ref);
-	}
-
-	async queryEntities<TPayload = unknown>(
-		scope: SchemaIdentifier,
-		pagination?: PaginationQuery,
-	): Promise<PaginatedResult<EntityRecord<TPayload>>> {
-		return this.resolveActiveProvider().queryEntities(scope, pagination);
+	async batchWrites(
+		entities: BatchWrite,
+		writeInJournal: boolean = false,
+	): Promise<void> {
+		return await this.resolveActiveProvider().batchWrites(
+			entities,
+			writeInJournal,
+		);
 	}
 
 	async saveEntity<TPayload = unknown>(
 		input: SaveEntityInput<TPayload>,
 	): Promise<EntityRecord<TPayload>> {
-		return this.resolveActiveProvider().saveEntity(input);
+		return await this.resolveActiveProvider().saveEntity(input);
+	}
+
+	async getEntity<TPayload = unknown>(
+		ref: EntityIdentifier,
+	): Promise<EntityRecord<TPayload> | undefined> {
+		return await this.resolveActiveProvider().getEntity(ref);
 	}
 
 	async deleteEntity(input: DeleteEntityInput): Promise<void> {
-		return this.resolveActiveProvider().deleteEntity(input);
+		return await this.resolveActiveProvider().deleteEntity(input);
 	}
 
-	async batchWrites(operations: BatchWrite[]): Promise<void> {
-		return this.resolveActiveProvider().batchWrites(operations);
-	}
+	// async queryEntities<TPayload = unknown>(
+	// 	scope: SchemaIdentifier,
+	// 	pagination?: PaginationQuery,
+	// ): Promise<PaginatedResult<EntityRecord<TPayload>>> {
+	// 	return this.resolveActiveProvider().queryEntities(scope, pagination);
 
-	async listJournalEntries(): Promise<
-		{
-			changeId: number;
-			tableName: string;
-			entityId: string;
-			entityVersion: string;
-			schemaVersion: string;
-			changeType: "create" | "update" | "delete";
-			payload?: unknown;
-		}[]
-	> {
-		return this.resolveActiveProvider().listJournalEntries();
+	// }
+
+	async listJournalEntries(): Promise<JournalEntry[]> {
+		return await this.resolveActiveProvider().listJournalEntries();
 	}
 
 	async clearJournalEntries(): Promise<void> {
-		return this.resolveActiveProvider().clearJournalEntries();
+		return await this.resolveActiveProvider().clearJournalEntries();
 	}
 
 	async close(): Promise<void> {
-		return this.resolveActiveProvider().close();
+		return await this.resolveActiveProvider().close();
 	}
 }
