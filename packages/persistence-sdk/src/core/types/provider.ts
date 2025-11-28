@@ -61,7 +61,7 @@ export interface PersistenceProvider {
 
 	/**
 	 * Lists the latest versions of entities in a table.
-	 * `QueryOptions` currently carries pagination and active-only flags and will
+	 * `QueryOptions` currently carries pagination, active/deleted flags, and will
 	 * later include filter DSL expressions.
 	 */
 	queryEntities<TPayload = unknown>(

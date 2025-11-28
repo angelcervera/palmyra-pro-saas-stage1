@@ -234,6 +234,48 @@ test("queryEntities can include inactive rows when onlyActive is false", async (
 	await Dexie.delete(dbName(options));
 });
 
+test("queryEntities excludes deleted by default and can include them", async () => {
+	const schemas = [buildSchema("entities")];
+	const options = buildOptions(schemas);
+	const provider = await createOfflineDexieProvider(options);
+
+	const kept = await provider.saveEntity({
+		tableName: "entities",
+		payload: { foo: "kept" },
+	});
+
+	const toDelete = await provider.saveEntity({
+		tableName: "entities",
+		payload: { foo: "gone" },
+	});
+
+	await provider.deleteEntity({
+		tableName: "entities",
+		entityId: toDelete.entityId,
+	});
+
+	const defaultResult = await provider.queryEntities(
+		{ tableName: "entities" },
+		{ pagination: { page: 1, pageSize: 10 } },
+	);
+
+	const withDeleted = await provider.queryEntities(
+		{ tableName: "entities" },
+		{ includeDeleted: true, pagination: { page: 1, pageSize: 10 } },
+	);
+
+	expect(defaultResult.items.map((r) => r.entityId)).toEqual([kept.entityId]);
+	expect(defaultResult.totalItems).toBe(1);
+	expect(withDeleted.items.map((r) => r.entityId)).toEqual([
+		toDelete.entityId,
+		kept.entityId,
+	]);
+	expect(withDeleted.totalItems).toBe(2);
+
+	await provider.close();
+	await Dexie.delete(dbName(options));
+});
+
 test("saveEntity creates and updates with bumped versions", async () => {
 	const schemas = [buildSchema("entities", "1.0.0")];
 	const options = buildOptions(schemas);

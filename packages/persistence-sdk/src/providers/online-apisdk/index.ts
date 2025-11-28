@@ -164,6 +164,7 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 			>({
 				url: "/entities/{tableName}/documents",
 				path: { tableName: scope.tableName },
+				// TODO: includeDeleted is ignored until the backend listDocuments endpoint supports it.
 				query: this.toPaginationQuery(options?.pagination),
 				security: BEARER_SECURITY,
 			});

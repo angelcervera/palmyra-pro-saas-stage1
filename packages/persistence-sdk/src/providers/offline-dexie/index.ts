@@ -172,6 +172,7 @@ export class OfflineDexieProvider implements PersistenceProvider {
 				: 20;
 
 		const useActive = options?.onlyActive !== false;
+		const includeDeleted = options?.includeDeleted === true;
 		const targetTableName = useActive
 			? deriveActiveTableName(tableName.tableName)
 			: tableName.tableName;
@@ -181,16 +182,16 @@ export class OfflineDexieProvider implements PersistenceProvider {
 			[targetTableName],
 			async () => {
 				const table = this.dexie.table<EntityRecord<TPayload>>(targetTableName);
-				const totalItems = await table.count();
+				let collection = table.orderBy("createdAt").reverse();
+				if (!includeDeleted) {
+					collection = collection.filter((record) => !record.isDeleted);
+				}
+
+				const totalItems = await collection.count();
 				const totalPages =
 					totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize);
 				const offset = (page - 1) * pageSize;
-				const items = await table
-					.orderBy("createdAt")
-					.reverse()
-					.offset(offset)
-					.limit(pageSize)
-					.toArray();
+				const items = await collection.offset(offset).limit(pageSize).toArray();
 
 				return { items, page, pageSize, totalItems, totalPages };
 			},

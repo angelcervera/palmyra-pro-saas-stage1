@@ -18,4 +18,5 @@ export interface PaginatedResult<T> {
 export interface QueryOptions {
 	pagination?: PaginationQuery;
 	onlyActive?: boolean;
+	includeDeleted?: boolean;
 }
