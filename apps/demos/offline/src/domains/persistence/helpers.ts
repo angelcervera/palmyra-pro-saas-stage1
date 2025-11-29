@@ -14,9 +14,10 @@ export async function runWithClient<T>(
 		const client = await defaultClientPromise;
 		return await fn(client);
 	} catch (error) {
-		const message = `${opLabel} failed: ${describeError(error)}`;
-		pushToast({ kind: "error", title: opLabel, description: message });
-		throw error;
+		const detail = `${opLabel} failed: ${describeError(error)}`;
+		console.error(`[runWithClient] ${detail}`, error);
+		pushToast({ kind: "error", title: opLabel, description: detail });
+		throw new Error(`[runWithClient] ${detail}`);
 	}
 }
 
