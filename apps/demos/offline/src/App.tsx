@@ -21,6 +21,7 @@ import {
 	useUpdatePerson,
 } from "./domains/person/use-persons";
 import { SyncPage } from "./SyncPage";
+import { TopNav } from "./components/TopNav";
 
 const queryClient = new QueryClient();
 const PAGE_SIZE = 5;
@@ -61,15 +62,7 @@ function ListPage() {
 
 	return (
 		<div className="app-shell">
-			<div className="toolbar" style={{ gap: 12, alignItems: "center" }}>
-				<Link className="link" to="/sync">
-					Sync
-				</Link>
-				<span aria-hidden="true">|</span>
-				<Link className="link" to="/persons">
-					Persons
-				</Link>
-			</div>
+			<TopNav active="persons" />
 			<h1 style={{ marginTop: 8 }}>Person Demo</h1>
 			<p style={{ color: "#475569", maxWidth: 720 }}>
 				Local-only CRUD using the persistence-sdk demo provider. Create, update,
