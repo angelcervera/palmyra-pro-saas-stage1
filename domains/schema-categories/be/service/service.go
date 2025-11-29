@@ -45,6 +45,7 @@ type Category struct {
 
 // CreateInput defines the payload required to create a schema category.
 type CreateInput struct {
+	CategoryID  *uuid.UUID
 	Name        string
 	Slug        string
 	ParentID    *uuid.UUID
@@ -106,7 +107,7 @@ func (s *service) Create(ctx context.Context, audit requesttrace.AuditInfo, inpu
 	}
 
 	params := persistence.CreateSchemaCategoryParams{
-		CategoryID:       uuid.New(),
+		CategoryID:       normalized.id,
 		ParentCategoryID: input.ParentID,
 		Name:             normalized.name,
 		Slug:             normalized.slug,
@@ -188,6 +189,7 @@ func (s *service) Delete(ctx context.Context, audit requesttrace.AuditInfo, id u
 }
 
 type normalizedCreateInput struct {
+	id   uuid.UUID
 	name string
 	slug string
 }
@@ -200,6 +202,15 @@ type normalizedUpdateInput struct {
 
 func (s *service) validateCreateInput(input CreateInput) (normalizedCreateInput, error) {
 	errs := FieldErrors{}
+
+	id := uuid.New()
+	if input.CategoryID != nil {
+		if *input.CategoryID == uuid.Nil {
+			errs.add("id", "id cannot be nil")
+		} else {
+			id = *input.CategoryID
+		}
+	}
 
 	trimmedName := strings.TrimSpace(input.Name)
 	if trimmedName == "" {
@@ -215,7 +226,7 @@ func (s *service) validateCreateInput(input CreateInput) (normalizedCreateInput,
 		return normalizedCreateInput{}, &ValidationError{Fields: errs}
 	}
 
-	return normalizedCreateInput{name: trimmedName, slug: slug}, nil
+	return normalizedCreateInput{id: id, name: trimmedName, slug: slug}, nil
 }
 
 func (s *service) validateUpdateInput(input UpdateInput) (normalizedUpdateInput, error) {

@@ -170,6 +170,24 @@ func upsertCategoryCommand() *cobra.Command {
 
 			category, updateErr := svc.Update(ctx, audit, categoryID, input)
 			if updateErr != nil {
+				if errors.Is(updateErr, schemacategoriesservice.ErrNotFound) {
+					if strings.TrimSpace(nameInput) == "" || strings.TrimSpace(slugInput) == "" {
+						return errors.New("name and slug are required when creating a category with --id")
+					}
+					created, createErr := svc.Create(ctx, audit, schemacategoriesservice.CreateInput{
+						CategoryID:  &categoryID,
+						Name:        nameInput,
+						Slug:        slugInput,
+						ParentID:    parentID,
+						Description: stringPtrOrNil(description),
+					})
+					if createErr != nil {
+						return wrapCategoryError("create", createErr)
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "Created schema category %s (%s)\n", created.Name, created.ID)
+					printCategorySummary(cmd.OutOrStdout(), created)
+					return nil
+				}
 				return wrapCategoryError("update", updateErr)
 			}
 

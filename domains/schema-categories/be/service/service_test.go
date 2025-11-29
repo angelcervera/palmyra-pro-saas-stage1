@@ -93,6 +93,33 @@ func TestServiceCreateSuccess(t *testing.T) {
 	require.Equal(t, now, result.CreatedAt)
 }
 
+func TestServiceCreateWithExplicitID(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockRepository{}
+	now := time.Date(2024, time.November, 24, 10, 0, 0, 0, time.UTC)
+	targetID := uuid.MustParse("00000000-0000-4000-8000-000000000123")
+
+	repo.createFn = func(ctx context.Context, params persistence.CreateSchemaCategoryParams) (persistence.SchemaCategory, error) {
+		require.Equal(t, targetID, params.CategoryID)
+		return persistence.SchemaCategory{CategoryID: params.CategoryID, Name: params.Name, Slug: params.Slug, CreatedAt: now, UpdatedAt: now}, nil
+	}
+
+	svc := New(repo).(*service)
+	svc.now = func() time.Time { return now }
+
+	audit := requesttrace.Anonymous("test")
+
+	result, err := svc.Create(context.Background(), audit, CreateInput{
+		CategoryID: &targetID,
+		Name:       "Demo",
+		Slug:       "demo",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, targetID, result.ID)
+}
+
 func TestServiceCreateValidationError(t *testing.T) {
 	t.Parallel()
 
