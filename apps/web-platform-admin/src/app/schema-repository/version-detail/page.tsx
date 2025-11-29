@@ -130,7 +130,7 @@ export default function SchemaVersionDetailPage() {
 								/>
 								<MetadataItem
 									label="Soft deleted"
-									value={formatBoolean(data.isSoftDeleted)}
+									value={formatBoolean(data.isDeleted)}
 								/>
 							</dl>
 							<div className="space-y-2">

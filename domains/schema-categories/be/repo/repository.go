@@ -15,7 +15,7 @@ type Repository interface {
 	Create(ctx context.Context, params persistence.CreateSchemaCategoryParams) (persistence.SchemaCategory, error)
 	Get(ctx context.Context, id uuid.UUID) (persistence.SchemaCategory, error)
 	Update(ctx context.Context, id uuid.UUID, params persistence.UpdateSchemaCategoryParams) (persistence.SchemaCategory, error)
-	SoftDelete(ctx context.Context, id uuid.UUID, deletedAt time.Time) error
+	Delete(ctx context.Context, id uuid.UUID, deletedAt time.Time) error
 }
 
 type postgresRepository struct {
@@ -50,6 +50,6 @@ func (r *postgresRepository) Update(ctx context.Context, id uuid.UUID, params pe
 	return r.store.UpdateSchemaCategory(ctx, r.adminDB, id, params)
 }
 
-func (r *postgresRepository) SoftDelete(ctx context.Context, id uuid.UUID, deletedAt time.Time) error {
-	return r.store.SoftDeleteSchemaCategory(ctx, r.adminDB, id, deletedAt)
+func (r *postgresRepository) Delete(ctx context.Context, id uuid.UUID, deletedAt time.Time) error {
+	return r.store.DeleteSchemaCategory(ctx, r.adminDB, id, deletedAt)
 }

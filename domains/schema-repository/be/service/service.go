@@ -37,15 +37,15 @@ var (
 
 // Schema represents a schema repository record managed by the domain service.
 type Schema struct {
-	SchemaID      uuid.UUID
-	Version       persistence.SemanticVersion
-	Definition    json.RawMessage
-	TableName     string
-	Slug          string
-	CategoryID    uuid.UUID
-	CreatedAt     time.Time
-	IsActive      bool
-	IsSoftDeleted bool
+	SchemaID   uuid.UUID
+	Version    persistence.SemanticVersion
+	Definition json.RawMessage
+	TableName  string
+	Slug       string
+	CategoryID uuid.UUID
+	CreatedAt  time.Time
+	IsActive   bool
+	IsDeleted  bool
 }
 
 // CreateInput defines the payload required to register a schema version.
@@ -148,7 +148,7 @@ func (s *service) List(ctx context.Context, audit requesttrace.AuditInfo, schema
 
 	results := make([]Schema, 0, len(records))
 	for _, record := range records {
-		if !includeDeleted && record.IsSoftDeleted {
+		if !includeDeleted && record.IsDeleted {
 			continue
 		}
 		results = append(results, mapRecord(record))
@@ -234,7 +234,7 @@ func (s *service) Delete(ctx context.Context, audit requesttrace.AuditInfo, sche
 		return ErrNotFound
 	}
 
-	if err := s.repo.SoftDelete(ctx, schemaID, version, s.now()); err != nil {
+	if err := s.repo.Delete(ctx, schemaID, version, s.now()); err != nil {
 		if errors.Is(err, persistence.ErrSchemaNotFound) {
 			return ErrNotFound
 		}
@@ -421,15 +421,15 @@ func isJSONObject(raw json.RawMessage) bool {
 
 func mapRecord(record persistence.SchemaRecord) Schema {
 	return Schema{
-		SchemaID:      record.SchemaID,
-		Version:       record.SchemaVersion,
-		Definition:    cloneRawMessage(record.SchemaDefinition),
-		TableName:     record.TableName,
-		Slug:          record.Slug,
-		CategoryID:    record.CategoryID,
-		CreatedAt:     record.CreatedAt,
-		IsActive:      record.IsActive,
-		IsSoftDeleted: record.IsSoftDeleted,
+		SchemaID:   record.SchemaID,
+		Version:    record.SchemaVersion,
+		Definition: cloneRawMessage(record.SchemaDefinition),
+		TableName:  record.TableName,
+		Slug:       record.Slug,
+		CategoryID: record.CategoryID,
+		CreatedAt:  record.CreatedAt,
+		IsActive:   record.IsActive,
+		IsDeleted:  record.IsDeleted,
 	}
 }
 

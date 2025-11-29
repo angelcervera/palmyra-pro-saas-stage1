@@ -177,7 +177,7 @@ func (s *service) Delete(ctx context.Context, audit requesttrace.AuditInfo, id u
 		return ErrNotFound
 	}
 
-	if err := s.repo.SoftDelete(ctx, id, s.now().UTC()); err != nil {
+	if err := s.repo.Delete(ctx, id, s.now().UTC()); err != nil {
 		if errors.Is(err, persistence.ErrSchemaNotFound) {
 			return ErrNotFound
 		}

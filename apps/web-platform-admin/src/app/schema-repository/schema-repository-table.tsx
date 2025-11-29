@@ -53,7 +53,7 @@ const OPTIONAL_COLUMNS = new Set([
 	"schemaId",
 	"categoryId",
 	"createdAt",
-	"isSoftDeleted",
+	"isDeleted",
 ]);
 
 export function SchemaRepositoryTable({
@@ -66,7 +66,7 @@ export function SchemaRepositoryTable({
 			schemaId: false,
 			categoryId: false,
 			createdAt: false,
-			isSoftDeleted: false,
+			isDeleted: false,
 		});
 	const [sorting, setSorting] = React.useState<SortingState>([]);
 
@@ -163,10 +163,10 @@ export function SchemaRepositoryTable({
 				enableHiding: true,
 			},
 			{
-				accessorKey: "isSoftDeleted",
+				accessorKey: "isDeleted",
 				header: "Soft deleted",
 				cell: ({ row }) =>
-					row.original.isSoftDeleted ? (
+					row.original.isDeleted ? (
 						<Badge
 							variant="destructive"
 							className="bg-red-50 text-red-900 hover:bg-red-100"

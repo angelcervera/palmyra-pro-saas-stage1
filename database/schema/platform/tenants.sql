@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     base_prefix TEXT NOT NULL,
     short_tenant_id TEXT NOT NULL CHECK (short_tenant_id ~ '^[0-9a-fA-F]{8}$'),
     is_active BOOLEAN NOT NULL DEFAULT FALSE,
-    is_soft_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID NOT NULL,
     db_ready BOOLEAN NOT NULL DEFAULT FALSE,

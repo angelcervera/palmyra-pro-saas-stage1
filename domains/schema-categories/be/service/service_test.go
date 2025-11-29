@@ -13,11 +13,11 @@ import (
 )
 
 type mockRepository struct {
-	listFn       func(ctx context.Context, includeDeleted bool) ([]persistence.SchemaCategory, error)
-	createFn     func(ctx context.Context, params persistence.CreateSchemaCategoryParams) (persistence.SchemaCategory, error)
-	getFn        func(ctx context.Context, id uuid.UUID) (persistence.SchemaCategory, error)
-	updateFn     func(ctx context.Context, id uuid.UUID, params persistence.UpdateSchemaCategoryParams) (persistence.SchemaCategory, error)
-	softDeleteFn func(ctx context.Context, id uuid.UUID, deletedAt time.Time) error
+	listFn   func(ctx context.Context, includeDeleted bool) ([]persistence.SchemaCategory, error)
+	createFn func(ctx context.Context, params persistence.CreateSchemaCategoryParams) (persistence.SchemaCategory, error)
+	getFn    func(ctx context.Context, id uuid.UUID) (persistence.SchemaCategory, error)
+	updateFn func(ctx context.Context, id uuid.UUID, params persistence.UpdateSchemaCategoryParams) (persistence.SchemaCategory, error)
+	deleteFn func(ctx context.Context, id uuid.UUID, deletedAt time.Time) error
 }
 
 func (m *mockRepository) List(ctx context.Context, includeDeleted bool) ([]persistence.SchemaCategory, error) {
@@ -48,11 +48,11 @@ func (m *mockRepository) Update(ctx context.Context, id uuid.UUID, params persis
 	return m.updateFn(ctx, id, params)
 }
 
-func (m *mockRepository) SoftDelete(ctx context.Context, id uuid.UUID, deletedAt time.Time) error {
-	if m.softDeleteFn == nil {
-		panic("softDeleteFn not configured")
+func (m *mockRepository) Delete(ctx context.Context, id uuid.UUID, deletedAt time.Time) error {
+	if m.deleteFn == nil {
+		panic("deleteFn not configured")
 	}
-	return m.softDeleteFn(ctx, id, deletedAt)
+	return m.deleteFn(ctx, id, deletedAt)
 }
 
 func TestServiceCreateSuccess(t *testing.T) {
@@ -253,7 +253,7 @@ func TestServiceDeleteNotFound(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockRepository{}
-	repo.softDeleteFn = func(ctx context.Context, id uuid.UUID, deletedAt time.Time) error {
+	repo.deleteFn = func(ctx context.Context, id uuid.UUID, deletedAt time.Time) error {
 		return persistence.ErrSchemaNotFound
 	}
 

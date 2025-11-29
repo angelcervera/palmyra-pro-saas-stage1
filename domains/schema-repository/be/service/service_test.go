@@ -242,7 +242,7 @@ func (f *fakeRepository) Upsert(ctx context.Context, params persistence.CreateSc
 		record.CategoryID = params.CategoryID
 		record.Slug = params.Slug
 		record.TableName = params.TableName
-		record.IsSoftDeleted = false
+		record.IsDeleted = false
 		if params.Activate {
 			f.deactivateAll(params.SchemaID)
 		}
@@ -264,7 +264,7 @@ func (f *fakeRepository) Upsert(ctx context.Context, params persistence.CreateSc
 		CategoryID:       params.CategoryID,
 		CreatedAt:        now,
 		IsActive:         params.Activate,
-		IsSoftDeleted:    false,
+		IsDeleted:        false,
 	}
 
 	schemaMap[versionKey] = record
@@ -278,7 +278,7 @@ func (f *fakeRepository) GetByVersion(ctx context.Context, schemaID uuid.UUID, v
 	}
 
 	record, ok := schemaMap[version.String()]
-	if !ok || record.IsSoftDeleted {
+	if !ok || record.IsDeleted {
 		return persistence.SchemaRecord{}, persistence.ErrSchemaNotFound
 	}
 
@@ -292,7 +292,7 @@ func (f *fakeRepository) GetActive(ctx context.Context, schemaID uuid.UUID) (per
 	}
 
 	for _, record := range schemaMap {
-		if record.IsActive && !record.IsSoftDeleted {
+		if record.IsActive && !record.IsDeleted {
 			return record, nil
 		}
 	}
@@ -318,7 +318,7 @@ func (f *fakeRepository) ListAll(ctx context.Context, includeInactive bool) ([]p
 	var results []persistence.SchemaRecord
 	for _, schemaMap := range f.records {
 		for _, record := range schemaMap {
-			if record.IsSoftDeleted && !includeInactive {
+			if record.IsDeleted && !includeInactive {
 				continue
 			}
 			if !includeInactive && !record.IsActive {
@@ -334,7 +334,7 @@ func (f *fakeRepository) GetLatestBySlug(ctx context.Context, slug string) (pers
 	var latest *persistence.SchemaRecord
 	for _, schemaMap := range f.records {
 		for _, record := range schemaMap {
-			if record.Slug != slug || record.IsSoftDeleted {
+			if record.Slug != slug || record.IsDeleted {
 				continue
 			}
 			if latest == nil || record.CreatedAt.After(latest.CreatedAt) {
@@ -356,7 +356,7 @@ func (f *fakeRepository) Activate(ctx context.Context, schemaID uuid.UUID, versi
 	}
 
 	record, ok := schemaMap[version.String()]
-	if !ok || record.IsSoftDeleted {
+	if !ok || record.IsDeleted {
 		return persistence.ErrSchemaNotFound
 	}
 
@@ -368,19 +368,19 @@ func (f *fakeRepository) Activate(ctx context.Context, schemaID uuid.UUID, versi
 	return nil
 }
 
-func (f *fakeRepository) SoftDelete(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion, deletedAt time.Time) error {
+func (f *fakeRepository) Delete(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion, deletedAt time.Time) error {
 	schemaMap, ok := f.records[schemaID]
 	if !ok {
 		return persistence.ErrSchemaNotFound
 	}
 
 	record, ok := schemaMap[version.String()]
-	if !ok || record.IsSoftDeleted {
+	if !ok || record.IsDeleted {
 		return persistence.ErrSchemaNotFound
 	}
 
 	record.IsActive = false
-	record.IsSoftDeleted = true
+	record.IsDeleted = true
 	schemaMap[version.String()] = record
 	return nil
 }

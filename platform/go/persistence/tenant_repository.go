@@ -19,7 +19,7 @@ type TenantRecord struct {
 	BasePrefix        string          `db:"base_prefix"`
 	ShortTenantID     string          `db:"short_tenant_id"`
 	IsActive          bool            `db:"is_active"`
-	IsSoftDeleted     bool            `db:"is_soft_deleted"`
+	IsDeleted         bool            `db:"is_deleted"`
 	CreatedAt         time.Time       `db:"created_at"`
 	CreatedBy         uuid.UUID       `db:"created_by"`
 	DBReady           bool            `db:"db_ready"`

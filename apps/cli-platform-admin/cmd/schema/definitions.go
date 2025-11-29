@@ -91,13 +91,13 @@ func listDefinitionsCommand() *cobra.Command {
 			}
 
 			tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(tw, "SCHEMA_ID\tVERSION\tACTIVE\tSOFT_DELETED\tTABLE\tSLUG\tCATEGORY_ID\tCREATED_AT")
+			fmt.Fprintln(tw, "SCHEMA_ID\tVERSION\tACTIVE\tDELETED\tTABLE\tSLUG\tCATEGORY_ID\tCREATED_AT")
 			for _, s := range schemas {
 				fmt.Fprintf(tw, "%s\t%s\t%t\t%t\t%s\t%s\t%s\t%s\n",
 					s.SchemaID,
 					s.Version.String(),
 					s.IsActive,
-					s.IsSoftDeleted,
+					s.IsDeleted,
 					s.TableName,
 					s.Slug,
 					s.CategoryID,
@@ -338,7 +338,7 @@ func printDefinitionSummary(out io.Writer, schema schemarepositoryservice.Schema
 		fmt.Sprintf("Table: %s", schema.TableName),
 		fmt.Sprintf("CategoryID: %s", schema.CategoryID),
 		fmt.Sprintf("Active: %t", schema.IsActive),
-		fmt.Sprintf("SoftDeleted: %t", schema.IsSoftDeleted),
+		fmt.Sprintf("Deleted: %t", schema.IsDeleted),
 		fmt.Sprintf("CreatedAt: %s", schema.CreatedAt.UTC().Format(time.RFC3339)),
 	}
 

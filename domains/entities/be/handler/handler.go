@@ -191,7 +191,7 @@ func toAPIDocument(doc service.Document) (entitiesapi.EntityDocument, error) {
 		Payload:       payload,
 		CreatedAt:     externalPrimitives.Timestamp(doc.CreatedAt),
 		IsActive:      doc.IsActive,
-		IsSoftDeleted: doc.IsSoftDeleted,
+		IsDeleted:     doc.IsDeleted,
 	}
 
 	return apiDoc, nil

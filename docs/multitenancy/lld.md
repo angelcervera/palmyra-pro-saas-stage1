@@ -15,7 +15,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - **SpaceDB** (`platform/go/persistence/space_db.go`): wraps `pgxpool`; `WithSpace(ctx, space, fn)` starts a tx, sets `search_path` to `<tenant schema>,<admin schema>`, executes `fn(tx)`, commits/rolls back. Admin schema passed via config; tenant schema comes from `tenant.Space`.
 
 ## Tenant registry persistence
-- **Store** (`platform/go/persistence/tenant_repository.go`): append-only versions with fields `{tenant_id, tenant_version, slug, display_name, status, schema_name, base_prefix, short_tenant_id, created_at, created_by, db_ready, auth_ready, last_provisioned_at, last_error, is_active, is_soft_deleted}`.  
+- **Store** (`platform/go/persistence/tenant_repository.go`): append-only versions with fields `{tenant_id, tenant_version, slug, display_name, status, schema_name, base_prefix, short_tenant_id, created_at, created_by, db_ready, auth_ready, last_provisioned_at, last_error, is_active, is_deleted}`.  
 - **Service** (`domains/tenants/be/service`): CRUD over immutable versions; resolves `tenant.Space` for middleware; provisioning endpoints currently return `ErrNotImplemented` (see Open items).
 
 ## Tenant-scoped domains (implemented)

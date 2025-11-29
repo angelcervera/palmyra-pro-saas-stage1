@@ -18,7 +18,7 @@ type Repository interface {
 	ListAll(ctx context.Context, includeInactive bool) ([]persistence.SchemaRecord, error)
 	GetLatestBySlug(ctx context.Context, slug string) (persistence.SchemaRecord, error)
 	Activate(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion) error
-	SoftDelete(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion, deletedAt time.Time) error
+	Delete(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion, deletedAt time.Time) error
 }
 
 type postgresRepository struct {
@@ -65,6 +65,6 @@ func (r *postgresRepository) Activate(ctx context.Context, schemaID uuid.UUID, v
 	return r.store.ActivateSchemaVersion(ctx, r.spaceDB, schemaID, version)
 }
 
-func (r *postgresRepository) SoftDelete(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion, deletedAt time.Time) error {
-	return r.store.SoftDeleteSchema(ctx, r.spaceDB, schemaID, version, deletedAt)
+func (r *postgresRepository) Delete(ctx context.Context, schemaID uuid.UUID, version persistence.SemanticVersion, deletedAt time.Time) error {
+	return r.store.DeleteSchema(ctx, r.spaceDB, schemaID, version, deletedAt)
 }
