@@ -29,10 +29,9 @@ function ListPage() {
 	const [page, setPage] = useState(1);
 	const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 	const [schemasReady, setSchemasReady] = useState<boolean | null>(null);
-	const { data, isLoading, refetch } = usePersonList({
-		page,
-		pageSize: PAGE_SIZE,
-	});
+	const { data, isLoading, refetch } = usePersonList(
+		schemasReady ? { page, pageSize: PAGE_SIZE } : null,
+	);
 	const deleteMutation = useDeletePerson();
 
 	useEffect(() => {
@@ -82,7 +81,8 @@ function ListPage() {
 				<div className="card">
 					<p>
 						The persons schema isn&apos;t loaded yet. Please open the sync page
-						to load metadata and retry.
+						to load metadata and retry. Data will not load until schemas are
+						available.
 					</p>
 					<Link className="btn primary" to="/sync">
 						Go to sync

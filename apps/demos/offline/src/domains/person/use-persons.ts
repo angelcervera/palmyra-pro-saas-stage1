@@ -11,13 +11,16 @@ import {
 
 const PERSON_LIST_KEY = ["person-demo", "list"] as const;
 
-export function usePersonList(params: {
-	page: number;
-	pageSize: number;
-}) {
+export function usePersonList(
+	params: { page: number; pageSize: number } | null,
+) {
 	return useQuery({
-		queryKey: [...PERSON_LIST_KEY, params],
-		queryFn: () => listPersons(params),
+		enabled: Boolean(params),
+		queryKey: params ? [...PERSON_LIST_KEY, params] : PERSON_LIST_KEY,
+		queryFn: () => {
+			if (!params) throw new Error("params not set");
+			return listPersons(params);
+		},
 		staleTime: 5_000,
 	});
 }
