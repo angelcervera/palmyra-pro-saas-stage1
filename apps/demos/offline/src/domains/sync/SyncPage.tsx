@@ -1,9 +1,7 @@
 import * as React from "react";
-
 import type { JournalEntry, Schema } from "@zengateglobal/persistence-sdk";
 
-import { runWithClient } from "./domains/persistence/helpers";
-import { TopNav } from "./components/TopNav";
+import { runWithClient } from "../persistence/helpers";
 
 async function fetchSchemas(): Promise<Schema[]> {
 	return runWithClient("Load schemas", (c) => c.getMetadata());
@@ -72,7 +70,6 @@ export function SyncPage() {
 
 	return (
 		<div className="app-shell">
-			<TopNav active="sync" />
 			<h1 style={{ marginTop: 8 }}>Sync status</h1>
 			<p style={{ color: "#475569", maxWidth: 720 }}>
 				Preview of local journal entries grouped by schema/table. Use this to

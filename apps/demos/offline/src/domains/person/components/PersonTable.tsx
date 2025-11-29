@@ -23,7 +23,7 @@ export function PersonTable({
 		<div className="card">
 			<div className="toolbar" style={{ justifyContent: "space-between" }}>
 				<div className="toolbar" style={{ gap: 8 }}>
-					<Link className="btn primary" to="/new">
+					<Link className="btn primary" to="/persons/new">
 						New person
 					</Link>
 				</div>
@@ -79,7 +79,7 @@ export function PersonTable({
 									<td style={{ textAlign: "right" }}>
 										<Link
 											className="link"
-											to={`/${p.entityId}/edit`}
+											to={`/persons/${p.entityId}/edit`}
 											style={{ marginRight: 12 }}
 										>
 											Edit
