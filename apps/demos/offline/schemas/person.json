@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Person",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "surname",
+    "age",
+    "dob",
+    "phoneNumber",
+    "photo"
+  ],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "surname": { "type": "string", "minLength": 1 },
+    "age": { "type": "integer", "minimum": 0, "maximum": 150 },
+    "dob": { "type": "string", "format": "date" },
+    "phoneNumber": {
+      "type": "string",
+      "pattern": "^\\\+?[1-9]\\d{7,14}$"
+    },
+    "photo": { "type": "string", "format": "uri" }
+  }
+}

@@ -1,0 +1,121 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    env_file:
+      - .env.dockercompose
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-palmyra}
+      POSTGRES_USER: ${POSTGRES_USER:-palmyra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-palmyra}
+      PALMYRA_DB_SEED_MODE: ${PALMYRA_DB_SEED_MODE:-dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-palmyra}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bootstrap:
+    build:
+      context: .
+      dockerfile: apps/cli-platform-admin/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env.dockercompose
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}
+      ENV_KEY: ${ENV_KEY:-dev}
+      ADMIN_TENANT_SLUG: ${ADMIN_TENANT_SLUG:-admin}
+      ADMIN_TENANT_NAME: ${ADMIN_TENANT_NAME:-Admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Palmyra Admin}
+    volumes:
+      - ./apps/demos/offline/schemas:/schemas:ro
+    entrypoint:
+      - bash
+      - -lc
+      - |
+        /usr/local/bin/wait-for-postgres.sh postgres 5432 &&
+        /usr/local/bin/cli-platform-admin bootstrap platform \
+          --database-url "${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}" \
+          --env-key "${ENV_KEY:-dev}" \
+          --admin-tenant-slug "${ADMIN_TENANT_SLUG:-admin}" \
+          --admin-tenant-name "${ADMIN_TENANT_NAME:-Admin}" \
+          --admin-email "${ADMIN_EMAIL:-admin@example.com}" \
+          --admin-full-name "${ADMIN_FULL_NAME:-Palmyra Admin}" &&
+        /usr/local/bin/cli-platform-admin schema categories upsert \
+          --database-url "${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}" \
+          --env-key "${ENV_KEY:-dev}" \
+          --admin-tenant-slug "${ADMIN_TENANT_SLUG:-admin}" \
+          --id 00000000-0000-4000-8000-000000000001 \
+          --name "Demo Category" \
+          --slug demo-category \
+          --description "Schemas for offline demo" &&
+        /usr/local/bin/cli-platform-admin schema definitions upsert \
+          --database-url "${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}" \
+          --env-key "${ENV_KEY:-dev}" \
+          --admin-tenant-slug "${ADMIN_TENANT_SLUG:-admin}" \
+          --schema-id 00000000-0000-4000-8000-000000000002 \
+          --schema-version 1.0.0 \
+          --table-name persons \
+          --slug persons \
+          --category-id 00000000-0000-4000-8000-000000000001 \
+          --definition-file /schemas/person.json
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.dockercompose
+    environment:
+      PORT: ${PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-15s}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ADMIN_TENANT_SLUG: ${ADMIN_TENANT_SLUG:-admin}
+      AUTH_PROVIDER: ${AUTH_PROVIDER:-dev}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+
+  web-platform-admin:
+    build:
+      context: .
+      dockerfile: apps/web-platform-admin/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+        VITE_ENV: ${VITE_ENV:-local}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "4173:4173"
+
+  offline-demo:
+    build:
+      context: .
+      dockerfile: apps/demos/offline/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "4174:4174"
+
+volumes:
+  postgres-data:
