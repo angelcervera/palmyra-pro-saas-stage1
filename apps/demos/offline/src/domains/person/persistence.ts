@@ -54,15 +54,17 @@ export async function listPersons(options: {
 		(c) =>
 			c.queryEntities<Person>(
 				{ tableName: PERSON_TABLE },
-				{ pagination: { page: 1, pageSize: 1000 }, onlyActive: true },
+				{ pagination: { page, pageSize }, onlyActive: true },
 			),
 	);
 	const rows = (result.items ?? []) as PersonRecord[];
-	const totalItems = rows.length;
-	const totalPages = Math.max(Math.ceil(totalItems / pageSize), 1);
-	const start = (page - 1) * pageSize;
-	const items = rows.slice(start, start + pageSize);
-	return { items, page, pageSize, totalItems, totalPages };
+	return {
+		items: rows,
+		page: result.page,
+		pageSize: result.pageSize,
+		totalItems: result.totalItems,
+		totalPages: result.totalPages,
+	};
 }
 
 export async function getPerson(entityId: string): Promise<PersonRecord> {
