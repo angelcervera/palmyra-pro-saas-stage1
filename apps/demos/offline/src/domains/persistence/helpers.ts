@@ -16,7 +16,7 @@ export async function runWithClient<T>(
 	} catch (error) {
 		const message = `${opLabel} failed: ${describeError(error)}`;
 		pushToast({ kind: "error", title: opLabel, description: message });
-		throw new Error(message);
+		throw error;
 	}
 }
 
