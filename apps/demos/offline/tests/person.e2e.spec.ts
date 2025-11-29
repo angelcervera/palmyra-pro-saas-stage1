@@ -12,20 +12,13 @@ const samplePerson = {
 };
 
 test.describe("person demo (online flow)", () => {
-	test.beforeEach(async ({ context }) => {
-		// Ensure a clean IndexedDB for every test run.
-		await context.addInitScript(
-			({ name }) => {
-				indexedDB.deleteDatabase(name);
-			},
-			{ name: DB_NAME },
-		);
+	test.beforeEach(async ({ page }) => {
+		// Ensure a clean IndexedDB for every test run (once, before first load).
+		await page.goto("/");
+		await page.evaluate((name) => indexedDB.deleteDatabase(name), DB_NAME);
 	});
 
-	test("create, edit and delete a person (online)", async ({
-		page,
-		context,
-	}) => {
+	test("create, edit and delete a person (online)", async ({ page }) => {
 		await page.goto("/");
 
 		// Create
@@ -51,11 +44,8 @@ test.describe("person demo (online flow)", () => {
 		await page.getByRole("button", { name: "Save changes" }).click();
 		await expect(page.getByText("Byron")).toBeVisible();
 
-		// Delete (dialog confirm)
-		const dialogPromise = page.waitForEvent("dialog");
+		// Delete (no confirmation dialog)
 		await page.getByRole("button", { name: "Delete" }).click();
-		const dialog = await dialogPromise;
-		await dialog.accept();
 
 		await expect(page.getByText("No persons yet")).toBeVisible();
 	});

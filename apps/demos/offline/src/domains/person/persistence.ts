@@ -90,7 +90,13 @@ async function runWithClient<T>(
 
 // Helpers below mirror a tiny repository layer the UI can call directly.
 function unwrap(row: EntityRecord<PersonRecord>): PersonRecord {
-	return row.payload;
+	return {
+		...row.payload,
+		// Ensure caller sees the canonical metadata from the stored record.
+		entityId: row.entityId,
+		entityVersion: row.entityVersion,
+		entitySchemaVersion: row.schemaVersion,
+	};
 }
 
 export async function listPersons(options: {

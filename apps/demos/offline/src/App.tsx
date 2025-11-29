@@ -38,7 +38,6 @@ function ListPage() {
 	}, [refetch]);
 
 	const handleDelete = async (id: string) => {
-		if (!window.confirm("Delete this person?")) return;
 		await deleteMutation.mutateAsync(id);
 	};
 
