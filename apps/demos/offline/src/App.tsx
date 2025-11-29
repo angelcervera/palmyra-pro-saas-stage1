@@ -12,6 +12,7 @@ import {
 import { ToastHost } from "./components/toast";
 import { PersonForm } from "./domains/person/components/PersonForm";
 import { PersonTable } from "./domains/person/components/PersonTable";
+import { runWithClient } from "./domains/persistence/helpers";
 import {
 	useCreatePerson,
 	useDeletePerson,
@@ -19,6 +20,7 @@ import {
 	usePersonList,
 	useUpdatePerson,
 } from "./domains/person/use-persons";
+import { SyncPage } from "./SyncPage";
 
 const queryClient = new QueryClient();
 const PAGE_SIZE = 5;
@@ -26,6 +28,7 @@ const PAGE_SIZE = 5;
 function ListPage() {
 	const [page, setPage] = useState(1);
 	const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+	const [schemasReady, setSchemasReady] = useState<boolean | null>(null);
 	const { data, isLoading, refetch } = usePersonList({
 		page,
 		pageSize: PAGE_SIZE,
@@ -36,6 +39,22 @@ function ListPage() {
 		refetch();
 	}, [refetch]);
 
+	useEffect(() => {
+		void (async () => {
+			try {
+				const schemas = await runWithClient("Load schemas", (c) =>
+					c.getMetadata(),
+				);
+				const hasPersons = schemas.some(
+					(s) => s.tableName === "persons" && !s.isDeleted,
+				);
+				setSchemasReady(hasPersons);
+			} catch {
+				setSchemasReady(false);
+			}
+		})();
+	}, []);
+
 	const handleDelete = async (id: string) => {
 		await deleteMutation.mutateAsync(id);
 		setConfirmDeleteId(null);
@@ -43,11 +62,36 @@ function ListPage() {
 
 	return (
 		<div className="app-shell">
-			<h1 style={{ marginTop: 0 }}>Person Demo</h1>
+			<div className="toolbar" style={{ gap: 12, alignItems: "center" }}>
+				<Link className="link" to="/sync">
+					Sync
+				</Link>
+				<span aria-hidden="true">|</span>
+				<Link className="link" to="/persons">
+					Persons
+				</Link>
+			</div>
+			<h1 style={{ marginTop: 8 }}>Person Demo</h1>
 			<p style={{ color: "#475569", maxWidth: 720 }}>
 				Local-only CRUD using the persistence-sdk demo provider. Create, update,
 				delete, and filter queued records while offline.
 			</p>
+			{schemasReady === null ? (
+				<p>Checking schemas…</p>
+			) : schemasReady === false ? (
+				<div className="card">
+					<p>
+						The persons schema isn&apos;t loaded yet. Please open the sync page
+						to load metadata and retry.
+					</p>
+					<Link className="btn primary" to="/sync">
+						Go to sync
+					</Link>
+				</div>
+			) : null}
+
+			{schemasReady ? (
+				<>
 			<PersonTable
 				items={data?.items ?? []}
 				isLoading={isLoading}
@@ -84,6 +128,8 @@ function ListPage() {
 					</div>
 				</div>
 			)}
+				</>
+			) : null}
 		</div>
 	);
 }
@@ -147,9 +193,11 @@ export default function App() {
 		<QueryClientProvider client={queryClient}>
 			<BrowserRouter>
 				<Routes>
-					<Route path="/" element={<ListPage />} />
+					<Route path="/" element={<SyncPage />} />
+					<Route path="/persons" element={<ListPage />} />
 					<Route path="/new" element={<CreatePage />} />
 					<Route path=":entityId/edit" element={<EditPage />} />
+					<Route path="/sync" element={<SyncPage />} />
 				</Routes>
 			</BrowserRouter>
 			<ToastHost />
