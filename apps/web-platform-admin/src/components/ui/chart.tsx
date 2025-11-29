@@ -159,7 +159,10 @@ function ChartTooltipContent({
 				? config[label as keyof typeof config]?.label || label
 				: itemConfig?.label;
 
-		if (labelFormatter) {
+		if (
+			labelFormatter &&
+			(typeof value === "string" || typeof value === "number")
+		) {
 			return (
 				<div className={cn("font-medium", labelClassName)}>
 					{labelFormatter(value, payload)}

@@ -6,4 +6,5 @@ apps/web-platform-admin/dist
 apps/web-platform-admin/.vite
 .tmp
 tmp
+.data
 .DS_Store
