@@ -1,57 +1,10 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: palmyra
-      POSTGRES_PASSWORD: palmyra
-      POSTGRES_DB: palmyra
-    volumes:
-      - ../../../.data/e2e/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U palmyra"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  api:
-    build:
-      context: ../../..
-      dockerfile: apps/api/Dockerfile
-    env_file:
-      - ../../../.env.e2e
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "3000:3000"
-
-  admin-web:
-    build:
-      context: ../../..
-      dockerfile: apps/web-platform-admin/Dockerfile
-      args:
-        VITE_API_BASE_URL: http://api:3000/api/v1
-        VITE_ENV: e2e
-    depends_on:
-      api:
-        condition: service_started
-    ports:
-      - "4173:4173"
-
   playwright:
     build:
-      context: ../../..
+      context: ../../../..
       dockerfile: apps/demos/offline/e2e/playwright.Dockerfile
     working_dir: /workspace
     environment:
-      BASE_URL: http://admin-web:4173
       CI: "true"
     volumes:
-      - ../../../:/workspace
-    depends_on:
-      admin-web:
-        condition: service_started
-
-networks:
-  default:
-    name: palmyra-e2e
+      - ../../../..:/workspace

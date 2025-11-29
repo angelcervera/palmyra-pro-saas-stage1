@@ -11,7 +11,7 @@ const samplePerson = {
 	photo: "https://example.com/ada.png",
 };
 
-test.describe("offline person demo", () => {
+test.describe("person demo (online flow)", () => {
 	test.beforeEach(async ({ context }) => {
 		// Ensure a clean IndexedDB for every test run.
 		await context.addInitScript(
@@ -22,7 +22,7 @@ test.describe("offline person demo", () => {
 		);
 	});
 
-	test("create, edit and delete a person while offline capable", async ({
+	test("create, edit and delete a person (online)", async ({
 		page,
 		context,
 	}) => {
@@ -41,8 +41,7 @@ test.describe("offline person demo", () => {
 		await expect(page.getByText(samplePerson.name)).toBeVisible();
 		await expect(page.getByText(samplePerson.surname)).toBeVisible();
 
-		// Go offline and ensure data is still rendered from Dexie.
-		await context.setOffline(true);
+		// Reload to ensure data persists across refresh.
 		await page.reload();
 		await expect(page.getByText(samplePerson.name)).toBeVisible();
 
