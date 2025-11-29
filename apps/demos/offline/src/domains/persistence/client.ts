@@ -14,46 +14,50 @@ export const OFFLINE_APP_NAME = "offline-demo";
  * Build a shared PersistenceClient promise for the offline demo.
  * Uses the SDK’s offline Dexie provider so everything stays in the browser.
  */
-export function buildClientPromise(
-	schemas: Schema[],
-): Promise<PersistenceClient> {
-	return createOfflineDexieProvider({
+export async function buildClientPromise(): Promise<PersistenceClient> {
+	const provider = await createOfflineDexieProvider({
 		envKey: OFFLINE_ENV_KEY,
 		tenantId: OFFLINE_TENANT_ID,
 		appName: OFFLINE_APP_NAME,
-		schemas,
-	}).then((provider) => new PersistenceClient([provider]));
+		schemas: [],
+	});
+	return new PersistenceClient([provider]);
 }
 
 const clientCache = new Map<string, Promise<PersistenceClient>>();
 
 /**
- * Get (and memoize) a client promise for the provided schema set.
- * Keyed by the sorted table names to keep it simple for the demo.
+ * Get (and memoize) a client promise keyed by a single default entry.
  */
-export function getClientPromise(schemas: Schema[]): Promise<PersistenceClient> {
-	const key = schemas.map((s) => s.tableName).sort().join(",");
-	if (clientCache.has(key)) {
-		return clientCache.get(key)!;
+export function getClientPromise(): Promise<PersistenceClient> {
+	if (clientCache.has("default")) {
+		return clientCache.get("default")!;
 	}
-	const promise = buildClientPromise(schemas);
-	clientCache.set(key, promise);
+	const promise = buildClientPromise();
+	clientCache.set("default", promise);
 	return promise;
 }
 
-// Default shared client for domains that don't care about schemas (rare for the demo).
-export const clientPromise = getClientPromise([]);
+// Default shared client for the demo; schemas can be injected via setDefaultSchemas.
+const defaultClientPromise = getClientPromise();
+let schemasInitialized = false;
+
+export async function setDefaultSchemas(schemas: Schema[]): Promise<void> {
+	if (schemasInitialized || schemas.length === 0) return;
+	const client = await defaultClientPromise;
+	await client.setMetadata(schemas);
+	schemasInitialized = true;
+}
 
 /**
  * Helper to run operations with the shared client and surface user-facing errors.
  */
 export async function runWithClient<T>(
-	clientPromise: Promise<PersistenceClient>,
 	opLabel: string,
 	fn: (c: PersistenceClient) => Promise<T>,
 ): Promise<T> {
 	try {
-		const client = await clientPromise;
+		const client = await defaultClientPromise;
 		return await fn(client);
 	} catch (error) {
 		const message = `${opLabel} failed: ${describeError(error)}`;

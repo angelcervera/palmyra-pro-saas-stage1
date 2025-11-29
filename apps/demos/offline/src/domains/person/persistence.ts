@@ -4,7 +4,7 @@ import {
 	type Schema,
 } from "@zengateglobal/persistence-sdk";
 
-import { getClientPromise, runWithClient } from "../persistence/client";
+import { runWithClient, setDefaultSchemas } from "../persistence/client";
 
 export type Person = {
 	name: string;
@@ -41,7 +41,7 @@ const PERSON_SCHEMA: Schema = {
 	isDeleted: false,
 	isActive: true,
 };
-const clientPromise = getClientPromise([PERSON_SCHEMA]);
+setDefaultSchemas([PERSON_SCHEMA]);
 
 export async function listPersons(options: {
 	page?: number;
@@ -49,11 +49,13 @@ export async function listPersons(options: {
 }): Promise<PaginatedResult<PersonRecord>> {
 	const page = Math.max(options.page ?? 1, 1);
 	const pageSize = Math.max(options.pageSize ?? 10, 1);
-	const result = await runWithClient(clientPromise, "List persons", (c) =>
-		c.queryEntities<Person>(
-			{ tableName: PERSON_TABLE },
-			{ pagination: { page: 1, pageSize: 1000 }, onlyActive: true },
-		),
+	const result = await runWithClient<PaginatedResult<EntityRecord<Person>>>(
+		"List persons",
+		(c) =>
+			c.queryEntities<Person>(
+				{ tableName: PERSON_TABLE },
+				{ pagination: { page: 1, pageSize: 1000 }, onlyActive: true },
+			),
 	);
 	const rows = (result.items ?? []) as PersonRecord[];
 	const totalItems = rows.length;
@@ -64,7 +66,9 @@ export async function listPersons(options: {
 }
 
 export async function getPerson(entityId: string): Promise<PersonRecord> {
-	const row = await runWithClient(clientPromise, "Load person", (c) =>
+	const row = await runWithClient<EntityRecord<Person> | undefined>(
+		"Load person",
+		(c) =>
 		c.getEntity<Person>({
 			tableName: PERSON_TABLE,
 			entityId,
@@ -77,7 +81,7 @@ export async function getPerson(entityId: string): Promise<PersonRecord> {
 }
 
 export async function createPerson(input: Person): Promise<PersonRecord> {
-	const row = await runWithClient(clientPromise, "Create person", (c) =>
+	const row = await runWithClient<EntityRecord<Person>>("Create person", (c) =>
 		c.saveEntity<Person>({
 			tableName: PERSON_TABLE,
 			payload: input,
@@ -90,7 +94,7 @@ export async function updatePerson(
 	entityId: string,
 	input: Person,
 ): Promise<PersonRecord> {
-	const row = await runWithClient(clientPromise, "Update person", (c) =>
+	const row = await runWithClient<EntityRecord<Person>>("Update person", (c) =>
 		c.saveEntity<Person>({
 			tableName: PERSON_TABLE,
 			entityId,
@@ -101,7 +105,7 @@ export async function updatePerson(
 }
 
 export async function deletePerson(entityId: string): Promise<void> {
-	await runWithClient(clientPromise, "Delete person", (c) =>
+	await runWithClient("Delete person", (c) =>
 		c.deleteEntity({ tableName: PERSON_TABLE, entityId }),
 	);
 }
