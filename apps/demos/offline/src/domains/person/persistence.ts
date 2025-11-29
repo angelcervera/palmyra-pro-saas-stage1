@@ -1,10 +1,9 @@
-import {
-	type EntityRecord,
-	type PaginatedResult,
-	type Schema,
+import type {
+	EntityRecord,
+	PaginatedResult,
 } from "@zengateglobal/persistence-sdk";
 
-import { runWithClient, setDefaultSchemas } from "../persistence/client";
+import { runWithClient } from "../persistence/helpers";
 
 export type Person = {
 	name: string;
@@ -18,30 +17,30 @@ export type Person = {
 export type PersonRecord = EntityRecord<Person>;
 
 const PERSON_TABLE = "persons";
-const PERSON_SCHEMA: Schema = {
-	tableName: PERSON_TABLE,
-	schemaVersion: "1.0.0",
-	schemaDefinition: {
-		$schema: "https://json-schema.org/draft/2020-12/schema",
-		title: "Person",
-		type: "object",
-		additionalProperties: false,
-		required: ["name", "surname", "age", "dob", "phoneNumber", "photo"],
-		properties: {
-			name: { type: "string", minLength: 1 },
-			surname: { type: "string", minLength: 1 },
-			age: { type: "integer", minimum: 0, maximum: 150 },
-			dob: { type: "string", format: "date" },
-			phoneNumber: { type: "string", pattern: "^\\+?[1-9]\\d{7,14}$" },
-			photo: { type: "string", format: "uri" },
-		},
-	},
-	categoryId: "00000000-0000-4000-8000-000000000001",
-	createdAt: new Date(),
-	isDeleted: false,
-	isActive: true,
-};
-setDefaultSchemas([PERSON_SCHEMA]);
+
+// const PERSON_SCHEMA: Schema = {
+// 	tableName: PERSON_TABLE,
+// 	schemaVersion: "1.0.0",
+// 	schemaDefinition: {
+// 		$schema: "https://json-schema.org/draft/2020-12/schema",
+// 		title: "Person",
+// 		type: "object",
+// 		additionalProperties: false,
+// 		required: ["name", "surname", "age", "dob", "phoneNumber", "photo"],
+// 		properties: {
+// 			name: { type: "string", minLength: 1 },
+// 			surname: { type: "string", minLength: 1 },
+// 			age: { type: "integer", minimum: 0, maximum: 150 },
+// 			dob: { type: "string", format: "date" },
+// 			phoneNumber: { type: "string", pattern: "^\\+?[1-9]\\d{7,14}$" },
+// 			photo: { type: "string", format: "uri" },
+// 		},
+// 	},
+// 	categoryId: "00000000-0000-4000-8000-000000000001",
+// 	createdAt: new Date(),
+// 	isDeleted: false,
+// 	isActive: true,
+// };
 
 export async function listPersons(options: {
 	page?: number;
@@ -69,10 +68,10 @@ export async function getPerson(entityId: string): Promise<PersonRecord> {
 	const row = await runWithClient<EntityRecord<Person> | undefined>(
 		"Load person",
 		(c) =>
-		c.getEntity<Person>({
-			tableName: PERSON_TABLE,
-			entityId,
-		}),
+			c.getEntity<Person>({
+				tableName: PERSON_TABLE,
+				entityId,
+			}),
 	);
 	if (!row) {
 		throw new Error(`Person ${entityId} not found`);
