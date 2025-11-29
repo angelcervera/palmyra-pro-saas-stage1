@@ -17,6 +17,7 @@ export type Person = {
 export type PersonRecord = EntityRecord<Person>;
 
 const PERSON_TABLE = "persons";
+// TODO: Decide if the UI should be fixed to one schema version?
 
 // const PERSON_SCHEMA: Schema = {
 // 	tableName: PERSON_TABLE,
