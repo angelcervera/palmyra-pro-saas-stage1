@@ -1,16 +1,10 @@
-// Demo wiring for the persistence-sdk using the offline Dexie provider.
-// Keep everything in one file so readers can copy/paste into their apps.
 import {
 	type EntityRecord,
 	type PaginatedResult,
 	type Schema,
-	type SchemaDefinition,
 } from "@zengateglobal/persistence-sdk";
 
-import {
-	buildClientPromise,
-	runWithClient,
-} from "../persistence/client";
+import { getClientPromise, runWithClient } from "../persistence/client";
 
 export type Person = {
 	name: string;
@@ -21,92 +15,57 @@ export type Person = {
 	photo: string;
 };
 
-export interface EntityWithSyncMeta<TPayload> {
-	queuedForSync: boolean;
-	lastSynced: Date | null;
-	lastSyncError: string | null;
-	entityId: string;
-	entityVersion: string;
-	entitySchemaId: string;
-	entitySchemaVersion: string;
-	entity: TPayload;
-}
-
-export type PersonRecord = EntityWithSyncMeta<Person>;
-
-// FIXME: Temporal until the sync integration is ready.
+export type PersonRecord = EntityRecord<Person>;
 
 const PERSON_TABLE = "persons";
-const PERSON_SCHEMA_ID = "00000000-0000-4000-8000-000000000001";
-const PERSON_SCHEMA_VERSION = "1.0.0";
-const PERSON_SCHEMA_DEFINITION: SchemaDefinition = {
-	$schema: "https://json-schema.org/draft/2020-12/schema",
-	title: "Person",
-	type: "object",
-	additionalProperties: false,
-	required: ["name", "surname", "age", "dob", "phoneNumber", "photo"],
-	properties: {
-		name: { type: "string", minLength: 1 },
-		surname: { type: "string", minLength: 1 },
-		age: { type: "integer", minimum: 0, maximum: 150 },
-		dob: { type: "string", format: "date" },
-		phoneNumber: { type: "string", pattern: "^\\+?[1-9]\\d{7,14}$" },
-		photo: { type: "string", format: "uri" },
-	},
-};
-
 const PERSON_SCHEMA: Schema = {
 	tableName: PERSON_TABLE,
-	schemaVersion: PERSON_SCHEMA_VERSION,
-	schemaDefinition: PERSON_SCHEMA_DEFINITION,
-	categoryId: PERSON_SCHEMA_ID,
+	schemaVersion: "1.0.0",
+	schemaDefinition: {
+		$schema: "https://json-schema.org/draft/2020-12/schema",
+		title: "Person",
+		type: "object",
+		additionalProperties: false,
+		required: ["name", "surname", "age", "dob", "phoneNumber", "photo"],
+		properties: {
+			name: { type: "string", minLength: 1 },
+			surname: { type: "string", minLength: 1 },
+			age: { type: "integer", minimum: 0, maximum: 150 },
+			dob: { type: "string", format: "date" },
+			phoneNumber: { type: "string", pattern: "^\\+?[1-9]\\d{7,14}$" },
+			photo: { type: "string", format: "uri" },
+		},
+	},
+	categoryId: "00000000-0000-4000-8000-000000000001",
 	createdAt: new Date(),
 	isDeleted: false,
 	isActive: true,
 };
-
-const clientPromise = buildClientPromise([PERSON_SCHEMA]);
-
-// Helpers below mirror a tiny repository layer the UI can call directly.
-function unwrap(row: EntityRecord<PersonRecord>): PersonRecord {
-	return {
-		...row.payload,
-		// Ensure caller sees the canonical metadata from the stored record.
-		entityId: row.entityId,
-		entityVersion: row.entityVersion,
-		entitySchemaVersion: row.schemaVersion,
-	};
-}
+const clientPromise = getClientPromise([PERSON_SCHEMA]);
 
 export async function listPersons(options: {
 	page?: number;
 	pageSize?: number;
-	queuedOnly?: boolean;
 }): Promise<PaginatedResult<PersonRecord>> {
-	// List locally cached persons; optionally show only items still queued for sync.
 	const page = Math.max(options.page ?? 1, 1);
 	const pageSize = Math.max(options.pageSize ?? 10, 1);
 	const result = await runWithClient(clientPromise, "List persons", (c) =>
-		c.queryEntities<PersonRecord>(
+		c.queryEntities<Person>(
 			{ tableName: PERSON_TABLE },
 			{ pagination: { page: 1, pageSize: 1000 }, onlyActive: true },
 		),
 	);
-	const rows = result.items ?? [];
-	const filteredItems = options.queuedOnly
-		? rows.map(unwrap).filter((item) => item.queuedForSync)
-		: rows.map(unwrap);
-	const totalItems = filteredItems.length;
+	const rows = (result.items ?? []) as PersonRecord[];
+	const totalItems = rows.length;
 	const totalPages = Math.max(Math.ceil(totalItems / pageSize), 1);
 	const start = (page - 1) * pageSize;
-	const items = filteredItems.slice(start, start + pageSize);
+	const items = rows.slice(start, start + pageSize);
 	return { items, page, pageSize, totalItems, totalPages };
 }
 
 export async function getPerson(entityId: string): Promise<PersonRecord> {
-	// Fetch a single person by ID from the offline store.
 	const row = await runWithClient(clientPromise, "Load person", (c) =>
-		c.getEntity<PersonRecord>({
+		c.getEntity<Person>({
 			tableName: PERSON_TABLE,
 			entityId,
 		}),
@@ -114,54 +73,34 @@ export async function getPerson(entityId: string): Promise<PersonRecord> {
 	if (!row) {
 		throw new Error(`Person ${entityId} not found`);
 	}
-	return unwrap(row);
+	return row as PersonRecord;
 }
 
 export async function createPerson(input: Person): Promise<PersonRecord> {
-	// Create a new person locally; marked as queued for the next sync.
-	const payload: PersonRecord = {
-		queuedForSync: true,
-		lastSynced: null,
-		lastSyncError: null,
-		entityId: "",
-		entityVersion: "0.0.0",
-		entitySchemaId: PERSON_SCHEMA_ID,
-		entitySchemaVersion: PERSON_SCHEMA_VERSION,
-		entity: input,
-	};
 	const row = await runWithClient(clientPromise, "Create person", (c) =>
-		c.saveEntity<PersonRecord>({
+		c.saveEntity<Person>({
 			tableName: PERSON_TABLE,
-			payload,
+			payload: input,
 		}),
 	);
-	return unwrap(row);
+	return row as PersonRecord;
 }
 
 export async function updatePerson(
 	entityId: string,
 	input: Person,
 ): Promise<PersonRecord> {
-	// Update an existing person; keep them queued for sync until the next push.
-	const existing = await getPerson(entityId);
-	const payload: PersonRecord = {
-		...existing,
-		queuedForSync: true,
-		lastSyncError: null,
-		entity: input,
-	};
 	const row = await runWithClient(clientPromise, "Update person", (c) =>
-		c.saveEntity<PersonRecord>({
+		c.saveEntity<Person>({
 			tableName: PERSON_TABLE,
 			entityId,
-			payload,
+			payload: input,
 		}),
 	);
-	return unwrap(row);
+	return row as PersonRecord;
 }
 
 export async function deletePerson(entityId: string): Promise<void> {
-	// Soft-delete the person locally.
 	await runWithClient(clientPromise, "Delete person", (c) =>
 		c.deleteEntity({ tableName: PERSON_TABLE, entityId }),
 	);

@@ -14,7 +14,6 @@ const PERSON_LIST_KEY = ["person-demo", "list"] as const;
 export function usePersonList(params: {
 	page: number;
 	pageSize: number;
-	queuedOnly: boolean;
 }) {
 	return useQuery({
 		queryKey: [...PERSON_LIST_KEY, params],

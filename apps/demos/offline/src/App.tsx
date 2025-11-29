@@ -25,12 +25,10 @@ const PAGE_SIZE = 5;
 
 function ListPage() {
 	const [page, setPage] = useState(1);
-	const [queuedOnly, setQueuedOnly] = useState(false);
 	const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 	const { data, isLoading, refetch } = usePersonList({
 		page,
 		pageSize: PAGE_SIZE,
-		queuedOnly,
 	});
 	const deleteMutation = useDeletePerson();
 
@@ -53,11 +51,6 @@ function ListPage() {
 			<PersonTable
 				items={data?.items ?? []}
 				isLoading={isLoading}
-				queuedOnly={queuedOnly}
-				onToggleQueuedOnly={(v) => {
-					setQueuedOnly(v);
-					setPage(1);
-				}}
 				onDelete={(id) => setConfirmDeleteId(id)}
 				onSelectPage={(delta) =>
 					setPage((p) =>
@@ -136,7 +129,7 @@ function EditPage() {
 			</Link>
 			<h1>Edit person</h1>
 			<PersonForm
-				defaultValues={personQuery.data.entity}
+				defaultValues={personQuery.data.payload}
 				onSubmit={async (values) => {
 					await mutation.mutateAsync(values);
 					navigate("/");

@@ -5,8 +5,6 @@ import type { PersonRecord } from "../persistence";
 type Props = {
 	items: PersonRecord[];
 	isLoading?: boolean;
-	queuedOnly: boolean;
-	onToggleQueuedOnly(value: boolean): void;
 	onDelete(id: string): void;
 	onSelectPage(delta: number): void;
 	page: number;
@@ -16,8 +14,6 @@ type Props = {
 export function PersonTable({
 	items,
 	isLoading,
-	queuedOnly,
-	onToggleQueuedOnly,
 	onDelete,
 	onSelectPage,
 	page,
@@ -26,15 +22,6 @@ export function PersonTable({
 	return (
 		<div className="card">
 			<div className="toolbar" style={{ justifyContent: "space-between" }}>
-				<div className="toolbar" style={{ gap: 8 }}>
-					<input
-						id="queued-filter"
-						type="checkbox"
-						checked={queuedOnly}
-						onChange={(e) => onToggleQueuedOnly(e.target.checked)}
-					/>
-					<label htmlFor="queued-filter">Show only queued for sync</label>
-				</div>
 				<div className="toolbar" style={{ gap: 8 }}>
 					<Link className="btn primary" to="/new">
 						New person
@@ -74,28 +61,21 @@ export function PersonTable({
 							items.map((p, idx) => (
 								<tr
 									key={p.entityId}
-									style={{ opacity: p.queuedForSync ? 1 : 0.9 }}
 								>
 									<td>{idx + 1}</td>
 									<td>
 										<img
-											src={p.entity.photo}
-											alt={p.entity.name}
+											src={p.payload.photo}
+											alt={p.payload.name}
 											className="photo-thumb"
 										/>
 									</td>
-									<td>{p.entity.name}</td>
-									<td>{p.entity.surname}</td>
-									<td>{p.entity.age}</td>
-									<td>{p.entity.dob}</td>
-									<td>{p.entity.phoneNumber}</td>
-									<td>
-										{p.queuedForSync ? (
-											<span className="badge">Queued</span>
-										) : (
-											<span className="badge secondary">Synced</span>
-										)}
-									</td>
+									<td>{p.payload.name}</td>
+									<td>{p.payload.surname}</td>
+									<td>{p.payload.age}</td>
+									<td>{p.payload.dob}</td>
+									<td>{p.payload.phoneNumber}</td>
+									<td>-</td>
 									<td style={{ textAlign: "right" }}>
 										<Link
 											className="link"

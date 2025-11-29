@@ -10,6 +10,10 @@ export const OFFLINE_ENV_KEY = "demo";
 export const OFFLINE_TENANT_ID = "demo-tenant";
 export const OFFLINE_APP_NAME = "offline-demo";
 
+/**
+ * Build a shared PersistenceClient promise for the offline demo.
+ * Uses the SDK’s offline Dexie provider so everything stays in the browser.
+ */
 export function buildClientPromise(
 	schemas: Schema[],
 ): Promise<PersistenceClient> {
@@ -21,6 +25,28 @@ export function buildClientPromise(
 	}).then((provider) => new PersistenceClient([provider]));
 }
 
+const clientCache = new Map<string, Promise<PersistenceClient>>();
+
+/**
+ * Get (and memoize) a client promise for the provided schema set.
+ * Keyed by the sorted table names to keep it simple for the demo.
+ */
+export function getClientPromise(schemas: Schema[]): Promise<PersistenceClient> {
+	const key = schemas.map((s) => s.tableName).sort().join(",");
+	if (clientCache.has(key)) {
+		return clientCache.get(key)!;
+	}
+	const promise = buildClientPromise(schemas);
+	clientCache.set(key, promise);
+	return promise;
+}
+
+// Default shared client for domains that don't care about schemas (rare for the demo).
+export const clientPromise = getClientPromise([]);
+
+/**
+ * Helper to run operations with the shared client and surface user-facing errors.
+ */
 export async function runWithClient<T>(
 	clientPromise: Promise<PersistenceClient>,
 	opLabel: string,
