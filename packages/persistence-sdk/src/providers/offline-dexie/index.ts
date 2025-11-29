@@ -425,12 +425,6 @@ export class OfflineDexieProvider implements PersistenceProvider {
 			},
 		);
 	}
-	// queryEntities<TPayload = unknown>(
-	//     _scope: SchemaIdentifier,
-	//     _pagination?: PaginationQuery,
-	// ): Promise<PaginatedResult<EntityRecord<TPayload>>> {
-	//     throw new Error("Method not implemented.");
-	// }
 
 	async listJournalEntries(): Promise<JournalEntry[]> {
 		return this.dexie.table<JournalEntry>(JOURNAL_STORE).toArray();
