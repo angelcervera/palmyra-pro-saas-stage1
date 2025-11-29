@@ -26,6 +26,7 @@ const PAGE_SIZE = 5;
 function ListPage() {
 	const [page, setPage] = useState(1);
 	const [queuedOnly, setQueuedOnly] = useState(false);
+	const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 	const { data, isLoading, refetch } = usePersonList({
 		page,
 		pageSize: PAGE_SIZE,
@@ -39,6 +40,7 @@ function ListPage() {
 
 	const handleDelete = async (id: string) => {
 		await deleteMutation.mutateAsync(id);
+		setConfirmDeleteId(null);
 	};
 
 	return (
@@ -56,7 +58,7 @@ function ListPage() {
 					setQueuedOnly(v);
 					setPage(1);
 				}}
-				onDelete={handleDelete}
+				onDelete={(id) => setConfirmDeleteId(id)}
 				onSelectPage={(delta) =>
 					setPage((p) =>
 						Math.max(1, Math.min(data?.totalPages ?? 1, p + delta)),
@@ -65,6 +67,30 @@ function ListPage() {
 				page={page}
 				totalPages={data?.totalPages ?? 1}
 			/>
+			{confirmDeleteId && (
+				<div className="modal">
+					<div className="modal__content">
+						<p>Delete this person?</p>
+						<div className="toolbar" style={{ gap: 8 }}>
+							<button
+								type="button"
+								className="btn"
+								onClick={() => setConfirmDeleteId(null)}
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								className="btn primary"
+								onClick={() => handleDelete(confirmDeleteId)}
+								disabled={deleteMutation.isPending}
+							>
+								{deleteMutation.isPending ? "Deleting..." : "Yes, delete"}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

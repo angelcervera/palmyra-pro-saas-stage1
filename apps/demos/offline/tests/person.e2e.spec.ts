@@ -44,8 +44,9 @@ test.describe("person demo (online flow)", () => {
 		await page.getByRole("button", { name: "Save changes" }).click();
 		await expect(page.getByText("Byron")).toBeVisible();
 
-		// Delete (no confirmation dialog)
+		// Delete via confirmation modal
 		await page.getByRole("button", { name: "Delete" }).click();
+		await page.getByRole("button", { name: "Yes, delete" }).click();
 
 		await expect(page.getByText("No persons yet")).toBeVisible();
 	});
