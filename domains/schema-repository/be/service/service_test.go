@@ -62,6 +62,29 @@ func TestServiceCreateConflict(t *testing.T) {
 	require.ErrorIs(t, err, ErrConflict)
 }
 
+func TestServiceCreateWithExplicitSchemaIDWhenMissing(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeRepository()
+	schemaID := uuid.MustParse("00000000-0000-4000-8000-0000000000aa")
+
+	svc := New(repo).(*service)
+
+	audit := requesttrace.Anonymous("test")
+
+	result, err := svc.Create(context.Background(), audit, CreateInput{
+		SchemaID:   &schemaID,
+		Version:    versionPtr(persistence.SemanticVersion{Major: 1, Minor: 0, Patch: 0}),
+		Definition: json.RawMessage(`{"type":"object"}`),
+		TableName:  "persons",
+		Slug:       "persons",
+		CategoryID: uuid.New(),
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, schemaID, result.SchemaID)
+}
+
 func TestServiceCreateRejectsSlugChange(t *testing.T) {
 	t.Parallel()
 

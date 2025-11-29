@@ -18,7 +18,7 @@
     "dob": { "type": "string", "format": "date" },
     "phoneNumber": {
       "type": "string",
-      "pattern": "^\\\+?[1-9]\\d{7,14}$"
+      "pattern": "^\\+?[1-9]\\d{7,14}$"
     },
     "photo": { "type": "string", "format": "uri" }
   }

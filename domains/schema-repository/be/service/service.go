@@ -294,16 +294,14 @@ func (s *service) validateCreateInput(input CreateInput) (normalizedCreateInput,
 func (s *service) resolveSchemaID(ctx context.Context, input CreateInput, normalized normalizedCreateInput) (uuid.UUID, []persistence.SchemaRecord, error) {
 	if input.SchemaID != nil {
 		records, err := s.repo.List(ctx, *input.SchemaID)
-		if err != nil {
-			if errors.Is(err, persistence.ErrSchemaNotFound) {
-				return uuid.Nil, nil, ErrNotFound
-			}
+		switch {
+		case err == nil:
+			return *input.SchemaID, records, nil
+		case errors.Is(err, persistence.ErrSchemaNotFound):
+			return *input.SchemaID, nil, nil
+		default:
 			return uuid.Nil, nil, err
 		}
-		if len(records) == 0 {
-			return uuid.Nil, nil, ErrNotFound
-		}
-		return *input.SchemaID, records, nil
 	}
 
 	record, err := s.repo.GetLatestBySlug(ctx, normalized.slug)
