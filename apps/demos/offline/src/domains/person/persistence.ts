@@ -131,6 +131,9 @@ export async function getPerson(entityId: string): Promise<PersonRecord> {
 			entityId,
 		}),
 	);
+	if (!row) {
+		throw new Error(`Person ${entityId} not found`);
+	}
 	return unwrap(row);
 }
 
