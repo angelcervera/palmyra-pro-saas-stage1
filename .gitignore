@@ -16,4 +16,5 @@ openapi-ts-error-*.log
 .gomodcache
 .gopath
 *.bak
-/apps/demos/offline/test-results/.last-run.json
+test-results
+

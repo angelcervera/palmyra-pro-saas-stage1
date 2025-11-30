@@ -37,43 +37,8 @@ services:
       ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Palmyra Admin}
     volumes:
       - ./apps/demos/offline/schemas:/schemas:ro
-    entrypoint:
-      - bash
-      - -lc
-      - |
-        /usr/local/bin/wait-for-postgres.sh postgres 5432 &&
-        /usr/local/bin/cli-platform-admin bootstrap platform \
-          --database-url "${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}" \
-          --env-key "${ENV_KEY:-dev}" \
-          --admin-tenant-slug "${ADMIN_TENANT_SLUG:-admin}" \
-          --admin-tenant-name "${ADMIN_TENANT_NAME:-Admin}" \
-          --admin-email "${ADMIN_EMAIL:-admin@example.com}" \
-          --admin-full-name "${ADMIN_FULL_NAME:-Palmyra Admin}" &&
-        /usr/local/bin/cli-platform-admin schema categories upsert \
-          --database-url "${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}" \
-          --env-key "${ENV_KEY:-dev}" \
-          --admin-tenant-slug "${ADMIN_TENANT_SLUG:-admin}" \
-          --id 00000000-0000-4000-8000-000000000001 \
-          --name "Demo Category" \
-          --slug demo-category \
-          --description "Schemas for offline demo" &&
-        /usr/local/bin/cli-platform-admin schema definitions upsert \
-          --database-url "${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}" \
-          --env-key "${ENV_KEY:-dev}" \
-          --admin-tenant-slug "${ADMIN_TENANT_SLUG:-admin}" \
-          --schema-id 00000000-0000-4000-8000-000000000002 \
-          --schema-version 1.0.0 \
-          --table-name persons \
-          --slug persons \
-          --category-id 00000000-0000-4000-8000-000000000001 \
-          --definition-file /schemas/person.json &&
-        /usr/local/bin/cli-platform-admin tenant create \
-          --database-url "${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}" \
-          --env-key "${ENV_KEY:-dev}" \
-          --tenant-slug "${DEMO_TENANT_SLUG:-demo}" \
-          --tenant-name "${DEMO_TENANT_NAME:-Demo}" \
-          --admin-email "${DEMO_TENANT_ADMIN_EMAIL:-demo@example.com}" \
-          --admin-full-name "${DEMO_TENANT_ADMIN_FULL_NAME:-Demo Admin}"
+      - ./apps/demos/offline/tools/bootstrap-offline.sh:/bootstrap-offline.sh:ro
+    entrypoint: ["/bootstrap-offline.sh"]
     restart: "no"
 
   api:
