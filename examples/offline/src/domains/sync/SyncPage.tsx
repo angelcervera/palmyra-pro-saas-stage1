@@ -11,6 +11,11 @@ async function fetchJournal(): Promise<JournalEntry[]> {
 	return runWithClient("Load journal", (c) => c.listJournalEntries());
 }
 
+// TODO: replace with real sync wiring once backend connectivity is available.
+async function mockSync(): Promise<void> {
+	return;
+}
+
 type JournalGroup = {
 	tableName: string;
 	schemaVersion: string;
@@ -55,18 +60,32 @@ export function SyncPage() {
 	const [schemas, setSchemas] = React.useState<Schema[]>([]);
 	const [groups, setGroups] = React.useState<JournalGroup[]>([]);
 	const [loading, setLoading] = React.useState(true);
+	const [syncing, setSyncing] = React.useState(false);
+
+	const load = React.useCallback(async () => {
+		setLoading(true);
+		try {
+			const [s, j] = await Promise.all([fetchSchemas(), fetchJournal()]);
+			setSchemas(s);
+			setGroups(groupJournal(j));
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	const handleSync = React.useCallback(async () => {
+		setSyncing(true);
+		try {
+			await mockSync();
+			await load();
+		} finally {
+			setSyncing(false);
+		}
+	}, [load]);
 
 	React.useEffect(() => {
-		void (async () => {
-			try {
-				const [s, j] = await Promise.all([fetchSchemas(), fetchJournal()]);
-				setSchemas(s);
-				setGroups(groupJournal(j));
-			} finally {
-				setLoading(false);
-			}
-		})();
-	}, []);
+		void load();
+	}, [load]);
 
 	return (
 		<div className="app-shell">
@@ -75,6 +94,16 @@ export function SyncPage() {
 				Preview of local journal entries grouped by schema/table. Use this to
 				verify what would sync when connectivity is available.
 			</p>
+			<div className="toolbar" style={{ margin: "12px 0" }}>
+				<button
+					type="button"
+					className="btn primary"
+					onClick={handleSync}
+					disabled={loading || syncing}
+				>
+					{syncing ? "Syncing..." : "Sync now"}
+				</button>
+			</div>
 			{loading ? <p>Loading…</p> : null}
 			<div className="card">
 				<h2 style={{ marginTop: 0 }}>Schemas</h2>
