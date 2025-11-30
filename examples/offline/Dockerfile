@@ -20,6 +20,10 @@ RUN pnpm --filter @zengateglobal/persistence-sdk... build
 RUN pnpm --filter @zengateglobal/demo... install --frozen-lockfile
 
 FROM deps AS build
+ARG VITE_API_BASE_URL=/api/v1
+ARG VITE_API_TOKEN
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_API_TOKEN=${VITE_API_TOKEN}
 RUN pnpm -C examples/offline build
 
 FROM nginx:1.27-alpine AS runner

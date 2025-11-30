@@ -337,9 +337,3 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		return false;
 	}
 }
-
-export function createOnlineOpenAPIPersistenceProvider(
-	options: OnlineApiSdkProviderOptions = {},
-): PersistenceProvider {
-	return createOnlineApiSdkProvider(options);
-}

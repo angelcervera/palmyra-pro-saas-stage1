@@ -1,12 +1,14 @@
 import {
 	createOfflineDexieProvider,
-	createOnlineOpenAPIPersistenceProvider,
+	createOnlineApiSdkProvider,
 	PersistenceClient,
 } from "@zengateglobal/persistence-sdk";
 
 export const OFFLINE_ENV_KEY = "demo";
 export const OFFLINE_TENANT_ID = "demo-tenant";
 export const OFFLINE_APP_NAME = "offline-demo";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+const API_TOKEN = import.meta.env.VITE_API_TOKEN;
 
 /**
  * Build a shared PersistenceClient promise for the offline demo.
@@ -20,7 +22,10 @@ export async function buildClientPromise(): Promise<PersistenceClient> {
 		appName: OFFLINE_APP_NAME,
 		schemas: [],
 	});
-	const onlineProvider = createOnlineOpenAPIPersistenceProvider();
+	const onlineProvider = createOnlineApiSdkProvider({
+		baseUrl: API_BASE_URL,
+		getToken: () => API_TOKEN, // FIXME: Use a real auth provider.
+	});
 
 	return new PersistenceClient([offlineProvider, onlineProvider]);
 }
