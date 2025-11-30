@@ -129,6 +129,10 @@ export class PersistenceClient implements PersistenceProvider {
 		return await this.resolveActiveProvider().clearJournalEntries();
 	}
 
+	async clear(table: SchemaIdentifier): Promise<void> {
+		return await this.resolveActiveProvider().clear(table);
+	}
+
 	async close(): Promise<void> {
 		return await this.resolveActiveProvider().close();
 	}

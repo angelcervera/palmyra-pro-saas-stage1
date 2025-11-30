@@ -120,6 +120,12 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 		return Promise.resolve();
 	}
 
+	async clear(table: SchemaIdentifier): Promise<void> {
+		throw new Error(
+			`clear(${table.tableName}) is not supported by the online provider`,
+		);
+	}
+
 	async close(): Promise<void> {
 		return Promise.resolve();
 	}
