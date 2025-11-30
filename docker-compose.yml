@@ -85,13 +85,5 @@ services:
     ports:
       - "4173:4173"
 
-  offline-demo:
-    build:
-      context: .
-      dockerfile: apps/demos/offline/Dockerfile
-    restart: unless-stopped
-    ports:
-      - "4174:4174"
-
 volumes:
   postgres-data:
