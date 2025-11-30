@@ -8,6 +8,7 @@ import {
 } from "@zengateglobal/api-sdk";
 import type {
 	BatchWrite,
+	BatchWriteProgressListener,
 	DeleteEntityInput,
 	EntityIdentifier,
 	EntityRecord,
@@ -285,6 +286,7 @@ class OnlineApiSdkProvider implements PersistenceProvider {
 	async batchWrites(
 		operations: BatchWrite,
 		writeInJournal: boolean = false,
+		_onProgress?: BatchWriteProgressListener,
 	): Promise<void> {
 		throw new Error("batchWrites is not implementaed. WIP");
 	}

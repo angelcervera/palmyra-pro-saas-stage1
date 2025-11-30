@@ -3,6 +3,7 @@ import { Dexie } from "dexie";
 import {
 	type BatchWrite,
 	BatchWriteError,
+	type BatchWriteProgressListener,
 	type DeleteEntityInput,
 	type EntityIdentifier,
 	type EntityRecord,
@@ -235,6 +236,7 @@ export class OfflineDexieProvider implements PersistenceProvider {
 	async batchWrites(
 		entities: BatchWrite,
 		writeInJournal: boolean = true,
+		onProgress?: BatchWriteProgressListener,
 	): Promise<void> {
 		if (entities.length === 0) {
 			return;
@@ -264,6 +266,10 @@ export class OfflineDexieProvider implements PersistenceProvider {
 					}
 
 					if (writeInJournal) await this.appendJournal(entity);
+
+					if (onProgress) {
+						onProgress({ written: lastRecord, total: entities.length });
+					}
 				}
 			});
 		} catch (error) {

@@ -28,12 +28,14 @@ export type SyncProgressStage =
 	| "push:start"
 	| "push:success"
 	| "push:error"
+	| "push:progress"
 	| "journal:cleared"
 	| "schemas:refreshed"
 	| "clear:start"
 	| "clear:success"
 	| "pull:start"
 	| "pull:page"
+	| "pull:progress"
 	| "pull:error"
 	| "done";
 
@@ -54,6 +56,7 @@ export const SyncProgressStages: SyncProgressStage[] = [
 export type SyncProgress =
 	| { stage: "push:start"; journalCount: number }
 	| { stage: "push:success"; journalCount: number }
+	| { stage: "push:progress"; written: number; total: number }
 	| { stage: "push:error"; error: string }
 	| { stage: "journal:cleared" }
 	| { stage: "schemas:refreshed"; schemaCount: number }
@@ -70,6 +73,14 @@ export type SyncProgress =
 			page: number;
 			totalPages: number;
 			count: number;
+		}
+	| {
+			stage: "pull:progress";
+			tableName: string;
+			page: number;
+			totalPages: number;
+			written: number;
+			total: number;
 		}
 	| { stage: "pull:error"; tableName: string; error: string }
 	| { stage: "done"; status: SyncReport["status"] };

@@ -1,5 +1,6 @@
 import type {
 	BatchWrite,
+	BatchWriteProgressListener,
 	DeleteEntityInput,
 	EntityIdentifier,
 	EntityRecord,
@@ -91,7 +92,17 @@ export class PersistenceClient implements PersistenceProvider {
 			if (journal.length > 0) {
 				// Drop changeId when sending to batchWrites.
 				const operations = journal.map(({ changeId, ...entity }) => entity);
-				await target.batchWrites(operations, false);
+				let lastProgress = 0;
+				await target.batchWrites(operations, false, ({ written, total }) => {
+					if (written !== lastProgress) {
+						lastProgress = written;
+						emit({
+							stage: "push:progress",
+							written,
+							total,
+						} as any);
+					}
+				});
 			}
 			emit({ stage: "push:success", journalCount: journal.length });
 
@@ -135,7 +146,24 @@ export class PersistenceClient implements PersistenceProvider {
 						);
 						totalPages = pageResult.totalPages || 0;
 						if (pageResult.items.length > 0) {
-							await source.batchWrites(pageResult.items, false);
+							let lastProgress = 0;
+							await source.batchWrites(
+								pageResult.items,
+								false,
+								({ written, total }) => {
+									if (written !== lastProgress) {
+										lastProgress = written;
+										emit({
+											stage: "pull:progress",
+											tableName,
+											page,
+											totalPages,
+											written,
+											total,
+										} as any);
+									}
+								},
+							);
 							entitiesSynced += pageResult.items.length;
 						}
 						emit({
@@ -215,10 +243,12 @@ export class PersistenceClient implements PersistenceProvider {
 	async batchWrites(
 		entities: BatchWrite,
 		writeInJournal: boolean = false,
+		onProgress?: BatchWriteProgressListener,
 	): Promise<void> {
 		return await this.resolveActiveProvider().batchWrites(
 			entities,
 			writeInJournal,
+			onProgress,
 		);
 	}
 

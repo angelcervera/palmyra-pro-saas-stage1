@@ -1,5 +1,6 @@
 import type {
 	BatchWrite,
+	BatchWriteProgressListener,
 	DeleteEntityInput,
 	EntityIdentifier,
 	EntityRecord,
@@ -36,7 +37,11 @@ export interface PersistenceProvider {
 	 * It keeps the order, so asume that the latest active is the one actually active.
 	 * By default, this operation must not write in the journal.
 	 */
-	batchWrites(operations: BatchWrite, writeInJournal: boolean): Promise<void>;
+	batchWrites(
+		operations: BatchWrite,
+		writeInJournal: boolean,
+		onProgress?: BatchWriteProgressListener,
+	): Promise<void>;
 
 	/**
 	 * Upserts an entity using the latest schema version for the table.

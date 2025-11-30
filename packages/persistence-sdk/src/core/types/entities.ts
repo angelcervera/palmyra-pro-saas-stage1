@@ -19,6 +19,13 @@ export interface EntityRecord<TPayload = unknown>
 
 export type BatchWrite = EntityRecord[];
 
+export type BatchWriteProgress = {
+	written: number;
+	total: number;
+};
+
+export type BatchWriteProgressListener = (progress: BatchWriteProgress) => void;
+
 // Represent an entity following the active schema version.
 // When the `entityId` is not present, it means that it is new.
 export interface SaveEntityInput<TPayload = unknown> extends SchemaIdentifier {
