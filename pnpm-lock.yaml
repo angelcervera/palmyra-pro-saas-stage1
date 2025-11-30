@@ -12,7 +12,7 @@ importers:
         specifier: 2.3.5
         version: 2.3.5
 
-  apps/demos/offline:
+  examples/offline:
     dependencies:
       '@hookform/resolvers':
         specifier: 5.2.2

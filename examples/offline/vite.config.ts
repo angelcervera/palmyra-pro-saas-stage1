@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
@@ -16,6 +17,7 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": fileURLToPath(new URL("./src", import.meta.url)),
+			"@zengateglobal/persistence-sdk": path.resolve(__dirname, "../../packages/persistence-sdk/dist"),
 		},
 	},
 });

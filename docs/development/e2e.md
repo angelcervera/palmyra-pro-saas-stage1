@@ -23,4 +23,4 @@ docker compose -f docker-compose.e2e.yml down
 Notes:
 - Config lives in `.env.e2e`; defaults use `AUTH_PROVIDER=dev` and local storage.
 - The admin web proxies API calls to `http://api:3000/api/` inside the compose network; externally it listens on `4173`.
-- The Playwright service mounts the workspace and runs `pnpm -C apps/demos/offline test:e2e`. Adjust the command if you add more suites.
+- The Playwright service mounts the workspace and runs `pnpm -C examples/offline test:e2e`. Adjust the command if you add more suites.

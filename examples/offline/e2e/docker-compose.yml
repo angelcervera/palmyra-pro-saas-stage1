@@ -2,7 +2,7 @@ services:
   playwright:
     build:
       context: ../../../..
-      dockerfile: apps/demos/offline/e2e/playwright.Dockerfile
+      dockerfile: examples/offline/e2e/playwright.Dockerfile
     working_dir: /workspace
     environment:
       CI: "true"

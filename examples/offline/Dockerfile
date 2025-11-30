@@ -14,14 +14,17 @@ COPY apps ./apps
 COPY domains ./domains
 COPY packages ./packages
 COPY platform ./platform
+COPY examples ./examples
 RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @zengateglobal/persistence-sdk... build
+RUN pnpm --filter @zengateglobal/demo... install --frozen-lockfile
 
 FROM deps AS build
-RUN pnpm -C apps/demos/offline build
+RUN pnpm -C examples/offline build
 
 FROM nginx:1.27-alpine AS runner
 WORKDIR /usr/share/nginx/html
-COPY apps/demos/offline/docker/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/apps/demos/offline/dist ./
+COPY examples/offline/docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/examples/offline/dist ./
 EXPOSE 4174
 CMD ["nginx", "-g", "daemon off;"]

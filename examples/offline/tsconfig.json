@@ -1,0 +1,14 @@
+{
+	"files": [],
+	"references": [
+		{ "path": "./tsconfig.app.json" },
+		{ "path": "./tsconfig.node.json" }
+	],
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"@zengateglobal/persistence-sdk": ["../../packages/persistence-sdk/dist/index.d.ts"],
+			"@zengateglobal/persistence-sdk/*": ["../../packages/persistence-sdk/dist/*"]
+		}
+	}
+}

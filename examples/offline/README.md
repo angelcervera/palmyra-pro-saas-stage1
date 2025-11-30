@@ -11,13 +11,13 @@ docker compose up postgres api web-platform-admin
 
 2) Run the offline app dev server:
 ```bash
-pnpm -C apps/demos/offline dev --host --port 4174
+pnpm -C examples/offline dev --host --port 4174
 ```
 Then open http://localhost:4174.
 
 ## Build
 ```bash
-pnpm -C apps/demos/offline build
+pnpm -C examples/offline build
 ```
 
 ## Docker-compose (bootstrap everything automatically)
@@ -27,14 +27,14 @@ We ship a dedicated compose stack that bootstraps the offline demo end-to-end: a
 Run it from the repo root:
 
 ```bash
-docker compose -f docker-compose.offline.yml --env-file .env.dockercompose up --build
+docker compose -f examples/offline/docker-compose.yml up --build
 ```
 
-What it does (via `apps/demos/offline/tools/bootstrap-offline.sh`):
+What it does (via `examples/offline/tools/bootstrap-offline.sh`):
 1. Wait for Postgres.
 2. `cli-platform-admin bootstrap platform` (admin tenant).
 3. Upsert **Demo Category** (ID `00000000-0000-4000-8000-000000000001`, slug `demo-category`).
-4. Upsert **Persons** schema (ID `00000000-0000-4000-8000-000000000002`, version `1.0.0`, table `persons`, slug `persons`, definition at `apps/demos/offline/schemas/person.json`).
+4. Upsert **Persons** schema (ID `00000000-0000-4000-8000-000000000002`, version `1.0.0`, table `persons`, slug `persons`, definition at `examples/offline/schemas/person.json`).
 5. Create **demo tenant** (defaults: slug `demo`, admin email `demo@example.com`, admin name `Demo Admin`).
 
 Env overrides (optional):
@@ -45,10 +45,10 @@ Env overrides (optional):
 
 Notes:
 - The bootstrap script is idempotent (safe to rerun).
-- Persons JSON Schema lives at `apps/demos/offline/schemas/person.json`.
+- Persons JSON Schema lives at `examples/offline/schemas/person.json`.
 
 ## E2E
 ```bash
-docker compose -f apps/demos/offline/e2e/docker-compose.yml up --build --abort-on-container-exit --exit-code-from playwright
+docker compose -f examples/offline/e2e/docker-compose.yml up --build --abort-on-container-exit --exit-code-from playwright
 ```
-Runs a Playwright runner (Node 24) that installs browsers at runtime, starts the offline app via the Playwright `webServer` hook, and executes `pnpm -C apps/demos/offline test:e2e`.
+Runs a Playwright runner (Node 24) that installs browsers at runtime, starts the offline app via the Playwright `webServer` hook, and executes `pnpm -C examples/offline test:e2e`.

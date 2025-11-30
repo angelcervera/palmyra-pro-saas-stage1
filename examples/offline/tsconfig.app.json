@@ -19,7 +19,11 @@
 		"noUnusedParameters": true,
 		"erasableSyntaxOnly": true,
 		"noFallthroughCasesInSwitch": true,
-		"noUncheckedSideEffectImports": true
+		"noUncheckedSideEffectImports": true,
+		"paths": {
+			"@zengateglobal/persistence-sdk": ["../../packages/persistence-sdk/dist/index.d.ts"],
+			"@zengateglobal/persistence-sdk/*": ["../../packages/persistence-sdk/dist/*"]
+		}
 	},
 	"include": ["src"]
 }

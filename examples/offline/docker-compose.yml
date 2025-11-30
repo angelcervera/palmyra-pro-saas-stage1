@@ -3,7 +3,7 @@ services:
     image: postgres:16
     restart: unless-stopped
     env_file:
-      - .env.dockercompose
+      - ../../.env.dockercompose
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-palmyra}
       POSTGRES_USER: ${POSTGRES_USER:-palmyra}
@@ -21,13 +21,13 @@ services:
 
   bootstrap:
     build:
-      context: .
+      context: ../..
       dockerfile: apps/cli-platform-admin/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
     env_file:
-      - .env.dockercompose
+      - ../../.env.dockercompose
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}
       ENV_KEY: ${ENV_KEY:-dev}
@@ -36,18 +36,18 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Palmyra Admin}
     volumes:
-      - ./apps/demos/offline/schemas:/schemas:ro
-      - ./apps/demos/offline/tools/bootstrap-offline.sh:/bootstrap-offline.sh:ro
+      - ./schemas:/schemas:ro
+      - ./tools/bootstrap-offline.sh:/bootstrap-offline.sh:ro
     entrypoint: ["/bootstrap-offline.sh"]
     restart: "no"
 
   api:
     build:
-      context: .
+      context: ../..
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     env_file:
-      - .env.dockercompose
+      - ../../.env.dockercompose
     environment:
       PORT: ${PORT:-3000}
       DATABASE_URL: ${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}
@@ -66,7 +66,7 @@ services:
 
   web-platform-admin:
     build:
-      context: .
+      context: ../..
       dockerfile: apps/web-platform-admin/Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
@@ -80,8 +80,8 @@ services:
 
   offline-demo:
     build:
-      context: .
-      dockerfile: apps/demos/offline/Dockerfile
+      context: ../..
+      dockerfile: examples/offline/Dockerfile
     restart: unless-stopped
     depends_on:
       api:
