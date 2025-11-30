@@ -202,7 +202,7 @@ func toAPISchemaSafe(schema service.Schema) (schemarepository.SchemaVersion, err
 		CategoryId:       externalRef2.UUID(schema.CategoryID),
 		CreatedAt:        externalRef2.Timestamp(schema.CreatedAt),
 		IsActive:         schema.IsActive,
-		IsSoftDeleted:    schema.IsSoftDeleted,
+		IsDeleted:        schema.IsDeleted,
 	}
 
 	return apiSchema, nil

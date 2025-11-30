@@ -157,7 +157,7 @@ func (r *repository) Delete(ctx context.Context, tableName string, entityID stri
 		return err
 	}
 
-	return repo.SoftDeleteEntity(ctx, space, entityID, time.Now().UTC())
+	return repo.DeleteEntity(ctx, space, entityID, time.Now().UTC())
 }
 
 func (r *repository) resolveEntityRepo(ctx context.Context, tableName string) (*persistence.EntityRepository, error) {

@@ -41,7 +41,7 @@ Each schema entry currently stores the following columns (see `SchemaRepositoryS
 * `slug TEXT`: Human-friendly slug constrained to the same pattern as other slugs (`^[a-z0-9]+(?:-[a-z0-9]+)*$`).
 * `category_id UUID`: Foreign key to `schema_categories` so every schema is classified.
 * `is_active BOOLEAN`: Indicates which version is currently active per schema.
-* `is_soft_deleted BOOLEAN`: Logical delete flag; soft deletes set this to true and clear `is_active`.
+* `is_deleted BOOLEAN`: Logical delete flag; soft deletes set this to true and clear `is_active`.
 * `created_at TIMESTAMPTZ`: Timestamp captured when the version was inserted.
 
 There are no `updated_at` or `deleted_at` timestamps because schema versions, like entity versions, are immutable once written.
@@ -71,7 +71,7 @@ Each entity table currently stores the columns below (see `EntityRepository.ensu
 * `hash TEXT`: SHA-256 hex hash of the canonicalized payload stored in the row; computed server-side.
 * `created_at TIMESTAMPTZ`: Insert timestamp captured by Postgres.
 * `is_active BOOLEAN`: Indicates the latest version for a given `entity_id` (enforced via partial unique index).
-* `is_soft_deleted BOOLEAN`: Marks versions hidden from default queries; soft deletes toggle this flag and clear
+* `is_deleted BOOLEAN`: Marks versions hidden from default queries; soft deletes toggle this flag and clear
   `is_active` for the entity.
 
 There are no `updated_at`/`deleted_at` timestamps because entity versions are immutable and only track creation time.

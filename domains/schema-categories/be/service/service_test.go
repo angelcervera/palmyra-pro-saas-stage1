@@ -13,11 +13,11 @@ import (
 )
 
 type mockRepository struct {
-	listFn       func(ctx context.Context, includeDeleted bool) ([]persistence.SchemaCategory, error)
-	createFn     func(ctx context.Context, params persistence.CreateSchemaCategoryParams) (persistence.SchemaCategory, error)
-	getFn        func(ctx context.Context, id uuid.UUID) (persistence.SchemaCategory, error)
-	updateFn     func(ctx context.Context, id uuid.UUID, params persistence.UpdateSchemaCategoryParams) (persistence.SchemaCategory, error)
-	softDeleteFn func(ctx context.Context, id uuid.UUID, deletedAt time.Time) error
+	listFn   func(ctx context.Context, includeDeleted bool) ([]persistence.SchemaCategory, error)
+	createFn func(ctx context.Context, params persistence.CreateSchemaCategoryParams) (persistence.SchemaCategory, error)
+	getFn    func(ctx context.Context, id uuid.UUID) (persistence.SchemaCategory, error)
+	updateFn func(ctx context.Context, id uuid.UUID, params persistence.UpdateSchemaCategoryParams) (persistence.SchemaCategory, error)
+	deleteFn func(ctx context.Context, id uuid.UUID, deletedAt time.Time) error
 }
 
 func (m *mockRepository) List(ctx context.Context, includeDeleted bool) ([]persistence.SchemaCategory, error) {
@@ -48,11 +48,11 @@ func (m *mockRepository) Update(ctx context.Context, id uuid.UUID, params persis
 	return m.updateFn(ctx, id, params)
 }
 
-func (m *mockRepository) SoftDelete(ctx context.Context, id uuid.UUID, deletedAt time.Time) error {
-	if m.softDeleteFn == nil {
-		panic("softDeleteFn not configured")
+func (m *mockRepository) Delete(ctx context.Context, id uuid.UUID, deletedAt time.Time) error {
+	if m.deleteFn == nil {
+		panic("deleteFn not configured")
 	}
-	return m.softDeleteFn(ctx, id, deletedAt)
+	return m.deleteFn(ctx, id, deletedAt)
 }
 
 func TestServiceCreateSuccess(t *testing.T) {
@@ -91,6 +91,33 @@ func TestServiceCreateSuccess(t *testing.T) {
 	require.Equal(t, "Cards", result.Name)
 	require.Equal(t, "cards", result.Slug)
 	require.Equal(t, now, result.CreatedAt)
+}
+
+func TestServiceCreateWithExplicitID(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockRepository{}
+	now := time.Date(2024, time.November, 24, 10, 0, 0, 0, time.UTC)
+	targetID := uuid.MustParse("00000000-0000-4000-8000-000000000123")
+
+	repo.createFn = func(ctx context.Context, params persistence.CreateSchemaCategoryParams) (persistence.SchemaCategory, error) {
+		require.Equal(t, targetID, params.CategoryID)
+		return persistence.SchemaCategory{CategoryID: params.CategoryID, Name: params.Name, Slug: params.Slug, CreatedAt: now, UpdatedAt: now}, nil
+	}
+
+	svc := New(repo).(*service)
+	svc.now = func() time.Time { return now }
+
+	audit := requesttrace.Anonymous("test")
+
+	result, err := svc.Create(context.Background(), audit, CreateInput{
+		CategoryID: &targetID,
+		Name:       "Demo",
+		Slug:       "demo",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, targetID, result.ID)
 }
 
 func TestServiceCreateValidationError(t *testing.T) {
@@ -253,7 +280,7 @@ func TestServiceDeleteNotFound(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockRepository{}
-	repo.softDeleteFn = func(ctx context.Context, id uuid.UUID, deletedAt time.Time) error {
+	repo.deleteFn = func(ctx context.Context, id uuid.UUID, deletedAt time.Time) error {
 		return persistence.ErrSchemaNotFound
 	}
 

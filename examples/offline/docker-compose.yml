@@ -1,0 +1,93 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    env_file:
+      - ../../.env.dockercompose
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-palmyra}
+      POSTGRES_USER: ${POSTGRES_USER:-palmyra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-palmyra}
+      PALMYRA_DB_SEED_MODE: ${PALMYRA_DB_SEED_MODE:-dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-palmyra}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bootstrap:
+    build:
+      context: ../..
+      dockerfile: apps/cli-platform-admin/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ../../.env.dockercompose
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}
+      ENV_KEY: ${ENV_KEY:-dev}
+      ADMIN_TENANT_SLUG: ${ADMIN_TENANT_SLUG:-admin}
+      ADMIN_TENANT_NAME: ${ADMIN_TENANT_NAME:-Admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Palmyra Admin}
+    volumes:
+      - ./schemas:/schemas:ro
+      - ./tools/bootstrap-offline.sh:/bootstrap-offline.sh:ro
+    entrypoint: ["/bootstrap-offline.sh"]
+    restart: "no"
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../../.env.dockercompose
+    environment:
+      PORT: ${PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-15s}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-10s}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ADMIN_TENANT_SLUG: ${ADMIN_TENANT_SLUG:-admin}
+      AUTH_PROVIDER: ${AUTH_PROVIDER:-dev}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+
+  web-platform-admin:
+    build:
+      context: ../..
+      dockerfile: apps/web-platform-admin/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+        VITE_ENV: ${VITE_ENV:-local}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "4173:4173"
+
+  offline-demo:
+    build:
+      context: ../..
+      dockerfile: examples/offline/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "4174:4174"
+
+volumes:
+  postgres-data:

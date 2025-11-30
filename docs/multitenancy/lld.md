@@ -7,7 +7,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - **Tenant Space** (`platform/go/tenant.Space`): `{tenantId, slug, shortTenantId, schemaName, basePrefix}`.  
   - `schemaName = "tenant_" + snake_case(slug)`.  
   - `basePrefix = <envKey>/<slug>-<shortTenantId>/` (bucket comes from env, not stored per tenant).  
-- **Admin schema**: derived from `ADMIN_TENANT_SLUG` (default `admin`) as `tenant_<slugSnake>`. The bootstrap CLI command initializes this schema and the base tables (see `apps/cli/cmd/bootstrap`).
+- **Admin schema**: derived from `ADMIN_TENANT_SLUG` (default `admin`) as `tenant_<slugSnake>`. The bootstrap CLI command initializes this schema and the base tables (see `apps/cli-platform-admin/cmd/bootstrap`).
 - **Tenant registry**: immutable, versioned rows in `tenants` table (admin schema) defined in `database/schema/tenants.sql`. Active version enforced by partial index; slug uniqueness enforced across non-deleted rows.
 - **Tenant middleware** (`platform/go/tenant/middleware/tenant_space.go`): after auth, extracts tenant claim, resolves via tenant service, enforces `basePrefix` envKey prefix, caches (TTL optional), and attaches `tenant.Space` to context; on failure emits ProblemDetails (401/403).
 
@@ -15,7 +15,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - **SpaceDB** (`platform/go/persistence/space_db.go`): wraps `pgxpool`; `WithSpace(ctx, space, fn)` starts a tx, sets `search_path` to `<tenant schema>,<admin schema>`, executes `fn(tx)`, commits/rolls back. Admin schema passed via config; tenant schema comes from `tenant.Space`.
 
 ## Tenant registry persistence
-- **Store** (`platform/go/persistence/tenant_repository.go`): append-only versions with fields `{tenant_id, tenant_version, slug, display_name, status, schema_name, base_prefix, short_tenant_id, created_at, created_by, db_ready, auth_ready, last_provisioned_at, last_error, is_active, is_soft_deleted}`.  
+- **Store** (`platform/go/persistence/tenant_repository.go`): append-only versions with fields `{tenant_id, tenant_version, slug, display_name, status, schema_name, base_prefix, short_tenant_id, created_at, created_by, db_ready, auth_ready, last_provisioned_at, last_error, is_active, is_deleted}`.  
 - **Service** (`domains/tenants/be/service`): CRUD over immutable versions; resolves `tenant.Space` for middleware; provisioning endpoints currently return `ErrNotImplemented` (see Open items).
 
 ## Tenant-scoped domains (implemented)
@@ -57,7 +57,7 @@ This document captures the backend LLD for multi‑tenant routing and storage as
 - Tenant middleware still validates `basePrefix` envKey and returns ProblemDetails: 401 invalid tenant, 403 env mismatch/disabled/unknown.
 
 ## Bootstrapping & DDL
-- Phase 1 (platform bootstrap) via `platform-cli bootstrap platform ...`:
+- Phase 1 (platform bootstrap) via `cli-platform-admin bootstrap platform ...`:
   - Creates **admin schema only** and applies embedded DDL: `database/schema/tenant_space/users.sql`, `database/schema/platform/entity_schemas.sql`, `database/schema/platform/tenants.sql`.
   - Seeds admin tenant/user. No tenant roles are created here.
 - Phase 2 (per-tenant bootstrap) is **only** in `DBProvisioner`:

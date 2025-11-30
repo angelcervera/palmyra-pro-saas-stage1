@@ -32,7 +32,7 @@ func TestService_ListSuccess(t *testing.T) {
 					Payload:       []byte(`{"name":"Lotus"}`),
 					CreatedAt:     createdAt,
 					IsActive:      true,
-					IsSoftDeleted: false,
+					IsDeleted:     false,
 				}},
 				Total: 1,
 			}, nil

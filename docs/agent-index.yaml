@@ -18,15 +18,15 @@ docs:
     path: docs/web-app.md
     version: 1.1.0
     appliesTo:
-      - apps/web-admin
+      - apps/web-platform-admin
       - apps/web-pwa
       - domains/*/fe
       - packages/api-sdk/src/generated/*
       - platform/ts/*
     commands:
-      - pnpm dev -C apps/web-admin
+      - pnpm dev -C apps/web-platform-admin
       - pnpm dev -C apps/web-pwa
-      - pnpm build -C apps/web-admin
+      - pnpm build -C apps/web-platform-admin
       - pnpm build -C apps/web-pwa
 
   - id: api-conventions
@@ -75,7 +75,7 @@ docs:
     path: docs/crud-ui-guideline.md
     version: 1.0.0
     appliesTo:
-      - apps/web-admin
+      - apps/web-platform-admin
       - domains/*/fe
       - platform/ts/*
 

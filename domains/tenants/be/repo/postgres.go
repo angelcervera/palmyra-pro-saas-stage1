@@ -107,7 +107,7 @@ func toRecord(t service.Tenant) persistence.TenantRecord {
 		BasePrefix:        t.BasePrefix,
 		ShortTenantID:     t.ShortTenantID,
 		IsActive:          true,
-		IsSoftDeleted:     false,
+		IsDeleted:         false,
 		CreatedAt:         t.CreatedAt,
 		CreatedBy:         t.CreatedBy,
 		DBReady:           t.Provisioning.DBReady,

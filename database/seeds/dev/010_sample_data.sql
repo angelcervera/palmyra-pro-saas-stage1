@@ -16,7 +16,7 @@ INSERT INTO schema_repository (
     slug,
     category_id,
     created_at,
-    is_soft_deleted,
+    is_deleted,
     is_active
 ) VALUES (
     'cccccccc-cccc-cccc-cccc-ccccccccccc3',
@@ -45,7 +45,7 @@ SET schema_definition = EXCLUDED.schema_definition,
     slug = EXCLUDED.slug,
     category_id = EXCLUDED.category_id,
     is_active = TRUE,
-    is_soft_deleted = FALSE;
+    is_deleted = FALSE;
 
 -- Sample admin users for local testing.
 INSERT INTO users (user_id, email, full_name, created_at, updated_at)

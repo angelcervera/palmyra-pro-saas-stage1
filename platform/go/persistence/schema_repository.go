@@ -100,7 +100,7 @@ type SchemaRecord struct {
 	CategoryID       uuid.UUID        `db:"category_id" json:"categoryId"`
 	CreatedAt        time.Time        `db:"created_at" json:"createdAt"`
 	CreatedBy        *string          `db:"created_by" json:"createdBy"`
-	IsSoftDeleted    bool             `db:"is_soft_deleted" json:"isSoftDeleted"`
+	IsDeleted        bool             `db:"is_deleted" json:"isDeleted"`
 	IsActive         bool             `db:"is_active" json:"isActive"`
 }
 

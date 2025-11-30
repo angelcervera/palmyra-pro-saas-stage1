@@ -1,0 +1,10 @@
+services:
+  playwright:
+    build:
+      context: ../../..
+      dockerfile: examples/offline/e2e/playwright.Dockerfile
+    working_dir: /workspace
+    environment:
+      CI: "true"
+    volumes:
+      - ../../..:/workspace

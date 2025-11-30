@@ -95,11 +95,11 @@ const initDexie = async (
 	// Recover the latest version of the database, so: It will work offline and upgrade to new schemas.
 	const latestVersion = await recoverSchemas(databaseName);
 
-	// If schemas provided are not compatible with the latest version, we need to bump the DB version.
+	// If schemas provided are not compatible with the latest version or there is no previous schema at all, we need to bump the DB version.
 	const schemas =
 		options.schemas.length === 0 ? latestVersion.schemas : options.schemas;
 	let version = latestVersion.currentVersion;
-	if (!areSchemasCompatible(schemas, latestVersion.schemas)) {
+	if (version === 0 || !areSchemasCompatible(schemas, latestVersion.schemas)) {
 		version += 1;
 	}
 
@@ -425,12 +425,6 @@ export class OfflineDexieProvider implements PersistenceProvider {
 			},
 		);
 	}
-	// queryEntities<TPayload = unknown>(
-	//     _scope: SchemaIdentifier,
-	//     _pagination?: PaginationQuery,
-	// ): Promise<PaginatedResult<EntityRecord<TPayload>>> {
-	//     throw new Error("Method not implemented.");
-	// }
 
 	async listJournalEntries(): Promise<JournalEntry[]> {
 		return this.dexie.table<JournalEntry>(JOURNAL_STORE).toArray();

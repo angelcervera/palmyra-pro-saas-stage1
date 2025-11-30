@@ -1,9 +1,10 @@
 .git
 .gocache
 node_modules
-apps/web-admin/node_modules
-apps/web-admin/dist
-apps/web-admin/.vite
+apps/web-platform-admin/node_modules
+apps/web-platform-admin/dist
+apps/web-platform-admin/.vite
 .tmp
 tmp
+.data
 .DS_Store

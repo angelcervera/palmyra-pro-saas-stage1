@@ -156,7 +156,7 @@ func (s *SchemaCategoryStore) ListSchemaCategoriesTx(ctx context.Context, tx pgx
 	return categories, nil
 }
 
-func (s *SchemaCategoryStore) SoftDeleteSchemaCategoryTx(ctx context.Context, tx pgx.Tx, categoryID uuid.UUID, deletedAt time.Time) error {
+func (s *SchemaCategoryStore) DeleteSchemaCategoryTx(ctx context.Context, tx pgx.Tx, categoryID uuid.UUID, deletedAt time.Time) error {
 	if deletedAt.IsZero() {
 		deletedAt = time.Now().UTC()
 	}
@@ -333,14 +333,14 @@ func (s *SchemaCategoryStore) UpdateSchemaCategory(ctx context.Context, adminDB 
 	})
 }
 
-// SoftDeleteSchemaCategory wraps SoftDeleteSchemaCategoryTx inside WithAdmin.
-func (s *SchemaCategoryStore) SoftDeleteSchemaCategory(ctx context.Context, adminDB *SpaceDB, categoryID uuid.UUID, deletedAt time.Time) error {
+// DeleteSchemaCategory wraps DeleteSchemaCategoryTx inside WithAdmin.
+func (s *SchemaCategoryStore) DeleteSchemaCategory(ctx context.Context, adminDB *SpaceDB, categoryID uuid.UUID, deletedAt time.Time) error {
 	if adminDB == nil {
 		return errors.New("admin db is required")
 	}
 
 	return adminDB.WithAdmin(ctx, func(tx pgx.Tx) error {
-		return s.SoftDeleteSchemaCategoryTx(ctx, tx, categoryID, deletedAt)
+		return s.DeleteSchemaCategoryTx(ctx, tx, categoryID, deletedAt)
 	})
 }
 

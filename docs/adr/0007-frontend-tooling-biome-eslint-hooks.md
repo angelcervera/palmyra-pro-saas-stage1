@@ -20,7 +20,7 @@ Adopt **Biome** as the default formatter/linter/checker for all TypeScript and R
 
 ## Consequences
 - Faster local and CI feedback thanks to Biome's Rust engine and single-tool workflow.
-- Consistent formatting/lint behavior across `apps/web-admin`, `packages/api-sdk`, `packages/persistence-sdk`, and future frontend packages.
+- Consistent formatting/lint behavior across `apps/web-platform-admin`, `packages/api-sdk`, `packages/persistence-sdk`, and future frontend packages.
 - Editors can rely on Biome for auto-formatting and safe fixes, reducing Prettier/ESLint conflicts.
 - A lightweight ESLint pass remains in place for Hooks correctness, so engineers still run two commands (Biome + ESLint) but with minimal overhead.
 - Once Biome ships React Hooks analysis, removing ESLint will require only deleting the slim config.
@@ -37,7 +37,7 @@ Adopt **Biome** as the default formatter/linter/checker for all TypeScript and R
 
 ## Implementation Notes
 - Keep `@biomejs/biome` pinned at the monorepo root with a shared config consumed by frontend packages.
-- Ensure each frontend workspace (`apps/web-admin`, `packages/api-sdk`, `packages/persistence-sdk`, future FE packages) exposes `pnpm run format|lint|check` scripts that call Biome.
-- Create a minimal `eslint.config.js` in `apps/web-admin` (and any other React package) that enables only `react-hooks/rules-of-hooks` (error) and `react-hooks/exhaustive-deps` (warn) for `.tsx` sources.
+- Ensure each frontend workspace (`apps/web-platform-admin`, `packages/api-sdk`, `packages/persistence-sdk`, future FE packages) exposes `pnpm run format|lint|check` scripts that call Biome.
+- Create a minimal `eslint.config.js` in `apps/web-platform-admin` (and any other React package) that enables only `react-hooks/rules-of-hooks` (error) and `react-hooks/exhaustive-deps` (warn) for `.tsx` sources.
 - Update CI and AGENT guidelines: run Biome (format → lint → check) plus ESLint hooks when touching React code.
 - Revisit this ADR once Biome natively supports Hooks rules.

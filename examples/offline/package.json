@@ -1,0 +1,39 @@
+{
+	"name": "@zengateglobal/demo",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"engines": {
+		"node": ">=24 <25",
+		"pnpm": ">=10.20.0 <11"
+	},
+	"scripts": {
+		"dev": "vite",
+		"build": "tsc -b && vite build",
+		"preview": "vite preview",
+		"format": "pnpm biome format --write .",
+		"lint": "pnpm biome lint .",
+		"check": "pnpm biome check .",
+		"test:e2e": "playwright test"
+	},
+	"dependencies": {
+		"@tanstack/react-query": "5.90.7",
+		"@zengateglobal/persistence-sdk": "workspace:*",
+		"@hookform/resolvers": "5.2.2",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"react-router-dom": "^7.9.5",
+		"react-hook-form": "7.66.0",
+		"zod": "4.1.12"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.5",
+		"@types/node": "^24.10.0",
+		"@types/react": "^19.2.2",
+		"@types/react-dom": "^19.2.2",
+		"@vitejs/plugin-react": "^5.1.0",
+		"@playwright/test": "^1.49.0",
+		"typescript": "~5.9.3",
+		"vite": "^7.2.2"
+	}
+}

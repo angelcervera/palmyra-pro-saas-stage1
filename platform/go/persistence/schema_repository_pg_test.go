@@ -160,7 +160,7 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 	require.Equal(t, versionV1, active.SchemaVersion)
 
 	deleteTime := time.Now().UTC()
-	require.NoError(t, store.SoftDeleteSchema(ctx, spaceDB, schemaID, versionV1, deleteTime))
+	require.NoError(t, store.DeleteSchema(ctx, spaceDB, schemaID, versionV1, deleteTime))
 
 	_, err = store.GetSchemaByVersion(ctx, spaceDB, schemaID, versionV1)
 	require.ErrorIs(t, err, ErrSchemaNotFound)
@@ -186,7 +186,7 @@ func TestSchemaRepositoryStoreIntegration(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	require.NoError(t, categoryStore.SoftDeleteSchemaCategory(ctx, spaceDB, rootCategoryID, time.Now().UTC()))
+	require.NoError(t, categoryStore.DeleteSchemaCategory(ctx, spaceDB, rootCategoryID, time.Now().UTC()))
 
 	_, err = categoryStore.GetSchemaCategory(ctx, spaceDB, rootCategoryID)
 	require.ErrorIs(t, err, ErrSchemaNotFound)

@@ -22,7 +22,7 @@ services:
   bootstrap:
     build:
       context: .
-      dockerfile: apps/cli/Dockerfile
+      dockerfile: apps/cli-platform-admin/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,7 +36,7 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Palmyra Admin}
     entrypoint: ["/usr/local/bin/wait-for-postgres.sh", "postgres", "5432",
-      "/usr/local/bin/platform-cli", "bootstrap", "platform",
+      "/usr/local/bin/cli-platform-admin", "bootstrap", "platform",
       "--database-url", "${DATABASE_URL:-postgres://palmyra:palmyra@postgres:5432/palmyra?sslmode=disable}",
       "--env-key", "${ENV_KEY:-dev}",
       "--admin-tenant-slug", "${ADMIN_TENANT_SLUG:-admin}",
@@ -71,10 +71,10 @@ services:
     # volumes:
     #   - ./firebase/service-account.json:/app/firebase/service-account.json:ro
 
-  web-admin:
+  web-platform-admin:
     build:
       context: .
-      dockerfile: apps/web-admin/Dockerfile
+      dockerfile: apps/web-platform-admin/Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
         VITE_ENV: ${VITE_ENV:-local}

@@ -42,7 +42,7 @@ type Document struct {
 	Payload       map[string]interface{}
 	CreatedAt     time.Time
 	IsActive      bool
-	IsSoftDeleted bool
+	IsDeleted     bool
 }
 
 // ListResult contains paginated documents and metadata.
@@ -234,7 +234,7 @@ func mapRecord(record persistence.EntityRecord) (Document, error) {
 		Payload:       payload,
 		CreatedAt:     record.CreatedAt,
 		IsActive:      record.IsActive,
-		IsSoftDeleted: record.IsSoftDeleted,
+		IsDeleted:     record.IsDeleted,
 	}, nil
 }
 
