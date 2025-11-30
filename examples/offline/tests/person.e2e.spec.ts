@@ -21,6 +21,9 @@ test.describe("person demo (online flow)", () => {
 	test("create, edit and delete a person (online)", async ({ page }) => {
 		await page.goto("/");
 
+		// Navigate to Persons page
+		await page.getByRole("link", { name: "Persons" }).click();
+
 		// Create
 		await page.getByRole("link", { name: "New person" }).click();
 		await page.fill("#name", samplePerson.name);
