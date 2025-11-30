@@ -1,5 +1,6 @@
 import {
 	createOfflineDexieProvider,
+	createOnlineOpenAPIPersistenceProvider,
 	PersistenceClient,
 } from "@zengateglobal/persistence-sdk";
 
@@ -13,13 +14,15 @@ export const OFFLINE_APP_NAME = "offline-demo";
  * Schemas are handled by the SDK, so we pass an empty array.
  */
 export async function buildClientPromise(): Promise<PersistenceClient> {
-	const provider = await createOfflineDexieProvider({
+	const offlineProvider = await createOfflineDexieProvider({
 		envKey: OFFLINE_ENV_KEY,
 		tenantId: OFFLINE_TENANT_ID,
 		appName: OFFLINE_APP_NAME,
 		schemas: [],
 	});
-	return new PersistenceClient([provider]);
+	const onlineProvider = createOnlineOpenAPIPersistenceProvider();
+
+	return new PersistenceClient([offlineProvider, onlineProvider]);
 }
 
 // Single shared client for the demo.
