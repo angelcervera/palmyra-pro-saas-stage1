@@ -1,11 +1,12 @@
-import type { SchemaIdentifier } from "./schemas";
-
-// This is a temporary interface until we have a proper sync contract defined.
-
 export interface SyncRequest {
+	/**
+	 * Provider that currently holds the journal to be pushed (e.g., offline).
+	 */
 	sourceProviderId: string;
+	/**
+	 * Provider that will receive outgoing changes and serve as the pull source.
+	 */
 	targetProviderId: string;
-	schemas?: SchemaIdentifier[];
 }
 
 export interface SyncReport {

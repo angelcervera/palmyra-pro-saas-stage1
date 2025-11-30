@@ -45,6 +45,20 @@ export class PersistenceClient implements PersistenceProvider {
 		return Array.from(this.providers.values());
 	}
 
+	/**
+	 * Planned sync flow (implementation WIP):
+	 * 1) If the source provider has journal entries, push them to the target via batchWrites.
+	 *    - On failure, abort and surface the error.
+	 * 2) Clear the source provider journal after a successful push.
+	 * 3) Pull schemas from the target (getMetadata) and apply them to the source (setMetadata).
+	 * 4) Clear all entity tables in the source provider (WIP in provider contract).
+	 * 5) For each schema/table from the target:
+	 *    - queryEntities on the target
+	 *    - batchWrites into the source
+	 *
+	 * Note: This MVP approach is intentionally simple and downloads all data, so it is not optimal for large datasets.
+	 * Future iterations will optimize the sync strategy; this version prioritizes correctness and speed of delivery.
+	 */
 	async sync(_request: SyncRequest): Promise<SyncReport> {
 		throw new Error("Not implemented");
 	}

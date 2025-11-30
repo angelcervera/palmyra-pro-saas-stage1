@@ -25,6 +25,21 @@ for online (API-backed) and offline (local-first + user-triggered sync) usage.
 - [ ] Offline adapter storage engine + manual sync pipeline.
 - [ ] Unit tests (Vitest) for critical flows.
 
+## Sync contract (WIP)
+
+`PersistenceClient.sync(request)` is stubbed for now; use the request shape below when wiring providers:
+- `sourceProviderId`: provider that holds the journal to push (e.g., offline Dexie).
+- `targetProviderId`: provider that will receive outgoing changes and is used to pull fresh data.
+
+Planned sync flow (implementation to come):
+1) If the source provider has journal entries, push them to the target via `batchWrites`. If this fails, stop and surface the error.
+2) On success, clear the source provider journal.
+3) Pull schemas from the target via `getMetadata` and apply them to the source via `setMetadata`.
+4) Clear all entity tables in the source provider (WIP in provider contract).
+5) For each schema/table from the target, `queryEntities` on the target and `batchWrites` the results into the source.
+
+Note: This MVP flow is intentionally simple and downloads all data, so it’s not performance-optimal. It exists to ship the first iteration quickly; later versions will optimize the sync strategy.
+
 ## Folder layout
 
 ```
