@@ -12,7 +12,7 @@ docker compose up postgres api web-platform-admin
 2) Run the offline app dev server:
 ```bash
 export VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api/v1}   # point to your API (e.g. http://localhost:3000/api/v1)
-export VITE_API_TOKEN=${VITE_API_TOKEN:-<paste-your-generated-token>} # unsigned dev JWT (tenant slug \"demo\"), override as needed
+export VITE_API_TOKEN=${VITE_API_TOKEN:-<paste-your-generated-token>} # unsigned dev JWT; firebase.tenant MUST be <ENV_KEY>-<tenantSlug> (e.g., dev-demo)
 pnpm -C examples/offline dev --host --port 4174
 ```
 Then open http://localhost:4174.
@@ -26,37 +26,20 @@ pnpm -C examples/offline build
 
 ### Generate a dev JWT (tenant \"demo\") and set it
 
-Run this and copy the output token:
+Generate the token via the CLI (keeps claims consistent with the API). Note: `--tenant` must be `<ENV_KEY>-<tenantSlug>` (e.g., `dev-demo`):
 ```bash
-node - <<'JS'
-function b64(o){return Buffer.from(JSON.stringify(o)).toString('base64url')}
-const now=Math.floor(Date.now()/1000);
-const header={alg:'none',typ:'JWT'};
-const payload={
-  iss:'https://securetoken.google.com/local-palmyra',
-  aud:'local-palmyra',
-  auth_time:now,
-  user_id:'demo-admin',
-  sub:'demo-admin',
-  iat:now,
-  exp:now+3600,
-  email:'demo@example.com',
-  email_verified:true,
-  name:'Demo Admin',
-  isAdmin:true,
-  palmyraRoles:['admin'],
-  tenantRoles:['admin'],
-  tenantSlug:'demo',
-  firebase:{
-    identities:{email:['demo@example.com']},
-    sign_in_provider:'password',
-    tenant:'demo'
-  }
-};
-console.log(`${b64(header)}.${b64(payload)}`);
-JS
+go run ./apps/cli-platform-admin auth devtoken \
+  --project-id local-palmyra \
+  --tenant dev-demo \
+  --user-id demo-admin \
+  --email demo@example.com \
+  --name "Demo Admin" \
+  --admin \
+  --palmyra-roles admin \
+  --tenant-roles admin \
+  --expires-in 2h
 ```
-Set `VITE_API_TOKEN` to that value (env export, `.env`, or compose arg).
+Copy the output and set `VITE_API_TOKEN` (env export, `.env`, or compose arg).
 
 ### Docker Compose with your token
 

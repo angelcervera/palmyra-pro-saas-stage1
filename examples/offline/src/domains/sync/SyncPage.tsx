@@ -2,6 +2,7 @@ import * as React from "react";
 import type { JournalEntry, Schema } from "@zengateglobal/persistence-sdk";
 
 import { runWithClient } from "../persistence/helpers";
+import { pushToast } from "../../components/toast";
 
 async function fetchSchemas(): Promise<Schema[]> {
 	return runWithClient("Load schemas", (c) => c.getMetadata());
@@ -12,10 +13,6 @@ async function fetchJournal(): Promise<JournalEntry[]> {
 }
 
 // TODO: replace with real sync wiring once backend connectivity is available.
-async function mockSync(): Promise<void> {
-	return;
-}
-
 type JournalGroup = {
 	tableName: string;
 	schemaVersion: string;
@@ -61,6 +58,7 @@ export function SyncPage() {
 	const [groups, setGroups] = React.useState<JournalGroup[]>([]);
 	const [loading, setLoading] = React.useState(true);
 	const [syncing, setSyncing] = React.useState(false);
+	const [progress, setProgress] = React.useState<string | null>(null);
 
 	const load = React.useCallback(async () => {
 		setLoading(true);
@@ -75,9 +73,74 @@ export function SyncPage() {
 
 	const handleSync = React.useCallback(async () => {
 		setSyncing(true);
+		setProgress(null);
 		try {
-			await mockSync();
+			await runWithClient("Sync", async (client) => {
+				const providers = client.getProviders();
+				if (providers.length < 2) {
+					throw new Error("At least two providers are required to sync.");
+				}
+				const [source, target] = providers;
+				await client.sync({
+					sourceProviderId: source.name,
+					targetProviderId: target.name,
+					onProgress: (event) => {
+						switch (event.stage) {
+							case "push:start":
+								setProgress(`Pushing journal (${event.journalCount} changes)…`);
+								break;
+							case "push:progress":
+								setProgress(
+									`Pushing journal ${event.written}/${event.total}…`,
+								);
+								break;
+							case "push:success":
+								setProgress("Journal pushed");
+								break;
+							case "journal:cleared":
+								setProgress("Journal cleared");
+								break;
+							case "schemas:refreshed":
+								setProgress(`Schemas refreshed (${event.schemaCount})`);
+								break;
+							case "clear:start":
+								setProgress(`Clearing local tables (${event.tableCount})…`);
+								break;
+							case "clear:success":
+								setProgress("Local tables cleared");
+								break;
+							case "pull:start":
+								setProgress(`Pulling ${event.tableName}…`);
+								break;
+							case "pull:progress":
+								setProgress(
+									`Pulling ${event.tableName} page ${event.page}/${event.totalPages} (${event.written}/${event.total})…`,
+								);
+								break;
+							case "pull:page":
+								setProgress(
+									`Pulled ${event.count} from ${event.tableName} (page ${event.page}/${event.totalPages})`,
+								);
+								break;
+							case "pull:error":
+								setProgress(`Pull failed for ${event.tableName}: ${event.error}`);
+								break;
+							case "done":
+								setProgress(`Sync ${event.status}`);
+								break;
+						}
+					},
+				});
+			});
+			pushToast({ kind: "success", title: "Sync complete" });
 			await load();
+		} catch (error) {
+			pushToast({
+				kind: "error",
+				title: "Sync failed",
+				description:
+					error instanceof Error ? error.message : String(error ?? "Unknown"),
+			});
 		} finally {
 			setSyncing(false);
 		}
@@ -103,6 +166,9 @@ export function SyncPage() {
 				>
 					{syncing ? "Syncing..." : "Sync now"}
 				</button>
+				{progress ? (
+					<span style={{ color: "#475569", fontSize: 14 }}>{progress}</span>
+				) : null}
 			</div>
 			{loading ? <p>Loading…</p> : null}
 			<div className="card">

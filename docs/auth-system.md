@@ -102,39 +102,22 @@ The verifier skips signature checks and simply decodes the JWT payload, copying 
 
 #### 2.1 Sample tokens
 
-| Role  | Bearer token                                                                                                                                                                                                     |
-|-------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Admin | `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbG9jYWwtcGFsbXlyYSIsImF1ZCI6ImxvY2FsLXBhbG15cmEiLCJhdXRoX3RpbWUiOjE3NjMwNDE0OTksInVzZXJfaWQiOiJhZG1pbi0xMjMiLCJzdWIiOiJhZG1pbi0xMjMiLCJpYXQiOjE3NjMwNDE0OTksImV4cCI6MTc2MzA0NTA5OSwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiRGV2IEFkbWluIiwiaXNBZG1pbiI6dHJ1ZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJhZG1pbkBleGFtcGxlLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIiwidGVuYW50IjoidGVuYW50LWRldiJ9fQ` |
-| User  | `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbG9jYWwtcGFsbXlyYSIsImF1ZCI6ImxvY2FsLXBhbG15cmEiLCJhdXRoX3RpbWUiOjE3NjMwNDE1ODcsInVzZXJfaWQiOiJhZG1pbi0xMjMiLCJzdWIiOiJhZG1pbi0xMjMiLCJpYXQiOjE3NjMwNDE1ODcsImV4cCI6MTc2MzA0NTE4NywiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiRGV2ZWxvcGVyIFVzZXIiLCJpc0FkbWluIjpmYWxzZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJhZG1pbkBleGFtcGxlLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIiwidGVuYW50IjoidGVuYW50LWRldiJ9fQ`    |
-
-Generate your own with Node or any JWT tool, making sure to include the same claims Firebase issues (issuer/audience pair and `firebase.tenant`):
+Generate dev tokens with the CLI (keeps claims consistent and ensures `firebase.tenant` matches `<ENV_KEY>-<tenantSlug>`; e.g., `dev-demo`):
 
 ```bash
-node - <<'JS'
-function b64(obj){return Buffer.from(JSON.stringify(obj)).toString('base64url');}
-const now=Math.floor(Date.now()/1000);
-const header={alg:'none',typ:'JWT'};
-const payload={
-  iss:'https://securetoken.google.com/local-palmyra',
-  aud:'local-palmyra',
-  auth_time:now,
-  user_id:'admin-123',
-  sub:'admin-123',
-  iat:now,
-  exp:now+3600,
-  email:'admin@example.com',
-  email_verified:true,
-  name:'Dev Admin',
-  isAdmin:true,
-  firebase:{
-    identities:{email:['admin@example.com']},
-    sign_in_provider:'password',
-    tenant:'tenant-dev'
-  }
-};
-console.log(`${b64(header)}.${b64(payload)}`);
-JS
+go run ./apps/cli-platform-admin auth devtoken \
+  --project-id local-palmyra \
+  --tenant dev-demo \
+  --user-id admin-123 \
+  --email admin@example.com \
+  --name "Dev Admin" \
+  --admin \
+  --palmyra-roles admin \
+  --tenant-roles admin \
+  --expires-in 2h
 ```
+
+Use the output as your bearer token (works with `AUTH_PROVIDER=dev`). For non-admin users, drop `--admin` and adjust roles/emails as needed.
 
 #### 2.2 Testing via curl
 
