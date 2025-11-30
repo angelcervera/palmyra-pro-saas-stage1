@@ -76,16 +76,18 @@ export interface PersistenceProvider {
 	listJournalEntries(): Promise<JournalEntry[]>;
 
 	/**
- * Clears pending journal entries, if the provider supports a change journal.
- * Providers without journaling should treat this as a no-op.
- */
-	clearJournalEntries(): Promise<void>;
+	 * Clears pending journal entries, if the provider supports a change journal.
+	 * Providers without journaling should treat this as a no-op.
+	 */
+	clearJournalEntries(): Promise<void>; // TODO: Add parameters to choose what to clear? Maybe we need clearJournal + clearJournalFrom(changeId: string) + clearEntitiesFromJournal(tableName: string, entities: EntityIdentifierVersoned[])?
 
 	/**
 	 * Wipes all entities for the given table/schema in this provider.
 	 * Intended for sync/reset flows; providers that cannot support it should throw.
 	 */
-	clear(table: SchemaIdentifier): Promise<void>;
+	clear(table: SchemaIdentifier): Promise<void>; // TODO: Rename to clearTable?
+
+	// TODO: Add a method to compact. It means, keep only the latest version of each entity.
 
 	/**
 	 * Releases any underlying resources (DB handles, workers, etc.).

@@ -58,9 +58,111 @@ export class PersistenceClient implements PersistenceProvider {
 	 *
 	 * Note: This MVP approach is intentionally simple and downloads all data, so it is not optimal for large datasets.
 	 * Future iterations will optimize the sync strategy; this version prioritizes correctness and speed of delivery.
+	 * Even it could be fully implemented in the backend async.
+	 *
+	 * TODO: It needs a callback to monitor the progress.
 	 */
-	async sync(_request: SyncRequest): Promise<SyncReport> {
-		throw new Error("Not implemented");
+	async sync(request: SyncRequest): Promise<SyncReport> {
+		const startedAt = new Date();
+		const details: SyncReport["details"] = [];
+		let status: SyncReport["status"] = "success";
+
+		const source = this.providers.get(request.sourceProviderId);
+		const target = this.providers.get(request.targetProviderId);
+
+		if (!source) {
+			throw new Error(
+				`Source provider "${request.sourceProviderId}" not found`,
+			);
+		}
+		if (!target) {
+			throw new Error(
+				`Target provider "${request.targetProviderId}" not found`,
+			);
+		}
+
+		try {
+			// Step 1: push journal from source to target.
+			const journal = await source.listJournalEntries();
+			if (journal.length > 0) {
+				// Drop changeId when sending to batchWrites.
+				const operations = journal.map(({ changeId, ...entity }) => entity);
+				await target.batchWrites(operations, false);
+			}
+
+			// Step 2: clear source journal.
+			await source.clearJournalEntries();
+
+			// Step 3: refresh schemas in source from target.
+			const schemas = await target.getMetadata();
+			await source.setMetadata(schemas);
+
+			// Step 4: clear source entity tables (per schema).
+			const tableNames = Array.from(
+				new Set(schemas.map((schema) => schema.tableName)),
+			);
+			for (const tableName of tableNames) {
+				await source.clear({ tableName });
+			}
+
+			// Step 5: pull all data per table from target into source.
+			const PAGE_SIZE = 100;
+			for (const tableName of tableNames) {
+				let entitiesSynced = 0;
+				let page = 1;
+				let totalPages = 1;
+				const tableErrors: string[] = [];
+
+				do {
+					try {
+						const pageResult = await target.queryEntities(
+							{ tableName },
+							{
+								pagination: { page, pageSize: PAGE_SIZE },
+								includeDeleted: true,
+								onlyActive: false,
+							},
+						);
+						totalPages = pageResult.totalPages || 0;
+						if (pageResult.items.length > 0) {
+							await source.batchWrites(pageResult.items, false);
+							entitiesSynced += pageResult.items.length;
+						}
+						page += 1;
+
+						// TODO: Remove the success page from the journal.
+					} catch (error) {
+						console.error(`Sync failed for table: ${tableName}`, error);
+						tableErrors.push(
+							error instanceof Error ? error.message : String(error),
+						);
+						status = "partial";
+						break;
+					}
+				} while (page <= totalPages);
+
+				details.push({
+					tableName,
+					entitiesSynced,
+					errors: tableErrors.length > 0 ? tableErrors : undefined,
+				});
+			}
+		} catch (error) {
+			console.error("Sync failed:", error);
+			status = "error";
+			details.push({
+				tableName: "*",
+				entitiesSynced: 0,
+				errors: [error instanceof Error ? error.message : String(error)],
+			});
+		}
+
+		return {
+			startedAt,
+			finishedAt: new Date(),
+			status,
+			details,
+		};
 	}
 
 	protected resolveActiveProvider(): PersistenceProvider {
