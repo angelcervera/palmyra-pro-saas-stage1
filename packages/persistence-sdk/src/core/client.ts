@@ -9,6 +9,7 @@ import type {
 	SaveEntityInput,
 	Schema,
 	SchemaIdentifier,
+	SyncProgressListener,
 	SyncReport,
 	SyncRequest,
 } from "./types";
@@ -60,7 +61,6 @@ export class PersistenceClient implements PersistenceProvider {
 	 * Future iterations will optimize the sync strategy; this version prioritizes correctness and speed of delivery.
 	 * Even it could be fully implemented in the backend async.
 	 *
-	 * TODO: It needs a callback to monitor the progress.
 	 */
 	async sync(request: SyncRequest): Promise<SyncReport> {
 		const startedAt = new Date();
@@ -81,29 +81,38 @@ export class PersistenceClient implements PersistenceProvider {
 			);
 		}
 
+		const emit = (event: Parameters<SyncProgressListener>[0]) =>
+			request.onProgress?.(event);
+
 		try {
 			// Step 1: push journal from source to target.
 			const journal = await source.listJournalEntries();
+			emit({ stage: "push:start", journalCount: journal.length });
 			if (journal.length > 0) {
 				// Drop changeId when sending to batchWrites.
 				const operations = journal.map(({ changeId, ...entity }) => entity);
 				await target.batchWrites(operations, false);
 			}
+			emit({ stage: "push:success", journalCount: journal.length });
 
 			// Step 2: clear source journal.
 			await source.clearJournalEntries();
+			emit({ stage: "journal:cleared" });
 
 			// Step 3: refresh schemas in source from target.
 			const schemas = await target.getMetadata();
 			await source.setMetadata(schemas);
+			emit({ stage: "schemas:refreshed", schemaCount: schemas.length });
 
 			// Step 4: clear source entity tables (per schema).
 			const tableNames = Array.from(
 				new Set(schemas.map((schema) => schema.tableName)),
 			);
+			emit({ stage: "clear:start", tableCount: tableNames.length });
 			for (const tableName of tableNames) {
 				await source.clear({ tableName });
 			}
+			emit({ stage: "clear:success", tableCount: tableNames.length });
 
 			// Step 5: pull all data per table from target into source.
 			const PAGE_SIZE = 100;
@@ -112,6 +121,7 @@ export class PersistenceClient implements PersistenceProvider {
 				let page = 1;
 				let totalPages = 1;
 				const tableErrors: string[] = [];
+				emit({ stage: "pull:start", tableName, pageSize: PAGE_SIZE });
 
 				do {
 					try {
@@ -128,6 +138,13 @@ export class PersistenceClient implements PersistenceProvider {
 							await source.batchWrites(pageResult.items, false);
 							entitiesSynced += pageResult.items.length;
 						}
+						emit({
+							stage: "pull:page",
+							tableName,
+							page,
+							totalPages,
+							count: pageResult.items.length,
+						});
 						page += 1;
 
 						// TODO: Remove the success page from the journal.
@@ -137,6 +154,11 @@ export class PersistenceClient implements PersistenceProvider {
 							error instanceof Error ? error.message : String(error),
 						);
 						status = "partial";
+						emit({
+							stage: "pull:error",
+							tableName,
+							error: error instanceof Error ? error.message : String(error),
+						});
 						break;
 					}
 				} while (page <= totalPages);
