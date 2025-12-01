@@ -3,6 +3,7 @@ import { Dexie } from "dexie";
 import {
 	type BatchWrite,
 	BatchWriteError,
+	type BatchWriteProgressListener,
 	type DeleteEntityInput,
 	type EntityIdentifier,
 	type EntityRecord,
@@ -35,6 +36,9 @@ const deriveDBName = (envKey: string, tenantId: string, appName: string) =>
 	`${envKey}-${tenantId}-${appName}`;
 
 const deriveActiveTableName = (tableName: string) => `active::${tableName}`;
+
+const hasTable = (db: Dexie, tableName: string) =>
+	db.tables.some((t) => t.name === tableName);
 
 const dexieStoresBuilder = (schemas: Schema[]) => {
 	const stores: { [tableName: string]: string | null } = {};
@@ -232,6 +236,7 @@ export class OfflineDexieProvider implements PersistenceProvider {
 	async batchWrites(
 		entities: BatchWrite,
 		writeInJournal: boolean = true,
+		onProgress?: BatchWriteProgressListener,
 	): Promise<void> {
 		if (entities.length === 0) {
 			return;
@@ -261,6 +266,10 @@ export class OfflineDexieProvider implements PersistenceProvider {
 					}
 
 					if (writeInJournal) await this.appendJournal(entity);
+
+					if (onProgress) {
+						onProgress({ written: lastRecord, total: entities.length });
+					}
 				}
 			});
 		} catch (error) {
@@ -432,6 +441,24 @@ export class OfflineDexieProvider implements PersistenceProvider {
 
 	async clearJournalEntries(): Promise<void> {
 		return this.dexie.table(JOURNAL_STORE).clear();
+	}
+
+	async clear(table: SchemaIdentifier): Promise<void> {
+		const tableName = table.tableName;
+		const activeTableName = deriveActiveTableName(tableName);
+		const targetTables = [tableName, activeTableName].filter((name) =>
+			hasTable(this.dexie, name),
+		);
+
+		if (targetTables.length === 0) {
+			return;
+		}
+
+		await this.dexie.transaction("rw", targetTables, async () => {
+			for (const name of targetTables) {
+				await this.dexie.table(name).clear();
+			}
+		});
 	}
 
 	async close(): Promise<void> {

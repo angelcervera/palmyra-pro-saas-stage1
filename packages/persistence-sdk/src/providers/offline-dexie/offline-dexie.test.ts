@@ -440,3 +440,54 @@ test("journal captures create, update, delete and can be cleared", async () => {
 	await provider.close();
 	await Dexie.delete(dbName(options));
 });
+
+test("clear wipes entity and active tables for a single schema", async () => {
+	const schemas = [buildSchema("entities"), buildSchema("orders")];
+	const options = buildOptions(schemas);
+	const provider = await createOfflineDexieProvider(options);
+	await seedSchemas(options, schemas);
+
+	// Seed data in two tables.
+	const entityRecord: EntityRecord = {
+		tableName: "entities",
+		entityId: crypto.randomUUID(),
+		entityVersion: "1.0.0",
+		schemaVersion: "1.0.0",
+		payload: { foo: "bar" },
+		createdAt: new Date(),
+		isDeleted: false,
+		isActive: true,
+	};
+	const orderRecord: EntityRecord = {
+		...entityRecord,
+		tableName: "orders",
+		entityId: crypto.randomUUID(),
+	};
+	await provider.batchWrites([entityRecord, orderRecord]);
+
+	// Clear only the entities table.
+	await provider.clear({ tableName: "entities" });
+
+	const entitiesAll = await readAll<EntityRecord>(options, "entities");
+	const entitiesActive = await readAll<EntityRecord>(
+		options,
+		deriveActiveTableName("entities"),
+	);
+	const ordersAll = await readAll<EntityRecord>(options, "orders");
+	const ordersActive = await readAll<EntityRecord>(
+		options,
+		deriveActiveTableName("orders"),
+	);
+
+	expect(entitiesAll).toHaveLength(0);
+	expect(entitiesActive).toHaveLength(0);
+	expect(ordersAll).toHaveLength(1);
+	expect(ordersActive).toHaveLength(1);
+
+	// Journal should remain untouched by clear.
+	const journal = await provider.listJournalEntries();
+	expect(journal).toHaveLength(2);
+
+	await provider.close();
+	await Dexie.delete(dbName(options));
+});

@@ -172,6 +172,10 @@ class InMemoryProvider implements PersistenceProvider {
 		this.journal = [];
 	}
 
+	async clear(table: SchemaIdentifier): Promise<void> {
+		this.store.delete(table.tableName);
+	}
+
 	async close(): Promise<void> {
 		this.store.clear();
 		this.journal = [];

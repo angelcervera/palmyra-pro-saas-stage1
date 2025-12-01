@@ -1,5 +1,6 @@
 import type {
 	BatchWrite,
+	BatchWriteProgressListener,
 	DeleteEntityInput,
 	EntityIdentifier,
 	EntityRecord,
@@ -36,7 +37,11 @@ export interface PersistenceProvider {
 	 * It keeps the order, so asume that the latest active is the one actually active.
 	 * By default, this operation must not write in the journal.
 	 */
-	batchWrites(operations: BatchWrite, writeInJournal: boolean): Promise<void>;
+	batchWrites(
+		operations: BatchWrite,
+		writeInJournal: boolean,
+		onProgress?: BatchWriteProgressListener,
+	): Promise<void>;
 
 	/**
 	 * Upserts an entity using the latest schema version for the table.
@@ -79,7 +84,15 @@ export interface PersistenceProvider {
 	 * Clears pending journal entries, if the provider supports a change journal.
 	 * Providers without journaling should treat this as a no-op.
 	 */
-	clearJournalEntries(): Promise<void>;
+	clearJournalEntries(): Promise<void>; // TODO: Add parameters to choose what to clear? Maybe we need clearJournal + clearJournalFrom(changeId: string) + clearEntitiesFromJournal(tableName: string, entities: EntityIdentifierVersoned[])?
+
+	/**
+	 * Wipes all entities for the given table/schema in this provider.
+	 * Intended for sync/reset flows; providers that cannot support it should throw.
+	 */
+	clear(table: SchemaIdentifier): Promise<void>; // TODO: Rename to clearTable?
+
+	// TODO: Add a method to compact. It means, keep only the latest version of each entity.
 
 	/**
 	 * Releases any underlying resources (DB handles, workers, etc.).
