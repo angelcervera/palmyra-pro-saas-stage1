@@ -211,6 +211,7 @@ func (p *DBProvisioner) ensureRoleSchemaAndGrants(ctx context.Context, req servi
 		return false, fmt.Errorf("grant usage admin schema: %w", err)
 	}
 	for _, table := range []string{"schema_repository", "schema_categories"} { // future catalog tables must be added here
+		// Needed to access to the schemas.
 		selectGrant := fmt.Sprintf("GRANT SELECT ON %s.%s TO %s", pgx.Identifier{p.adminSchema}.Sanitize(), pgx.Identifier{table}.Sanitize(), pgx.Identifier{req.RoleName}.Sanitize())
 		if _, err := tx.Exec(ctx, selectGrant); err != nil {
 			return false, fmt.Errorf("grant select %s: %w", table, err)
