@@ -1,5 +1,9 @@
 import * as React from "react";
-import type { JournalEntry, Schema } from "@zengateglobal/persistence-sdk";
+import type {
+	JournalEntry,
+	Schema,
+	SyncReport,
+} from "@zengateglobal/persistence-sdk";
 
 import { runWithClient } from "../persistence/helpers";
 import { pushToast } from "../../components/toast";
@@ -71,17 +75,39 @@ export function SyncPage() {
 		}
 	}, []);
 
+	const handleSyncReport = React.useCallback((report: SyncReport) => {
+		if (report.status === "success") {
+			pushToast({ kind: "success", title: "Sync complete" });
+			return;
+		}
+
+		const firstErroredTable = report.details.find(
+			(detail) => detail.errors && detail.errors.length > 0,
+		);
+		const firstError = firstErroredTable?.errors?.[0];
+		const description =
+			firstErroredTable && firstError
+				? `${firstErroredTable.tableName}: ${firstError}`
+				: "One or more steps failed. See progress for details.";
+
+		pushToast({
+			kind: "error",
+			title: report.status === "partial" ? "Sync partially completed" : "Sync failed",
+			description,
+		});
+	}, []);
+
 	const handleSync = React.useCallback(async () => {
 		setSyncing(true);
 		setProgress(null);
 		try {
-			await runWithClient("Sync", async (client) => {
+			const report = await runWithClient("Sync", async (client) => {
 				const providers = client.getProviders();
 				if (providers.length < 2) {
 					throw new Error("At least two providers are required to sync.");
 				}
 				const [source, target] = providers;
-				await client.sync({
+				return await client.sync({
 					sourceProviderId: source.name,
 					targetProviderId: target.name,
 					onProgress: (event) => {
@@ -132,8 +158,10 @@ export function SyncPage() {
 					},
 				});
 			});
-			pushToast({ kind: "success", title: "Sync complete" });
-			await load();
+			handleSyncReport(report);
+			if (report.status !== "error") {
+				await load();
+			}
 		} catch (error) {
 			pushToast({
 				kind: "error",
@@ -144,7 +172,7 @@ export function SyncPage() {
 		} finally {
 			setSyncing(false);
 		}
-	}, [load]);
+	}, [handleSyncReport, load]);
 
 	React.useEffect(() => {
 		void load();
